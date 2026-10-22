@@ -137,6 +137,7 @@ struct MarkdownEditor: NSViewRepresentable {
         MarkdownStyler.apply(to: tv)
 
         context.coordinator.textView = tv
+        context.coordinator.contentStorage = contentStorage // the layout manager only holds it weakly
         context.coordinator.documentID = documentID
         return scroll
     }
@@ -166,6 +167,7 @@ struct MarkdownEditor: NSViewRepresentable {
     final class Coordinator: NSObject, NSTextViewDelegate {
         var parent: MarkdownEditor
         weak var textView: CaretTextView?
+        var contentStorage: NSTextContentStorage?
         var documentID: URL?
         var isEditing = false
 
