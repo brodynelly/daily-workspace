@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Daily Workspace — Product &amp; Build Plan</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f5f7fb; --surface: #fff; --ink: #17233b; --muted: #52617b;
+      --line: #dce3ef; --accent: #6258df; --accent-soft: #eeecff;
+      --good: #16734b; --warn: #8a5100; --shadow: 0 18px 48px #20305014;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg:#111827; --surface:#1b2638; --ink:#e9eef8; --muted:#b1bfd4;
+        --line:#35445b; --accent:#aaa2ff; --accent-soft:#292747; --good:#77d6a2;
+        --warn:#ffd17a; --shadow:0 18px 48px #0005; }
+    }
+    * { box-sizing: border-box; }
+    body { margin:0; background:var(--bg); color:var(--ink); line-height:1.62; }
+    a { color:var(--accent); text-underline-offset:3px; }
+    header { padding: clamp(2rem,7vw,5.5rem) max(1.25rem,calc((100vw - 1040px)/2));
+      background: radial-gradient(ellipse at 82% 0%,var(--accent-soft),transparent 48%),var(--surface);
+      border-bottom:1px solid var(--line); }
+    .eyebrow { color:var(--accent); font-size:.78rem; font-weight:750; letter-spacing:.13em; text-transform:uppercase; }
+    h1 { max-width:850px; margin:.55rem 0 1rem; font-size:clamp(2.25rem,5.7vw,4.4rem); line-height:1.05; letter-spacing:-.045em; }
+    .lede { max-width:760px; color:var(--muted); font-size:1.18rem; }
+    .meta { display:flex; flex-wrap:wrap; gap:.6rem; margin-top:1.5rem; }
+    .chip { border:1px solid var(--line); border-radius:999px; padding:.3rem .75rem; font-size:.84rem; color:var(--muted); }
+    nav { position:sticky; top:0; z-index:2; display:flex; gap:.4rem; overflow:auto; padding:.7rem max(1rem,calc((100vw - 1040px)/2)); background:color-mix(in srgb,var(--surface) 92%,transparent); border-bottom:1px solid var(--line); backdrop-filter:blur(14px); }
+    nav a { white-space:nowrap; border-radius:999px; padding:.35rem .7rem; text-decoration:none; color:var(--muted); font-size:.88rem; }
+    nav a:hover,nav a:focus-visible { background:var(--accent-soft); color:var(--ink); outline:none; }
+    main { max-width:1040px; margin:auto; padding:2rem 1.25rem 5rem; }
+    section { margin:2.2rem 0; scroll-margin-top:5rem; }
+    h2 { margin:0 0 1rem; font-size:1.65rem; letter-spacing:-.025em; }
+    h3 { margin:.15rem 0 .5rem; font-size:1.08rem; }
+    p,li { color:var(--muted); }
+    strong { color:var(--ink); }
+    .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; }
+    .card { background:var(--surface); border:1px solid var(--line); border-radius:18px; padding:1.15rem 1.25rem; box-shadow:var(--shadow); }
+    .card p:last-child,.card ul:last-child { margin-bottom:.1rem; }
+    .callout { border-left:4px solid var(--accent); background:var(--accent-soft); border-radius:0 14px 14px 0; padding:1rem 1.2rem; }
+    .callout p { margin:.2rem 0; }
+    .step { display:grid; grid-template-columns:3rem 1fr; gap:1rem; margin:1rem 0; }
+    .num { display:grid; place-items:center; width:2.7rem; height:2.7rem; border-radius:13px; color:var(--accent); background:var(--accent-soft); font-weight:800; }
+    .step-body { padding:.1rem 0 .9rem; border-bottom:1px solid var(--line); }
+    table { width:100%; border-collapse:collapse; background:var(--surface); border-radius:14px; overflow:hidden; }
+    th,td { padding:.75rem; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
+    th { color:var(--ink); font-size:.9rem; } td { color:var(--muted); }
+    code,pre { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+    pre { overflow:auto; padding:1rem; color:var(--ink); background:var(--surface); border:1px solid var(--line); border-radius:14px; }
+    details { background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:1rem 1.2rem; }
+    summary { cursor:pointer; color:var(--ink); font-weight:700; }
+    .checklist li::marker { color:var(--good); }
+    footer { border-top:1px solid var(--line); padding:1.5rem; text-align:center; color:var(--muted); }
+    @media(max-width:700px) { .grid { grid-template-columns:1fr; } th,td { padding:.55rem; } }
+    @media(prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto !important; animation-duration:.01ms !important; transition-duration:.01ms !important; } }
+    @media print { nav { position:static; backdrop-filter:none; } body { background:#fff; color:#111; } .card { box-shadow:none; break-inside:avoid; } }
+  </style>
+</head>
+<body>
+<header>
+  <div class="eyebrow">Product specification · implementation roadmap</div>
+  <h1>A calmer home for your day.</h1>
+  <p class="lede">A Mac-first workspace for today's notes, tasks, and calendar agenda—quick to capture in, respectful of your Obsidian vault, and smooth without demanding motion.</p>
+  <div class="meta"><span class="chip">Standalone macOS companion</span><span class="chip">Local-first</span><span class="chip">SwiftUI proposed</span><span class="chip">Proposed · 2026-10-22</span></div>
+</header>
+<nav aria-label="Page sections"><a href="#vision">Vision</a><a href="#experience">Experience</a><a href="#architecture">Architecture</a><a href="#motion">Motion</a><a href="#sequence">Build sequence</a><a href="#acceptance">Acceptance</a><a href="#decisions">Decisions</a><a href="#research">Research</a></nav>
+<main>
+  <section id="vision">
+    <h2>Product decision</h2>
+    <div class="callout"><p><strong>Build a small, standalone Mac companion—not a Luuna feature.</strong> Use SwiftUI for the native shell, Markdown files in the selected Obsidian vault for notes, EventKit for a read-only Apple Calendar agenda, and local app storage for the app's own tasks.</p></div>
+    <p>“Raycast Notes-inspired” means fast invocation, compact hierarchy, and keyboard-first capture. It does not mean copying Raycast's branding or exact UI. “Neovide-inspired” means optional smooth motion in the app's own editor caret and restrained transitions. Neovide's editor cursor is not the macOS pointer; do not replace the system pointer or promise a pixel-perfect renderer match.</p>
+    <div class="grid">
+      <article class="card"><h3>Product promise</h3><p>Open one screen and know what is next, what needs doing, and where to write today's note.</p></article>
+      <article class="card"><h3>Non-goals for MVP</h3><p>No cloud account, custom sync, AI, full Obsidian replacement, Reminders integration, calendar editing, or global cursor trail.</p></article>
+    </div>
+  </section>
+  <section id="experience">
+    <h2>Core experience</h2>
+    <div class="grid">
+      <article class="card"><h3>Today</h3><p>Upcoming agenda, today's tasks, daily-note open/edit action, and one-step quick capture.</p></article>
+      <article class="card"><h3>Notes</h3><p>Open or create the dated Markdown note in the user-selected vault. Keep Obsidian as the home for the wider knowledge base.</p></article>
+      <article class="card"><h3>Tasks</h3><p>Small local inbox and today's list. Add, edit, complete, reopen, and optionally link a task to a note.</p></article>
+      <article class="card"><h3>Calendar</h3><p>Read-only agenda via EventKit. Permission can be denied without blocking notes or tasks.</p></article>
+    </div>
+    <h3>Authority boundaries</h3>
+    <table><thead><tr><th>Data</th><th>Source of truth</th><th>MVP behavior</th></tr></thead><tbody>
+      <tr><td>Note content</td><td>Markdown in selected vault</td><td>Preserve file structure and unknown content; detect concurrent edits.</td></tr>
+      <tr><td>Events</td><td>Apple Calendar / EventKit</td><td>Read and display; never write in MVP.</td></tr>
+      <tr><td>Tasks</td><td>Local app storage</td><td>Persist app-owned tasks; do not imply Reminders or cross-device sync.</td></tr>
+      <tr><td>Preferences</td><td>Local app settings</td><td>Store user choices and rebuildable cache metadata, not copied source content as authority.</td></tr>
+    </tbody></table>
+  </section>
+  <section id="architecture">
+    <h2>Architecture &amp; safety</h2>
+    <div class="grid">
+      <article class="card"><h3>Native shell</h3><p>SwiftUI screens and native controls. Bridge to AppKit selectively only for a demonstrated need. Decide the minimum macOS version before implementation; confirm EventKit APIs and signing/entitlements against it.</p></article>
+      <article class="card"><h3>Vault access</h3><p>Let the user choose a vault through the system picker. Retain only scoped access needed by the app. A moved or revoked vault is an explicit recoverable state, never a reason to write elsewhere.</p></article>
+      <article class="card"><h3>Markdown safety</h3><p>Start with a configurable daily-note folder/name. Proposed default: <code>YYYY-MM-DD.md</code> at the vault root. Prefer standard relative Markdown links for new links; preserve wikilinks, frontmatter, embeds, attachments, and unknown syntax.</p></article>
+      <article class="card"><h3>Conflict safety</h3><p>Before save, detect if the file changed outside the app. On conflict, stop and offer reload/compare/recoverable copy. Never silently overwrite. Use atomic saves where practical.</p></article>
+      <article class="card"><h3>Calendar permission</h3><p>Request event access only when the feature is enabled. For macOS 14+ full event access, verify the usage description and EventKit API; sandboxed apps also need the Calendar entitlement. Denied/revoked access remains a normal state.</p></article>
+      <article class="card"><h3>Privacy</h3><p>Core use works offline. No telemetry or uploads of notes, event details, or task titles. Avoid content in logs; keep permissions narrow; do not reorganize or bulk-rewrite the vault.</p></article>
+    </div>
+  </section>
+  <section id="motion">
+    <h2>Polish without sacrificing control</h2>
+    <ul>
+      <li>Use brief, restrained transitions for view changes, panel expansion, and task completion.</li>
+      <li>Start with the native text caret. Prototype spring-like caret interpolation only if it preserves insertion, selection, undo, IME composition, dictation, and accessibility behavior.</li>
+      <li>Respect macOS Reduce Motion. Keep every action and state understandable when all nonessential motion is removed.</li>
+      <li>An in-app motion setting may offer system default / reduced / on, but must never override a system Reduce Motion request with more motion.</li>
+      <li>Keep keyboard focus visible, provide VoiceOver labels, and never encode task/event state by color alone.</li>
+    </ul>
+  </section>
+  <section id="sequence">
+    <h2>Build sequence</h2>
+    <div class="step"><div class="num">0</div><div class="step-body"><h3>Resolve the product choices</h3><p>Choose app name, minimum macOS, distribution/sandbox model, daily-note folder/template, task persistence approach, and whether quick invocation means an in-app panel or a global shortcut.</p></div></div>
+    <div class="step"><div class="num">1</div><div class="step-body"><h3>Prove a local vertical slice</h3><p>Build the Today shell and app-managed tasks. Add a chosen vault, daily Markdown open/create/edit/save, scoped access persistence, restart handling, and external-change detection. Do not add Calendar yet.</p></div></div>
+    <div class="step"><div class="num">2</div><div class="step-body"><h3>Add read-only Calendar</h3><p>Integrate EventKit with just-in-time permission, denial/revocation states, event refresh, all-day events, timezone and daylight-saving tests. Keep all Calendar records read-only.</p></div></div>
+    <div class="step"><div class="num">3</div><div class="step-body"><h3>Polish and accessibility</h3><p>Add keyboard-first quick capture, validate VoiceOver and Reduce Motion, then prototype optional motion. Measure launch/idle behavior on real supported Macs; remove effects that impair typing or clarity.</p></div></div>
+    <div class="step"><div class="num">4</div><div class="step-body"><h3>Run a real-vault pilot</h3><p>Exercise external edits, sync changes, moved vaults, permissions, restart, and daily use. Decide separately whether Reminders, search, calendar writes, sync, or another platform earns a later phase.</p></div></div>
+  </section>
+  <section id="acceptance">
+    <h2>Definition of a safe first release</h2>
+    <ul class="checklist">
+      <li>Launches without requiring a vault, account, Calendar permission, or network.</li>
+      <li>Opens/creates today's note only in the selected vault and preserves Markdown content it does not understand.</li>
+      <li>Detects a conflicting external edit and does not silently overwrite it.</li>
+      <li>Tasks survive app restart and remain clearly app-owned rather than presented as Reminders.</li>
+      <li>Read-only agenda handles access denied/revoked, empty calendars, all-day events, timezone/day boundaries, and event-store changes.</li>
+      <li>Calendar failure does not block notes/tasks; empty data is distinguished from unavailable data.</li>
+      <li>Keyboard-only, VoiceOver, and Reduce Motion paths remain functional.</li>
+      <li>Private content is not logged or transmitted; entitlements and privacy prompts match the features used.</li>
+      <li>Unit tests cover task state/persistence, date templates, Markdown conflict handling, permission states, and timezone edges; a real Mac smoke validates native permissions, file access, restart, and accessibility.</li>
+    </ul>
+  </section>
+  <section id="decisions">
+    <h2>Open decisions before implementation</h2>
+    <table><thead><tr><th>Decision</th><th>Recommended default</th><th>Why it remains open</th></tr></thead><tbody>
+      <tr><td>Minimum macOS</td><td>Modern OS; validate macOS 14+ path</td><td>Determines EventKit API, deployment, and compatibility work.</td></tr>
+      <tr><td>Daily note convention</td><td><code>YYYY-MM-DD.md</code> in vault root</td><td>Must match the user's existing Obsidian template/folder.</td></tr>
+      <tr><td>Task persistence</td><td>Local app-owned store</td><td>Choose SwiftData or another store after migration/backup needs are known.</td></tr>
+      <tr><td>Calendar scope</td><td>Read-only event agenda</td><td>Event visibility and calendar filtering need product confirmation.</td></tr>
+      <tr><td>Quick invocation</td><td>In-app keyboard workflow first</td><td>Global shortcut/window lifecycle should not delay the data-integrity slice.</td></tr>
+      <tr><td>Motion</td><td>Native caret first, optional prototype later</td><td>Custom caret can conflict with input methods and assistive behavior.</td></tr>
+    </tbody></table>
+  </section>
+  <section id="research">
+    <h2>Research basis</h2>
+    <p>Platform and ecosystem documentation supports the integration paths below; recommendations about MVP scope, conflict handling, and visual direction are product judgments, not benchmark results. No evidence establishes that SwiftUI is faster than Tauri for this workload or that Neovide-like animation improves usability.</p>
+    <div class="grid">
+      <article class="card"><h3>Apple platform</h3><ul><li><a href="https://developer.apple.com/documentation/eventkit/accessing-calendar-using-eventkit-and-eventkitui">EventKit Calendar access</a></li><li><a href="https://developer.apple.com/documentation/eventkit/accessing-the-event-store">Event store / sandbox</a></li><li><a href="https://developer.apple.com/documentation/security/accessing-files-from-the-macos-app-sandbox">Sandbox file access</a></li><li><a href="https://developer.apple.com/documentation/swiftui/appkit-integration">SwiftUI and AppKit</a></li><li><a href="https://developer.apple.com/documentation/swiftui/environmentvalues/accessibilityreducemotion">Reduce Motion</a></li><li><a href="https://developer.apple.com/design/human-interface-guidelines/accessibility/">Accessibility guidance</a></li></ul></article>
+      <article class="card"><h3>Notes and motion precedents</h3><ul><li><a href="https://obsidian.md/help/data-storage">Obsidian data storage</a></li><li><a href="https://obsidian.md/help/Linking%20notes%20and%20files/Internal%20links">Obsidian links</a></li><li><a href="https://obsidian.md/help/attachments">Obsidian attachments</a></li><li><a href="https://help.obsidian.md/Obsidian%2BSync/Security%2Band%2Bprivacy">Obsidian Sync privacy</a></li><li><a href="https://www.raycast.com/core-features/notes">Raycast Notes</a></li><li><a href="https://github.com/neovide/neovide/blob/main/website/docs/configuration.md">Neovide configuration</a></li></ul></article>
+    </div>
+    <p>Implementation handoff and detailed state/acceptance requirements: <a href="04-orchestration.md">04-orchestration.md</a>.</p>
+  </section>
+  <section>
+    <h2>Implementation prompt</h2>
+    <details><summary>Copy this brief into the implementation task</summary><pre><code>Build the standalone macOS Daily Workspace specified in docs/daily-workspace/04-orchestration.md. First inspect repository instructions; do not turn this into a Luuna feature or change Luuna architecture. Start with a native SwiftUI shell and local vertical slice: app-owned tasks, explicitly selected Obsidian vault, safe daily Markdown open/create/edit/save, and external-change conflict detection. Calendar stays out of the first slice, then is read-only through EventKit with just-in-time permission. Preserve unknown Markdown and never silently overwrite changed files. No networking, telemetry, Reminders permission, AI, sync, or global cursor replacement. Use native caret initially; optional Neovide-inspired motion must respect Reduce Motion and preserve text input, VoiceOver, keyboard access, and selection. Add focused tests, and report real Mac/platform checks separately from unit tests. Follow this page's sequence and acceptance criteria.</code></pre></details>
+  </section>
+</main>
+<footer>Daily Workspace specification · Standalone proposal · See the linked Markdown chapter for authoritative detail.</footer>
+</body>
+</html>
