@@ -100,8 +100,13 @@ struct MarkdownEditor: NSViewRepresentable {
         scroll.drawsBackground = false
         scroll.borderType = .noBorder
 
-        let tv = CaretTextView(usingTextLayoutManager: true)
-        tv.frame = NSRect(x: 0, y: 0, width: 480, height: 400)
+        // Built from parts so the subclass uses a designated initialiser (TextKit 2).
+        let contentStorage = NSTextContentStorage()
+        let layoutManager = NSTextLayoutManager()
+        contentStorage.addTextLayoutManager(layoutManager)
+        let container = NSTextContainer(size: NSSize(width: 480, height: CGFloat.greatestFiniteMagnitude))
+        layoutManager.textContainer = container
+        let tv = CaretTextView(frame: NSRect(x: 0, y: 0, width: 480, height: 400), textContainer: container)
         tv.minSize = NSSize(width: 0, height: 0)
         tv.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
         tv.isVerticallyResizable = true

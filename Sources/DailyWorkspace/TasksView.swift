@@ -16,7 +16,7 @@ struct TaskRow: View {
             } label: {
                 Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
                     .font(.title3)
-                    .symbolEffect(.bounce, options: reduceMotion ? .nonRepeating.speed(100) : .default, value: task.isCompleted)
+                    .symbolEffect(.bounce, value: reduceMotion ? false : task.isCompleted)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(task.isCompleted ? "Reopen \(task.title)" : "Complete \(task.title)")
