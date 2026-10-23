@@ -3,14 +3,14 @@ import AppKit
 
 struct AgendaList: View {
     @EnvironmentObject var state: AppState
+    @ObservedObject var service: CalendarService
     var compact = false
 
     var body: some View {
-        let service = state.calendarService
         switch service.status {
         case .notRequested:
             VStack(alignment: .leading, spacing: 8) {
-                Text("Show today's events here. The app only reads your calendar; it never changes events. Access stays on this Mac.")
+                Text("Show today's events here. You can also create, edit, and delete events using explicit actions.")
                     .foregroundStyle(.secondary)
                 Button("Enable Calendar…") { Task { await service.requestAccess() } }
             }
@@ -46,7 +46,9 @@ struct AgendaList: View {
 }
 
 struct EventRow: View {
+    @EnvironmentObject var state: AppState
     let event: AgendaEvent
+    @State private var editing = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
@@ -64,6 +66,10 @@ struct EventRow: View {
             Spacer()
         }
         .accessibilityElement(children: .combine)
+        .contextMenu { Button("Edit Event…") { editing = true } }
+        .accessibilityAction(named: "Edit Event") { editing = true }
+        .onTapGesture(count: 2) { editing = true }
+        .sheet(isPresented: $editing) { EventEditorView(service: state.calendarService, event: event) }
     }
 
     private var timeText: String {
@@ -77,6 +83,7 @@ struct EventRow: View {
 struct CalendarView: View {
     @EnvironmentObject var state: AppState
     @State private var day = Date()
+    @State private var creating = false
 
     var body: some View {
         ScrollView {
@@ -106,13 +113,18 @@ struct CalendarView: View {
                     Button("Today") { day = Date() }
                         .disabled(Calendar.current.isDateInToday(day))
                 }
-                AgendaList()
+                AgendaList(service: state.calendarService)
             }
             .padding(28)
             .frame(maxWidth: 760, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .navigationTitle("Calendar")
+        .toolbar {
+            Button("New Event", systemImage: "plus") { creating = true }
+                .disabled(state.calendarService.status != .authorized)
+        }
+        .sheet(isPresented: $creating) { EventEditorView(service: state.calendarService, event: nil) }
         .task(id: day) { state.calendarService.refresh(day: day) }
     }
 

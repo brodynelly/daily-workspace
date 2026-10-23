@@ -13,16 +13,18 @@ enum MarkdownStyler {
     private static let code = regex(#"`[^`\n]+`"#)
     private static let wikilink = regex(#"!?\[\[[^\]\n]+\]\]"#)
     private static let mdLink = regex(#"\[[^\]\n]+\]\([^)\n]+\)"#)
+    private static let bullet = regex(#"^[ \t]*[-*](?= )"#)
     private static let openTask = regex(#"^[ \t]*[-*] \[ \]"#)
     private static let doneTask = regex(#"^[ \t]*[-*] \[[xX]\].*$"#)
     private static let frontmatter = regex(#"\A---\n[\s\S]*?\n---(?=\n|\z)"#)
 
-    static let baseFont = NSFont.systemFont(ofSize: 15)
-    static let monoFont = NSFont.monospacedSystemFont(ofSize: 14, weight: .regular)
+    static let baseFont = NSFont.systemFont(ofSize: 18)
+    static let monoFont = NSFont.monospacedSystemFont(ofSize: 16, weight: .regular)
 
     static var paragraph: NSParagraphStyle {
         let p = NSMutableParagraphStyle()
-        p.lineSpacing = 4
+        p.lineSpacing = 7
+        p.paragraphSpacing = 8
         return p
     }
 
@@ -41,12 +43,12 @@ enum MarkdownStyler {
         heading.enumerateMatches(in: storage.string, range: full) { m, _, _ in
             guard let m else { return }
             let level = m.range(at: 1).length
-            let size = max(15, 26 - CGFloat(level) * 2.5)
+            let size = max(18, 30 - CGFloat(level) * 2.5)
             storage.addAttribute(.font, value: NSFont.systemFont(ofSize: size, weight: .bold), range: m.range)
         }
         bold.enumerateMatches(in: storage.string, range: full) { m, _, _ in
             guard let m else { return }
-            storage.addAttribute(.font, value: NSFont.systemFont(ofSize: 15, weight: .bold), range: m.range)
+            storage.addAttribute(.font, value: NSFont.systemFont(ofSize: 18, weight: .semibold), range: m.range)
         }
         code.enumerateMatches(in: storage.string, range: full) { m, _, _ in
             guard let m else { return }
@@ -54,11 +56,15 @@ enum MarkdownStyler {
         }
         wikilink.enumerateMatches(in: storage.string, range: full) { m, _, _ in
             guard let m else { return }
-            storage.addAttribute(.foregroundColor, value: NSColor.linkColor, range: m.range)
+            storage.addAttribute(.foregroundColor, value: NSColor(red: 1, green: 0.36, blue: 0.38, alpha: 1), range: m.range)
         }
         mdLink.enumerateMatches(in: storage.string, range: full) { m, _, _ in
             guard let m else { return }
-            storage.addAttribute(.foregroundColor, value: NSColor.linkColor, range: m.range)
+            storage.addAttribute(.foregroundColor, value: NSColor(red: 1, green: 0.36, blue: 0.38, alpha: 1), range: m.range)
+        }
+        bullet.enumerateMatches(in: storage.string, range: full) { match, _, _ in
+            guard let match else { return }
+            storage.addAttribute(.foregroundColor, value: NSColor(red: 1, green: 0.36, blue: 0.38, alpha: 1), range: match.range)
         }
         openTask.enumerateMatches(in: storage.string, range: full) { m, _, _ in
             guard let m else { return }
@@ -113,7 +119,7 @@ struct MarkdownEditor: NSViewRepresentable {
         tv.isHorizontallyResizable = false
         tv.autoresizingMask = [.width]
         tv.textContainer?.widthTracksTextView = true
-        tv.textContainerInset = NSSize(width: 24, height: 20)
+        tv.textContainerInset = NSSize(width: 34, height: 30)
 
         // Notes must be preserved byte for byte: no smart substitutions, no rich text.
         tv.isRichText = false
@@ -125,6 +131,7 @@ struct MarkdownEditor: NSViewRepresentable {
         tv.isAutomaticSpellingCorrectionEnabled = false
         tv.isAutomaticLinkDetectionEnabled = false
         tv.drawsBackground = false
+        tv.linkTextAttributes = [.foregroundColor: NSColor(red: 1, green: 0.36, blue: 0.38, alpha: 1), .underlineStyle: NSUnderlineStyle.single.rawValue]
         tv.setAccessibilityLabel("Note editor")
 
         tv.delegate = context.coordinator

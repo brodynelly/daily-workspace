@@ -7,17 +7,47 @@ final class CaretOverlayView: NSView {
         didSet { needsDisplay = true }
     }
 
+    struct Particle {
+        var point: CGPoint
+        var velocity: CGVector
+        var life: Double = 0.45
+    }
+    var particles: [Particle] = []
+
+    func emit(from start: CGPoint, to end: CGPoint, beam: Bool) {
+        let count = beam ? 20 : 8
+        for i in 0..<count {
+            let t = beam ? CGFloat(i) / CGFloat(count) : 1
+            particles.append(Particle(point: CGPoint(x: start.x + (end.x - start.x) * t, y: start.y + (end.y - start.y) * t), velocity: CGVector(dx: CGFloat.random(in: -25...25), dy: CGFloat.random(in: -35...35))))
+        }
+        particles = Array(particles.suffix(160))
+    }
+
+    func stepParticles(_ dt: Double) {
+        for i in particles.indices {
+            particles[i].life -= dt
+            particles[i].point.x += particles[i].velocity.dx * dt
+            particles[i].point.y += particles[i].velocity.dy * dt
+        }
+        particles.removeAll { $0.life <= 0 }
+        needsDisplay = true
+    }
+
     override var isFlipped: Bool { true }
     override var isOpaque: Bool { false }
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
     override func draw(_ dirtyRect: NSRect) {
+        for particle in particles {
+            NSColor(red: 1, green: 0.36, blue: 0.38, alpha: 1).withAlphaComponent(max(0, particle.life / 0.45)).setFill()
+            NSBezierPath(ovalIn: CGRect(x: particle.point.x, y: particle.point.y, width: 2, height: 2)).fill()
+        }
         guard quad.count == 4 else { return }
         let path = NSBezierPath()
         path.move(to: NSPoint(x: quad[0].x, y: quad[0].y))
         for p in quad.dropFirst() { path.line(to: NSPoint(x: p.x, y: p.y)) }
         path.close()
-        NSColor.controlAccentColor.setFill()
+        NSColor(red: 1, green: 0.36, blue: 0.38, alpha: 1).setFill()
         path.fill()
     }
 
@@ -140,16 +170,22 @@ final class CaretTextView: NSTextView {
 
         let cell = max(Double(font?.maximumAdvancement.width ?? 8), 1)
         let target = CaretRect(x: Double(rect.minX), y: Double(rect.minY), width: Double(rect.width), height: Double(rect.height))
+        if !snap && !overlayWasHidden, let previous = animator.destination,
+           abs(previous.x - target.x) + abs(previous.y - target.y) > 1,
+           caretPreset == .railgun || caretPreset == .pixiedust {
+            overlay.emit(from: CGPoint(x: previous.x, y: previous.y + previous.height / 2), to: CGPoint(x: target.x, y: target.y + target.height / 2), beam: caretPreset == .railgun)
+        }
         animator.moveTo(target, cellWidth: cell, immediate: snap || overlayWasHidden)
         overlayWasHidden = false
         overlay.quad = animator.quad
 
         restartIdleBlink()
-        if animator.isAnimating { startLink() }
+        if animator.isAnimating || !overlay.particles.isEmpty { startLink() }
     }
 
     private func hideOverlay() {
         overlay.isHidden = true
+        overlay.particles = []
         overlayWasHidden = true
         stopLink()
         blinkTimer?.invalidate()
@@ -193,7 +229,8 @@ final class CaretTextView: NSTextView {
         let dt = min(max(raw, 0.001), 0.05)
         let moving = animator.step(dt: dt)
         overlay.quad = animator.quad
-        if !moving { stopLink() }
+        overlay.stepParticles(dt)
+        if !moving && overlay.particles.isEmpty { stopLink() }
     }
 
     // MARK: Blink (solid while typing, blinks when idle)

@@ -11,14 +11,14 @@ struct TodayView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
+            VStack(alignment: .leading, spacing: 34) {
                 header
                 agenda
                 tasksSection
                 noteSection
                 capture
             }
-            .padding(28)
+            .padding(36)
             .frame(maxWidth: 760, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -29,11 +29,11 @@ struct TodayView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(Date.now, format: .dateTime.weekday(.wide))
-                .font(.system(size: 34, weight: .bold, design: .rounded))
+                .font(.system(size: 38, weight: .semibold, design: .default))
             Text(Date.now, format: .dateTime.month(.wide).day().year())
                 .font(.title3)
                 .foregroundStyle(.secondary)
-            Text(TimeZone.current.localizedName(for: .standard, locale: .current) ?? TimeZone.current.identifier)
+            Text(TimeZone.current.localizedName(for: TimeZone.current.isDaylightSavingTime() ? .daylightSaving : .standard, locale: .current) ?? TimeZone.current.identifier)
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -42,7 +42,7 @@ struct TodayView: View {
 
     private var agenda: some View {
         section("Agenda", symbol: "calendar") {
-            AgendaList(compact: true)
+            AgendaList(service: state.calendarService, compact: true)
         }
     }
 
@@ -118,14 +118,14 @@ struct TodayView: View {
     }
 
     private func commit() {
-        state.capture(draft, asTask: captureAsTask)
-        draft = ""
+        if state.capture(draft, asTask: captureAsTask) { draft = "" }
     }
 
     private func section<Content: View>(_ title: String, symbol: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Label(title, systemImage: symbol)
-                .font(.headline)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.secondary)
             content()
         }
     }

@@ -13,8 +13,10 @@
     <key>NSPrincipalClass</key><string>NSApplication</string>
     <key>NSHighResolutionCapable</key><true/>
     <key>NSCalendarsFullAccessUsageDescription</key>
-    <string>Daily Workspace reads your calendar to show today's events next to your notes and tasks. It never changes your events.</string>
+    <string>Daily Workspace shows your calendar and lets you create, edit, and delete events when you choose.</string>
     <key>NSCalendarsUsageDescription</key>
-    <string>Daily Workspace reads your calendar to show today's events next to your notes and tasks. It never changes your events.</string>
+    <string>Daily Workspace shows your calendar and lets you create, edit, and delete events when you choose.</string>
+    <key>NSRemindersFullAccessUsageDescription</key>
+    <string>Daily Workspace shows your reminders and lets you add and complete them when you choose.</string>
 </dict>
 </plist>

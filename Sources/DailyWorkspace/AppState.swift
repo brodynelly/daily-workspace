@@ -5,7 +5,7 @@ import DailyCore
 @MainActor
 final class AppState: ObservableObject {
     enum Section: String, CaseIterable, Identifiable {
-        case today = "Today", notes = "Notes", tasks = "Tasks", calendar = "Calendar"
+        case today = "Today", notes = "Notes", tasks = "Tasks", calendar = "Calendar", search = "Search", reminders = "Reminders", chat = "AI Chat"
         var id: String { rawValue }
         var symbol: String {
             switch self {
@@ -13,6 +13,9 @@ final class AppState: ObservableObject {
             case .notes: return "doc.text"
             case .tasks: return "checklist"
             case .calendar: return "calendar"
+            case .search: return "magnifyingglass"
+            case .reminders: return "list.bullet.circle"
+            case .chat: return "bubble.left.and.bubble.right"
             }
         }
     }
@@ -42,12 +45,14 @@ final class AppState: ObservableObject {
     @Published private(set) var systemReduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
     @Published private(set) var dayTick = Date() // changes at midnight / time zone change so "today" refreshes
     @Published var showQuickCapture = false
+    @Published var showCommandPalette = false
 
     @Published var dailyFolder: String { didSet { defaults.set(dailyFolder, forKey: Keys.folder) } }
     @Published var dailyFilename: String { didSet { defaults.set(dailyFilename, forKey: Keys.filename) } }
     @Published var caretPreset: CaretPreset { didSet { defaults.set(caretPreset.rawValue, forKey: Keys.caret) } }
 
     let calendarService = CalendarService()
+    let chatService = ChatService()
 
     private enum Keys {
         static let bookmark = "vaultBookmark"
@@ -113,9 +118,6 @@ final class AppState: ObservableObject {
                 self?.calendarService.refresh(day: Date())
             }
         })
-        observers.append(nc.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { [weak self] _ in
-            Task { @MainActor in self?.saveNow() }
-        })
         pollTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.checkExternalChange() }
         }
@@ -133,8 +135,8 @@ final class AppState: ObservableObject {
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
             let data = try url.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil)
+            guard flushBeforeSwitching() else { return }
             defaults.set(data, forKey: Keys.bookmark)
-            saveNow()
             noteURL = nil
             noteText = ""
             snapshot = nil
@@ -229,7 +231,21 @@ final class AppState: ObservableObject {
             noteMessage = "Resolve the conflict on the open note first."
             return false
         }
+        if case .failed = saveState {
+            noteMessage = "The note could not be saved. Retry saving before opening another note."
+            return false
+        }
         return true
+    }
+
+    /// A synchronous termination hook must finish before AppKit exits.
+    func prepareToQuit() -> Bool { flushBeforeSwitching() }
+
+    var canSave: Bool {
+        switch saveState {
+        case .dirty, .failed: return true
+        default: return false
+        }
     }
 
     private func rememberRecent(_ path: String) {
@@ -336,24 +352,28 @@ final class AppState: ObservableObject {
 
     // MARK: Capture
 
-    func capture(_ raw: String, asTask: Bool) {
+    @discardableResult
+    func capture(_ raw: String, asTask: Bool) -> Bool {
         let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
+        guard !text.isEmpty else { return false }
         if asTask {
             addTask(title: text, due: today)
-            return
+            return true
         }
         guard vault != nil else {
             noteMessage = "Choose a vault in Settings to capture notes."
-            return
+            return false
         }
+        guard flushBeforeSwitching() else { return false }
         openToday(create: true)
-        guard noteURL != nil, saveState != .conflict else { return }
+        guard noteMessage == nil, noteURL != nil, saveState != .conflict else { return false }
         var body = noteText
         if !body.isEmpty && !body.hasSuffix("\n") { body += "\n" }
         body += "- \(text)\n"
         userEdited(body)
         saveNow()
+        // The text is now owned by the editor even if the disk write needs retrying.
+        return true
     }
 
     // MARK: Tasks
