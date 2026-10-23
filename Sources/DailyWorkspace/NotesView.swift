@@ -2,6 +2,8 @@ import SwiftUI
 
 struct NotesView: View {
     @EnvironmentObject var state: AppState
+    @AppStorage("notePreview") private var showPreview = false
+    @State private var showBacklinks = false
 
     var body: some View {
         Group {
@@ -45,8 +47,14 @@ struct NotesView: View {
                 }
             }
         }
-        .navigationTitle("Notes")
+        .navigationTitle(state.noteURL?.deletingPathExtension().lastPathComponent ?? "Notes")
+        .inspector(isPresented: $showBacklinks) { BacklinksView() }
         .toolbar {
+            ToolbarItemGroup {
+                Toggle(isOn: $showPreview) { Label("Preview", systemImage: "eye") }
+                    .help("Toggle live Markdown preview")
+                Toggle(isOn: $showBacklinks) { Label("Backlinks", systemImage: "link") }
+            }
             ToolbarItem {
                 Menu {
                     Button("Today's Note") { state.openToday() }
@@ -71,12 +79,15 @@ struct NotesView: View {
             else if let message = state.noteMessage {
                 InfoBanner(text: message)
             }
+            HSplitView {
             MarkdownEditor(
                 text: Binding(get: { state.noteText }, set: { state.userEdited($0) }),
                 documentID: state.noteURL,
                 preset: state.caretPreset,
                 reduceMotion: state.systemReduceMotion
             )
+            if showPreview { NotePreviewView(text: state.noteText).frame(minWidth: 220) }
+            }
             Divider()
             statusBar
         }
@@ -88,12 +99,14 @@ struct NotesView: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
             Spacer()
+            Text("\(state.noteText.count) characters").monospacedDigit()
+            Spacer()
             SaveStatusLabel(state: state.saveState)
         }
         .font(.caption)
         .foregroundStyle(.secondary)
         .padding(.horizontal, 14)
-        .padding(.vertical, 6)
+        .padding(.vertical, 10)
     }
 }
 

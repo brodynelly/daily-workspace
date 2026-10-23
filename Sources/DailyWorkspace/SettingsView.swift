@@ -9,6 +9,8 @@ struct SettingsView: View {
         TabView {
             vaultTab.tabItem { Label("Vault", systemImage: "folder") }
             motionTab.tabItem { Label("Typing", systemImage: "cursorarrow.motionlines") }
+            AISettingsView().tabItem { Label("AI", systemImage: "bubble.left") }
+            SyncSettingsView().tabItem { Label("Sync", systemImage: "arrow.triangle.2.circlepath") }
             calendarTab.tabItem { Label("Calendar", systemImage: "calendar") }
         }
         .frame(width: 520, height: 380)
@@ -69,7 +71,7 @@ struct SettingsView: View {
             default:
                 EmptyView()
             }
-            Text("Events are read-only. The app never creates, edits or deletes calendar events and never asks for Reminders access.")
+            Text("Create events from Calendar, or double-click an event to edit it. Reminders access is requested separately from the Reminders screen.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

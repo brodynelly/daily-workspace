@@ -2,18 +2,19 @@ import EventKit
 import SwiftUI
 
 struct AgendaEvent: Identifiable {
+    let identifier: String
     let id: String
     let title: String
     let start: Date
     let end: Date
     let isAllDay: Bool
+    let calendarID: String
     let calendarTitle: String
     let color: Color
     let location: String?
 }
 
-/// Read-only Apple Calendar agenda. Events are fetched, displayed and discarded; nothing is written back.
-/// EventKit has no read-only grant, so read-only is enforced by never calling save/remove APIs.
+/// Calendar reads and explicit user-initiated event edits.
 @MainActor
 final class CalendarService: ObservableObject {
     enum Status: Equatable {
@@ -63,6 +64,43 @@ final class CalendarService: ObservableObject {
         refresh(day: shownDay)
     }
 
+    struct WritableCalendar: Identifiable {
+        let id: String
+        let title: String
+    }
+
+    var writableCalendars: [WritableCalendar] {
+        store.calendars(for: .event).filter(\.allowsContentModifications).map { WritableCalendar(id: $0.calendarIdentifier, title: $0.title) }
+    }
+
+    func saveEvent(identifier: String?, title: String, start: Date, end: Date, allDay: Bool, calendarID: String, location: String) throws {
+        guard status == .authorized, end > start,
+              let calendar = store.calendar(withIdentifier: calendarID), calendar.allowsContentModifications else {
+            throw NSError(domain: "DailyWorkspace", code: 1, userInfo: [NSLocalizedDescriptionKey: "Select a writable calendar and an end time after the start."])
+        }
+        let event: EKEvent
+        if let identifier {
+            guard let existing = store.event(withIdentifier: identifier) else {
+                throw NSError(domain: "DailyWorkspace", code: 2, userInfo: [NSLocalizedDescriptionKey: "The event no longer exists. Refresh the agenda."])
+            }
+            event = existing
+        } else { event = EKEvent(eventStore: store) }
+        event.title = title
+        event.startDate = start
+        event.endDate = end
+        event.isAllDay = allDay
+        event.calendar = calendar
+        event.location = location.isEmpty ? nil : location
+        try store.save(event, span: .thisEvent, commit: true)
+        refresh(day: shownDay)
+    }
+
+    func deleteEvent(identifier: String) throws {
+        guard let event = store.event(withIdentifier: identifier), event.calendar.allowsContentModifications else { return }
+        try store.remove(event, span: .thisEvent, commit: true)
+        refresh(day: shownDay)
+    }
+
     func refresh(day: Date) {
         shownDay = day
         updateStatus()
@@ -81,11 +119,13 @@ final class CalendarService: ObservableObject {
             }
             .map { e in
                 AgendaEvent(
+                    identifier: e.eventIdentifier,
                     id: "\(e.calendarItemIdentifier)-\(e.startDate.timeIntervalSince1970)",
                     title: (e.title?.isEmpty == false ? e.title : nil) ?? "Untitled event",
                     start: e.startDate,
                     end: e.endDate,
                     isAllDay: e.isAllDay,
+                    calendarID: e.calendar.calendarIdentifier,
                     calendarTitle: e.calendar.title,
                     color: Color(cgColor: e.calendar.cgColor),
                     location: (e.location?.isEmpty == false) ? e.location : nil
