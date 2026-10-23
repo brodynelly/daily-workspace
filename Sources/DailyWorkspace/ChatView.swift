@@ -13,13 +13,12 @@ struct ChatView: View {
         VStack(spacing: 0) {
             if chat.messages.isEmpty {
                 VStack(alignment: .leading, spacing: 16) {
-                    Image(systemName: "sparkle").font(.system(size: 28)).foregroundStyle(WorkspaceTheme.coral)
+                    Image(systemName: "sparkle").font(.largeTitle).foregroundStyle(.tint)
                     Text("A little space to think.")
-                        .font(.system(size: 30, weight: .semibold))
+                        .font(.title.bold())
                     Text("Ask a question, work through an idea, or bring a note into the conversation.")
-                        .font(.system(size: 16)).foregroundStyle(.secondary)
-                    SettingsLink { Text("Set up OpenRouter →").font(.callout) }
-                        .buttonStyle(.plain).foregroundStyle(WorkspaceTheme.coral)
+                        .font(.title3).foregroundStyle(.secondary)
+                    SettingsLink { Text("Set Up OpenRouter…") }
                     Text("Messages go to OpenRouter and its providers. Notes are shared only when attached. API usage may incur charges.")
                         .font(.caption).foregroundStyle(.secondary).frame(maxWidth: 420, alignment: .leading)
                 }
@@ -29,7 +28,7 @@ struct ChatView: View {
             } else {
                 ScrollViewReader { proxy in
                     ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 30) {
+                        LazyVStack(alignment: .leading, spacing: 20) {
                             ForEach(chat.messages) { message in
                                 HStack(alignment: .top) {
                                     if message.role == "user" { Spacer(minLength: 70) }
@@ -37,16 +36,16 @@ struct ChatView: View {
                                         if message.role != "user" {
                                             Text("Assistant").font(.caption).foregroundStyle(.secondary)
                                         }
-                                        Text(message.content).font(.system(size: 17)).lineSpacing(6).textSelection(.enabled)
+                                        Text(message.content).font(.body).lineSpacing(3).textSelection(.enabled)
                                     }
-                                    .padding(message.role == "user" ? 16 : 0)
-                                    .background(message.role == "user" ? Color.white.opacity(0.055) : .clear, in: RoundedRectangle(cornerRadius: 20))
+                                    .padding(message.role == "user" ? 12 : 0)
+                                    .background(message.role == "user" ? WorkspaceTheme.recessed : .clear, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                                     if message.role != "user" { Spacer(minLength: 20) }
                                 }
                                 .frame(maxWidth: 760, alignment: .leading)
                                 .id(message.id)
                             }
-                        }.padding(32).frame(maxWidth: .infinity)
+                        }.padding(24).frame(maxWidth: .infinity)
                     }
                     .onChange(of: chat.messages.count) { _, _ in if let id = chat.messages.last?.id { proxy.scrollTo(id, anchor: .bottom) } }
                 }
@@ -54,12 +53,12 @@ struct ChatView: View {
             if let error = chat.error { InfoBanner(text: error) }
             VStack(alignment: .leading, spacing: 12) {
                 Toggle(isOn: $attachNote) {
-                    Label("Attach open note", systemImage: "paperclip")
+                    Label("Attach Open Note", systemImage: "paperclip")
                 }
                 .toggleStyle(.checkbox).font(.caption).foregroundStyle(.secondary)
                 .disabled(state.noteURL == nil || chat.sending)
                 HStack(alignment: .bottom) {
-                    TextField("Ask anything…", text: $draft, axis: .vertical).font(.system(size: 17)).lineLimit(1...6).textFieldStyle(.plain).disabled(chat.sending)
+                    TextField("Ask anything…", text: $draft, axis: .vertical).lineLimit(1...6).textFieldStyle(.plain).disabled(chat.sending)
                     if chat.sending {
                         ProgressView().controlSize(.small)
                         Button("Stop") { chat.cancel() }
@@ -67,15 +66,15 @@ struct ChatView: View {
                         Button {
                             chat.send(draft, model: model.trimmingCharacters(in: .whitespaces), note: attachNote ? state.noteText : nil)
                         } label: {
-                            Image(systemName: "arrow.up.circle.fill").font(.system(size: 26)).foregroundStyle(WorkspaceTheme.coral)
+                            Image(systemName: "arrow.up.circle.fill").font(.title2).foregroundStyle(.tint)
                         }
                         .buttonStyle(.plain).accessibilityLabel("Send message")
                         .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty).keyboardShortcut(.return, modifiers: .command)
                     }
                 }
             }
-            .padding(18).softControlSurface()
-            .padding(.horizontal, 24).padding(.bottom, 20)
+            .padding(12).softControlSurface(radius: 12)
+            .padding(.horizontal, 20).padding(.bottom, 16)
             .frame(maxWidth: 860)
             .frame(maxWidth: .infinity)
         }

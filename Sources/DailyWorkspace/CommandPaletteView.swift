@@ -36,45 +36,41 @@ struct CommandPaletteView: View {
                 TextField("Search for actions…", text: $query)
                     .textFieldStyle(.plain).focused($searchFocused)
                     .onSubmit { if actions.indices.contains(selection) { execute(actions[selection]) } }
-                Button { dismiss() } label: { Text("esc").font(.caption).foregroundStyle(.secondary) }
-                    .buttonStyle(.plain).keyboardShortcut(.cancelAction)
+                Button("Cancel") { dismiss() }
+                    .buttonStyle(.borderless).keyboardShortcut(.cancelAction)
             }
-            .font(.system(size: 19)).padding(22)
-            Divider().opacity(0.5)
+            .font(.title3).padding(16)
+            Divider()
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(spacing: 4) {
                         ForEach(Array(actions.enumerated()), id: \.element.id) { index, action in
                             Button { execute(action) } label: {
                                 HStack(spacing: 14) {
-                                    Image(systemName: action.symbol).frame(width: 24)
+                                    Image(systemName: action.symbol).frame(width: 20)
                                     Text(action.id)
                                     Spacer()
-                                    Text(action.shortcut).font(.system(size: 12, design: .monospaced)).foregroundStyle(.secondary)
-                                        .padding(.horizontal, 7).padding(.vertical, 4)
-                                        .overlay(RoundedRectangle(cornerRadius: 7).stroke(.white.opacity(action.shortcut.isEmpty ? 0 : 0.15)))
+                                    Text(action.shortcut).font(.body.monospacedDigit()).foregroundStyle(.secondary)
                                 }
-                                .font(.system(size: 17, weight: .medium))
-                                .padding(.horizontal, 16).padding(.vertical, 13)
-                                .background(selection == index ? Color.white.opacity(0.10) : .clear, in: RoundedRectangle(cornerRadius: 13))
+                                .foregroundStyle(selection == index ? Color.white : Color.primary)
+                                .padding(.horizontal, 10).padding(.vertical, 7)
+                                .background(selection == index ? WorkspaceTheme.accent : .clear, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
                                 .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain).id(index)
                             .onHover { if $0 { selection = index } }
                         }
                         if actions.isEmpty { Text("No matching actions").foregroundStyle(.secondary).padding(32) }
-                    }.padding(10)
+                    }.padding(8)
                 }
                 .onChange(of: selection) { _, value in proxy.scrollTo(value) }
             }
-            Divider().opacity(0.4)
+            Divider()
             HStack {
-                Text("↑ ↓ to navigate"); Spacer(); Text("↩ to select")
-            }.font(.caption).foregroundStyle(.secondary).padding(14)
+                Text("↑↓ Navigate"); Spacer(); Text("↩ Open")
+            }.font(.caption).foregroundStyle(.secondary).padding(.horizontal, 16).padding(.vertical, 10)
         }
-        .frame(width: 520, height: 570)
-        .background(.regularMaterial)
-        .preferredColorScheme(.dark)
+        .frame(width: 520, height: 440)
         .onAppear { searchFocused = true }
         .onChange(of: query) { _, _ in selection = 0 }
         .onMoveCommand { direction in

@@ -10,7 +10,7 @@ struct AgendaList: View {
         switch service.status {
         case .notRequested:
             VStack(alignment: .leading, spacing: 8) {
-                Text("Show today's events here. You can also create, edit, and delete events using explicit actions.")
+                Text("See today's events here, and add or edit events without leaving the app.")
                     .foregroundStyle(.secondary)
                 Button("Enable Calendar…") { Task { await service.requestAccess() } }
             }

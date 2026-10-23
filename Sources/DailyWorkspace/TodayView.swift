@@ -11,14 +11,14 @@ struct TodayView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 34) {
+            VStack(alignment: .leading, spacing: 28) {
                 header
                 agenda
                 tasksSection
                 noteSection
                 capture
             }
-            .padding(36)
+            .padding(28)
             .frame(maxWidth: 760, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -29,7 +29,7 @@ struct TodayView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(Date.now, format: .dateTime.weekday(.wide))
-                .font(.system(size: 38, weight: .semibold, design: .default))
+                .font(.largeTitle.bold())
             Text(Date.now, format: .dateTime.month(.wide).day().year())
                 .font(.title3)
                 .foregroundStyle(.secondary)
@@ -63,7 +63,7 @@ struct TodayView: View {
     }
 
     private var noteSection: some View {
-        section("Today's note", symbol: "doc.text") {
+        section("Today's Note", symbol: "doc.text") {
             switch state.vaultState {
             case .available:
                 VStack(alignment: .leading, spacing: 10) {
@@ -124,7 +124,7 @@ struct TodayView: View {
     private func section<Content: View>(_ title: String, symbol: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Label(title, systemImage: symbol)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.headline)
                 .foregroundStyle(.secondary)
             content()
         }

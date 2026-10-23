@@ -39,7 +39,7 @@ final class CaretOverlayView: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         for particle in particles {
-            NSColor(red: 1, green: 0.36, blue: 0.38, alpha: 1).withAlphaComponent(max(0, particle.life / 0.45)).setFill()
+            WorkspaceTheme.nativeAccent.withAlphaComponent(max(0, particle.life / 0.45)).setFill()
             NSBezierPath(ovalIn: CGRect(x: particle.point.x, y: particle.point.y, width: 2, height: 2)).fill()
         }
         guard quad.count == 4 else { return }
@@ -47,7 +47,7 @@ final class CaretOverlayView: NSView {
         path.move(to: NSPoint(x: quad[0].x, y: quad[0].y))
         for p in quad.dropFirst() { path.line(to: NSPoint(x: p.x, y: p.y)) }
         path.close()
-        NSColor(red: 1, green: 0.36, blue: 0.38, alpha: 1).setFill()
+        WorkspaceTheme.nativeAccent.setFill()
         path.fill()
     }
 

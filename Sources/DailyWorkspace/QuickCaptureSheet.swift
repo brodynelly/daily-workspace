@@ -10,17 +10,15 @@ struct QuickCaptureSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Capture a thought").font(.system(size: 22, weight: .semibold))
+            Text("Quick Capture").font(.headline)
             TextField("What's on your mind?", text: $text, axis: .vertical)
                 .lineLimit(1...4)
-                .textFieldStyle(.plain)
-                .font(.system(size: 18))
-                .padding(16).softControlSurface()
+                .textFieldStyle(.roundedBorder)
                 .focused($focused)
                 .onSubmit(commit)
             Picker("Save as", selection: $asTask) {
-                Text("Task for today").tag(true)
-                Text("Line in today's note").tag(false)
+                Text("Task for Today").tag(true)
+                Text("Today's Note").tag(false)
             }
             .pickerStyle(.segmented)
             .labelsHidden()
@@ -31,13 +29,13 @@ struct QuickCaptureSheet: View {
                 Button("Cancel", role: .cancel) { dismiss() }
                     .keyboardShortcut(.cancelAction)
                 Button("Capture", action: commit)
+                    .buttonStyle(.borderedProminent)
                     .keyboardShortcut(.defaultAction)
                     .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
-        .padding(26)
-        .frame(width: 480)
-        .background { WorkspaceCanvas() }
+        .padding(20)
+        .frame(width: 420)
         .onAppear { focused = true }
     }
 

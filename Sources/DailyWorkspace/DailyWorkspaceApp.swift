@@ -59,8 +59,6 @@ struct DailyWorkspaceApp: App {
         Window("Quick Capture", id: "capture") {
             QuickCaptureSheet()
                 .environmentObject(state)
-                .preferredColorScheme(.dark)
-                .tint(WorkspaceTheme.coral)
         }
         .windowResizability(.contentSize)
         .defaultPosition(.center)
@@ -72,8 +70,6 @@ struct DailyWorkspaceApp: App {
         Settings {
             SettingsView()
                 .environmentObject(state)
-                .preferredColorScheme(.dark)
-                .tint(WorkspaceTheme.coral)
         }
     }
 }

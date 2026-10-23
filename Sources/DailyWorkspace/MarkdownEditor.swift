@@ -56,15 +56,15 @@ enum MarkdownStyler {
         }
         wikilink.enumerateMatches(in: storage.string, range: full) { m, _, _ in
             guard let m else { return }
-            storage.addAttribute(.foregroundColor, value: NSColor(red: 1, green: 0.36, blue: 0.38, alpha: 1), range: m.range)
+            storage.addAttribute(.foregroundColor, value: WorkspaceTheme.nativeAccent, range: m.range)
         }
         mdLink.enumerateMatches(in: storage.string, range: full) { m, _, _ in
             guard let m else { return }
-            storage.addAttribute(.foregroundColor, value: NSColor(red: 1, green: 0.36, blue: 0.38, alpha: 1), range: m.range)
+            storage.addAttribute(.foregroundColor, value: WorkspaceTheme.nativeAccent, range: m.range)
         }
         bullet.enumerateMatches(in: storage.string, range: full) { match, _, _ in
             guard let match else { return }
-            storage.addAttribute(.foregroundColor, value: NSColor(red: 1, green: 0.36, blue: 0.38, alpha: 1), range: match.range)
+            storage.addAttribute(.foregroundColor, value: WorkspaceTheme.nativeAccent, range: match.range)
         }
         openTask.enumerateMatches(in: storage.string, range: full) { m, _, _ in
             guard let m else { return }
@@ -131,7 +131,7 @@ struct MarkdownEditor: NSViewRepresentable {
         tv.isAutomaticSpellingCorrectionEnabled = false
         tv.isAutomaticLinkDetectionEnabled = false
         tv.drawsBackground = false
-        tv.linkTextAttributes = [.foregroundColor: NSColor(red: 1, green: 0.36, blue: 0.38, alpha: 1), .underlineStyle: NSUnderlineStyle.single.rawValue]
+        tv.linkTextAttributes = [.foregroundColor: WorkspaceTheme.nativeAccent, .underlineStyle: NSUnderlineStyle.single.rawValue]
         tv.setAccessibilityLabel("Note editor")
 
         tv.delegate = context.coordinator
