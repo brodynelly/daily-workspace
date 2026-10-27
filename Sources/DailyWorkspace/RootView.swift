@@ -5,7 +5,6 @@ struct RootView: View {
     @EnvironmentObject private var shortcut: GlobalCaptureShortcut
     @State private var navigationQuery = ""
     @Environment(\.openWindow) private var openWindow
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         NavigationSplitView {
@@ -49,7 +48,6 @@ struct RootView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background { WorkspaceCanvas() }
             .id(state.section)
-            .transition(.opacity)
         }
         .toolbar {
             ToolbarItem {
@@ -71,7 +69,6 @@ struct RootView: View {
             shortcut.register()
         }
         .onDisappear { state.saveNow() }
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: state.section)
         .sheet(isPresented: $state.showCommandPalette) { CommandPaletteView() }
         .sheet(isPresented: $state.showQuickCapture) {
             QuickCaptureSheet()
