@@ -175,10 +175,11 @@ final class ObservedSourceTests: XCTestCase {
 
 @MainActor
 final class ProjectsAndLuunaViewTests: XCTestCase {
-    func testTheRestartPlaceholderBuilds() {
+    func testTheRestartSectionRendersInsideAProject() {
+        let model = AppModel(dependencies: .test())
         let section = ProjectRestartSection(slug: "daily-workspace")
         XCTAssertEqual(section.slug, "daily-workspace")
-        XCTAssertNotNil(ImageRenderer(content: section.frame(width: 600)).nsImage)
+        XCTAssertNotNil(ImageRenderer(content: section.workspaceEnvironment(model).frame(width: 600)).nsImage)
     }
 
     func testLuunaSettingsRefuseANonLoopbackOriginBeforeSaving() throws {

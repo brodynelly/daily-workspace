@@ -7,12 +7,14 @@ import SwiftUI
 /// `AppModel`.
 struct RestartPanel: View {
     let slug: String
+    /// Inside another card (Projects detail), the panel is ruled off as a subpanel instead of a nested card.
+    var embedded = false
     @EnvironmentObject private var model: AppModel
 
     var body: some View {
         RestartPanelContent(
             slug: slug, restarts: model.restarts, assistant: model.assistant, preferences: model.preferences,
-            key: model.assistantKey)
+            key: model.assistantKey, embedded: embedded)
     }
 }
 
@@ -28,23 +30,25 @@ struct RestartPanelContent: View {
     @ObservedObject var assistant: AssistantSession
     @ObservedObject var preferences: Preferences
     @ObservedObject var key: AssistantKey
+    var embedded = false
     @StateObject private var flow = RestartDraftFlow()
     @State private var load: Load
 
     init(
         slug: String, restarts: RestartRecords, assistant: AssistantSession, preferences: Preferences,
-        key: AssistantKey, initial: Load = .loading
+        key: AssistantKey, embedded: Bool = false, initial: Load = .loading
     ) {
         self.slug = slug
         self.restarts = restarts
         self.assistant = assistant
         self.preferences = preferences
         self.key = key
+        self.embedded = embedded
         _load = State(initialValue: initial)
     }
 
     var body: some View {
-        Panel("Restart record", description: description) {
+        Panel("Restart record", description: description, variant: embedded ? .subpanel : .card) {
             Button("Draft a new one") { flow.start(project: slug, assistant: assistant) }
                 .buttonStyle(.workspace(.secondary, size: .small))
                 .disabled(draftBlocker != nil || assistant.isStreaming || flow.isDrafting)
