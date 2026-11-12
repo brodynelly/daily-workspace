@@ -23,6 +23,13 @@ enum MarkdownStyler {
     static let baseFont = NSFont.systemFont(ofSize: 18)
     static let monoFont = NSFont.monospacedSystemFont(ofSize: 16, weight: .regular)
 
+    /// Luuna roles, resolved per appearance at draw time: body text in ink-body, code at full ink, links
+    /// and list marks in the accent text, front matter and done tasks muted.
+    static let inkBody = ColorToken.inkBody.nsColor
+    static let ink = ColorToken.ink.nsColor
+    static let inkMuted = ColorToken.inkMuted.nsColor
+    static let accentText = ColorToken.accentText.nsColor
+
     static var paragraph: NSParagraphStyle {
         let p = NSMutableParagraphStyle()
         p.lineSpacing = 7
@@ -39,7 +46,7 @@ enum MarkdownStyler {
         storage.setAttributes(
             [
                 .font: baseFont,
-                .foregroundColor: NSColor.labelColor,
+                .foregroundColor: inkBody,
                 .paragraphStyle: paragraph,
             ], range: full)
 
@@ -55,41 +62,41 @@ enum MarkdownStyler {
         }
         code.enumerateMatches(in: storage.string, range: full) { m, _, _ in
             guard let m else { return }
-            storage.addAttributes([.font: monoFont, .foregroundColor: NSColor.systemPink], range: m.range)
+            storage.addAttributes([.font: monoFont, .foregroundColor: ink], range: m.range)
         }
         wikilink.enumerateMatches(in: storage.string, range: full) { m, _, _ in
             guard let m else { return }
-            storage.addAttribute(.foregroundColor, value: WorkspaceTheme.nativeAccent, range: m.range)
+            storage.addAttribute(.foregroundColor, value: accentText, range: m.range)
         }
         mdLink.enumerateMatches(in: storage.string, range: full) { m, _, _ in
             guard let m else { return }
-            storage.addAttribute(.foregroundColor, value: WorkspaceTheme.nativeAccent, range: m.range)
+            storage.addAttribute(.foregroundColor, value: accentText, range: m.range)
         }
         bullet.enumerateMatches(in: storage.string, range: full) { match, _, _ in
             guard let match else { return }
-            storage.addAttribute(.foregroundColor, value: WorkspaceTheme.nativeAccent, range: match.range)
+            storage.addAttribute(.foregroundColor, value: accentText, range: match.range)
         }
         openTask.enumerateMatches(in: storage.string, range: full) { m, _, _ in
             guard let m else { return }
-            storage.addAttribute(.foregroundColor, value: NSColor.controlAccentColor, range: m.range)
+            storage.addAttribute(.foregroundColor, value: accentText, range: m.range)
         }
         doneTask.enumerateMatches(in: storage.string, range: full) { m, _, _ in
             guard let m else { return }
             storage.addAttributes(
                 [
-                    .foregroundColor: NSColor.secondaryLabelColor,
+                    .foregroundColor: inkMuted,
                     .strikethroughStyle: NSUnderlineStyle.single.rawValue,
                 ], range: m.range)
         }
         frontmatter.enumerateMatches(in: storage.string, range: full) { m, _, _ in
             guard let m else { return }
-            storage.addAttributes([.font: monoFont, .foregroundColor: NSColor.secondaryLabelColor], range: m.range)
+            storage.addAttributes([.font: monoFont, .foregroundColor: inkMuted], range: m.range)
         }
         storage.endEditing()
 
         textView.typingAttributes = [
             .font: baseFont,
-            .foregroundColor: NSColor.labelColor,
+            .foregroundColor: inkBody,
             .paragraphStyle: paragraph,
         ]
     }
@@ -136,7 +143,7 @@ struct MarkdownEditor: NSViewRepresentable {
         tv.isAutomaticLinkDetectionEnabled = false
         tv.drawsBackground = false
         tv.linkTextAttributes = [
-            .foregroundColor: WorkspaceTheme.nativeAccent, .underlineStyle: NSUnderlineStyle.single.rawValue,
+            .foregroundColor: MarkdownStyler.accentText, .underlineStyle: NSUnderlineStyle.single.rawValue,
         ]
         tv.setAccessibilityLabel("Note editor")
 

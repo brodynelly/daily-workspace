@@ -2,6 +2,7 @@ import DailyCore
 import SwiftUI
 
 /// Vault search: note names and contents. Shown as the Search mode of Notes; reachable from ⌘K and ⇧⌘F.
+/// Results are record rows: the title, the folder muted and whole, and a two-line excerpt.
 struct SearchView: View {
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var navigation: AppNavigation
@@ -26,24 +27,14 @@ struct SearchView: View {
                             .disabled(loading)
                         if loading { ProgressView().controlSize(.small) }
                     }
-                    if let error { InfoBanner(text: error) }
-                    List(results) { note in
-                        Button {
-                            navigation.notesMode = .editor
-                            model.openNote(note.path)
-                        } label: {
-                            VStack(alignment: .leading, spacing: 4) {
-                                NoteLabel(path: note.path).font(.headline)
-                                Text(note.text.replacingOccurrences(of: "\n", with: " ")).lineLimit(2)
-                                    .foregroundStyle(.secondary)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
+                    if let error { ReasonNote(error, tone: .danger) }
+                    if scanned && !notes.isEmpty {
+                        Text(countLine)
+                            .textRole(.caption, lineBox: false)
+                            .foregroundStyle(Theme.inkMuted)
+                            .monospacedDigit()
                     }
-                    .scrollContentBackground(.hidden)
-                    .overlay { emptyState }
+                    resultList
                 }
             } else {
                 VaultStatusView(state: vaultSession.state)
@@ -52,16 +43,44 @@ struct SearchView: View {
         .task { await refresh() }
     }
 
-    @ViewBuilder private var emptyState: some View {
-        if !loading && scanned && error == nil {
-            if notes.isEmpty {
-                ContentUnavailableView(
-                    "No Markdown notes", systemImage: "doc.text.magnifyingglass",
-                    description: Text("The vault has no visible .md files. Click Refresh after adding notes."))
-            } else if results.isEmpty {
-                ContentUnavailableView.search(text: query)
+    private var countLine: String {
+        let shown = results.count
+        return query.isEmpty ? "\(notes.count) notes" : "\(shown) of \(notes.count) notes match"
+    }
+
+    /// Lazy rows: a vault can hold thousands of notes.
+    @ViewBuilder private var resultList: some View {
+        if !loading && scanned && error == nil && (notes.isEmpty || results.isEmpty) {
+            emptyState
+        } else {
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    ForEach(results) { note in
+                        NoteRecordRow(path: note.path, excerpt: excerpt(note)) {
+                            navigation.notesMode = .editor
+                            model.openNote(note.path)
+                        }
+                    }
+                }
+                .environment(\.recordListVariant, .rows)
             }
         }
+    }
+
+    @ViewBuilder private var emptyState: some View {
+        if notes.isEmpty {
+            EmptyState(
+                "No Markdown notes", description: "The vault has no visible .md files. Refresh after adding notes.",
+                systemImage: "doc.text.magnifyingglass", boxed: true)
+        } else {
+            EmptyState(
+                "No notes match", description: "Nothing in the vault contains “\(query)”.",
+                systemImage: "magnifyingglass", boxed: true)
+        }
+    }
+
+    private func excerpt(_ note: IndexedNote) -> String {
+        String(note.text.prefix(400)).replacingOccurrences(of: "\n", with: " ")
     }
 
     private func refresh() async {
