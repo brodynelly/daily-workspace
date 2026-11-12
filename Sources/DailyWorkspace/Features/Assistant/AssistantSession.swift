@@ -37,6 +37,9 @@ final class AssistantSession: ObservableObject {
     }
 
     @Published private(set) var turns: [AssistantTurn] = []
+    /// Off until the user enables the Assistant in Settings. While off, nothing is sent: `send` and
+    /// `draftRestartRecord` refuse before reading the key.
+    @Published private(set) var isEnabled: Bool
     @Published private(set) var isStreaming = false
     @Published private(set) var error: String?
     /// The question being answered while `isStreaming`.
@@ -50,7 +53,7 @@ final class AssistantSession: ObservableObject {
     private(set) var transcript: [AgentMessage] = []
     private(set) var system: [JSONValue]
     let tools = AssistantTool.definitions
-    let configuration: Configuration
+    private(set) var configuration: Configuration
 
     let transport: AgentTransport
     let runner: AssistantToolRunner
@@ -61,22 +64,47 @@ final class AssistantSession: ObservableObject {
     private(set) var generation = 0
 
     static let keyService = "app.dailyworkspace.anthropic"
+    static let defaultModel = Configuration().model
+    static let disabledMessage = "The Assistant is off. Turn it on in Settings → AI."
 
     init(
         transport: AgentTransport, keyStore: APIKeyStore, context: AssistantContext, vaultAgents: String? = nil,
-        configuration: Configuration = Configuration()
+        configuration: Configuration = Configuration(), isEnabled: Bool = true
     ) {
         self.transport = transport
         self.keyStore = keyStore
         self.runner = AssistantToolRunner(context: context)
         self.configuration = configuration
+        self.isEnabled = isEnabled
         self.system = AssistantPrompt.system(vaultAgents: vaultAgents)
+    }
+
+    /// Turn sending on or off. Turning it off stops a running turn or draft.
+    func setEnabled(_ enabled: Bool) {
+        guard enabled != isEnabled else { return }
+        isEnabled = enabled
+        if !enabled { stop() }
+        error = nil
+    }
+
+    /// Use `model` (blank means the default) from the next request on. A conversation already under way is
+    /// started over, because its thinking blocks belong to the model that wrote them.
+    func setModel(_ model: String) {
+        let trimmed = model.trimmingCharacters(in: .whitespacesAndNewlines)
+        let next = trimmed.isEmpty ? Self.defaultModel : trimmed
+        guard next != configuration.model else { return }
+        configuration.model = next
+        if !transcript.isEmpty || isStreaming { clear() }
     }
 
     /// Ask `text`. Ignored while a turn is running or when `text` is blank.
     func send(_ text: String) {
         let question = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !isStreaming, !question.isEmpty else { return }
+        guard isEnabled else {
+            error = Self.disabledMessage
+            return
+        }
         error = nil
         guard let key = readKey() else { return }
         begin(question: question)
@@ -139,6 +167,7 @@ final class AssistantSession: ObservableObject {
         let slug = project.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !isStreaming else { throw AgentError(.busy, "Wait for the current answer to finish.") }
         guard !slug.isEmpty else { throw AgentError(.invalidDraft, "Choose a project first.") }
+        guard isEnabled else { throw AgentError(.disabled, Self.disabledMessage) }
         error = nil
         guard let key = readKey() else { throw AgentError(.missingKey, error ?? "") }
         begin(question: nil)

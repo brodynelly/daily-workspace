@@ -16,6 +16,12 @@ public struct WorkspaceSettings: Codable, Equatable {
     /// Blank means the OpenRouter account default.
     public var openRouterModel: String
     public var recentNotes: [String]
+    /// Off until the user turns the Assistant on. While off, nothing is sent to Anthropic.
+    public var assistantEnabled: Bool
+    /// The Anthropic model ID the Assistant asks. Blank means the default.
+    public var assistantModel: String
+
+    public static let defaultAssistantModel = "claude-opus-5-5"
 
     public init(
         vaultBookmark: Data? = nil,
@@ -26,7 +32,9 @@ public struct WorkspaceSettings: Codable, Equatable {
         caretPreset: CaretPreset = .glide,
         showNotePreview: Bool = false,
         openRouterModel: String = "",
-        recentNotes: [String] = []
+        recentNotes: [String] = [],
+        assistantEnabled: Bool = false,
+        assistantModel: String = WorkspaceSettings.defaultAssistantModel
     ) {
         self.vaultBookmark = vaultBookmark
         self.vaultPath = vaultPath
@@ -37,6 +45,8 @@ public struct WorkspaceSettings: Codable, Equatable {
         self.showNotePreview = showNotePreview
         self.openRouterModel = openRouterModel
         self.recentNotes = recentNotes
+        self.assistantEnabled = assistantEnabled
+        self.assistantModel = assistantModel
     }
 
     public init(from decoder: Decoder) throws {
@@ -54,6 +64,10 @@ public struct WorkspaceSettings: Codable, Equatable {
         showNotePreview = try c.decodeIfPresent(Bool.self, forKey: .showNotePreview) ?? fallback.showNotePreview
         openRouterModel = try c.decodeIfPresent(String.self, forKey: .openRouterModel) ?? fallback.openRouterModel
         recentNotes = try c.decodeIfPresent([String].self, forKey: .recentNotes) ?? fallback.recentNotes
+        // A value of the wrong type keeps the Assistant off rather than making the whole file unreadable.
+        assistantEnabled =
+            (try? c.decodeIfPresent(Bool.self, forKey: .assistantEnabled)) ?? fallback.assistantEnabled
+        assistantModel = (try? c.decodeIfPresent(String.self, forKey: .assistantModel)) ?? fallback.assistantModel
     }
 }
 
