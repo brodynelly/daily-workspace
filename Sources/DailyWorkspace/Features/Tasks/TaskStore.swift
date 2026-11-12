@@ -14,6 +14,8 @@ final class TaskStore: ObservableObject {
     @Published private(set) var tasks = TaskList()
     @Published private(set) var message: String?
     @Published private(set) var recentlyDeleted: TaskItem?
+    /// Why `tasks.json` could not be loaded at launch, if it could not.
+    @Published private(set) var loadError: String?
 
     private let persistence: TaskPersisting?
 
@@ -27,7 +29,9 @@ final class TaskStore: ObservableObject {
             Log.tasks.error(
                 "Tasks could not be loaded: \(Log.code(error), privacy: .public) \(error.localizedDescription, privacy: .private(mask: .hash))"
             )
-            message = "Tasks could not be loaded: \(error.localizedDescription)"
+            let reason = "Tasks could not be loaded: \(error.localizedDescription)"
+            message = reason
+            loadError = reason
         }
         persistence = store
     }

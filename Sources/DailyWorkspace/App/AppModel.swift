@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import DailyCore
 import SwiftUI
 
@@ -18,6 +19,10 @@ final class AppModel: ObservableObject {
         var chatTransport: ChatTransport
         var calendarStore: CalendarStore
         var reminderStore: ReminderStore
+        /// Read-only GETs against an already running Luuna runtime.
+        var luunaReader: LuunaRuntimeReading
+        /// The Luuna bearer token (Keychain service `app.dailyworkspace.luuna`).
+        var luunaKeyStore: APIKeyStore
         var autosaveDelay: Duration
         /// System notifications and the external-change poll. Off in tests.
         var observesSystem: Bool
@@ -48,6 +53,8 @@ final class AppModel: ObservableObject {
                 chatTransport: OpenRouterClient(),
                 calendarStore: EventKitCalendarStore(),
                 reminderStore: EventKitReminderStore(),
+                luunaReader: LuunaRuntimeClient(),
+                luunaKeyStore: KeychainAPIKeyStore.luuna,
                 autosaveDelay: .milliseconds(800),
                 observesSystem: true
             )
@@ -81,6 +88,13 @@ final class AppModel: ObservableObject {
     let calendar: CalendarService
     let reminders: RemindersService
     let chat: ChatService
+    let luuna: LuunaStore
+    let openLoops: OpenLoopsStore
+    let projects: ProjectsStore
+
+    /// A problem with the saved Luuna settings (an unreadable token or host file), for Settings to show. Cleared by
+    /// a successful `connectLuuna`.
+    @Published var luunaSettingsNotice: String?
 
     @Published private(set) var systemReduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
     /// Changes at midnight and on time-zone changes so "today" re-evaluates.
@@ -88,6 +102,10 @@ final class AppModel: ObservableObject {
 
     private var pollTimer: Timer?
     private var observers: [(NotificationCenter, NSObjectProtocol)] = []
+    /// Where the Luuna origin and token are saved (`AppModel+Sources.swift`).
+    let luunaSettings: LuunaSettings
+    /// Follows `vaultSession` for Open Loops and Projects (`AppModel+Sources.swift`).
+    var vaultSubscription: AnyCancellable?
 
     convenience init() {
         self.init(dependencies: .live)
@@ -102,10 +120,17 @@ final class AppModel: ObservableObject {
         chat = ChatService(keyStore: dependencies.keyStore, transport: dependencies.chatTransport)
         calendar = CalendarService(store: dependencies.calendarStore)
         reminders = RemindersService(store: dependencies.reminderStore)
+        luunaSettings = LuunaSettings(directory: dependencies.directory, keys: dependencies.luunaKeyStore)
+        let saved = luunaSettings.load()
+        luuna = LuunaStore(reader: dependencies.luunaReader, origin: saved.origin, token: saved.token)
+        luunaSettingsNotice = saved.notice
+        openLoops = OpenLoopsStore(tasks: tasks, reminders: reminders)
+        projects = ProjectsStore(registry: AssociationRegistry(directory: dependencies.directory), luuna: luuna)
 
         vaultSession.resolve()
         document.attach(vaultSession.vault)
         if vaultSession.vault != nil { openToday(create: false) }
+        observeVault(refreshNow: dependencies.observesSystem)
         if dependencies.observesSystem { startObserving() }
     }
 
@@ -266,8 +291,8 @@ final class AppModel: ObservableObject {
         observe(.default, NSApplication.didBecomeActiveNotification) { model in
             model.document.checkExternalChange()
             model.calendar.reload()
-            model.reminders.updateStatus()
-            if model.reminders.hasLoaded { Task { await model.reminders.refresh() } }
+            // Open Loops re-reads Reminders (when allowed) along with the vault's Org, Seeds and Plot files.
+            model.refreshSources()
         }
         pollTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.document.checkExternalChange() }
@@ -336,5 +361,8 @@ extension View {
             .environmentObject(model.calendar)
             .environmentObject(model.reminders)
             .environmentObject(model.chat)
+            .environmentObject(model.luuna)
+            .environmentObject(model.openLoops)
+            .environmentObject(model.projects)
     }
 }
