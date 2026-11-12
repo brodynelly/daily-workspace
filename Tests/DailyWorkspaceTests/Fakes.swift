@@ -146,18 +146,26 @@ final class FakeReminderStore: ReminderStore {
 
 extension AppModel.Dependencies {
     /// Isolated dependencies: in-memory settings and stores, no legacy import, no system observers.
+    /// The app folder defaults to a fresh, unused temporary path per call, so app-owned files (associations, the
+    /// Luuna host file) never leak between tests.
     @MainActor
     static func test(
         tasks: InMemoryTaskPersistence = InMemoryTaskPersistence(),
         settings: InMemorySettings = InMemorySettings(),
+        directory: WorkspaceDirectory? = nil,
+        reminderStore: FakeReminderStore? = nil,
+        luunaReader: FakeLuunaReader = FakeLuunaReader(),
+        luunaKeys: FakeKeyStore = FakeKeyStore(),
         configure: (inout WorkspaceSettings) -> Void = { _ in }
     ) -> Self {
         var initial = settings.stored ?? WorkspaceSettings()
         configure(&initial)
         settings.stored = initial
         return Self(
-            directory: WorkspaceDirectory(
-                url: FileManager.default.temporaryDirectory.appendingPathComponent("daily-workspace-tests")),
+            directory: directory
+                ?? WorkspaceDirectory(
+                    url: FileManager.default.temporaryDirectory.appendingPathComponent(
+                        "daily-workspace-tests-\(UUID().uuidString)")),
             settings: settings,
             legacyDefaults: nil,
             makeTaskPersistence: { tasks },
@@ -165,7 +173,9 @@ extension AppModel.Dependencies {
             keyStore: FakeKeyStore(),
             chatTransport: FakeTransport(),
             calendarStore: FakeCalendarStore(),
-            reminderStore: FakeReminderStore(),
+            reminderStore: reminderStore ?? FakeReminderStore(),
+            luunaReader: luunaReader,
+            luunaKeyStore: luunaKeys,
             autosaveDelay: .seconds(60),
             observesSystem: false
         )
