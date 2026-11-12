@@ -1,0 +1,27 @@
+{
+  "name": "tac-final",
+  "description": "Tactical Agentic Coding (TAC) by @IndyDevDan as a complete, self-improving agentic layer for any repo: plan/build/test/review/ship skills, AI Developer Workflows (in-session or headless) with a learn step that refreshes agent experts in the same PR, a manual retro that turns failed runs into one human-approved fix plan, parallel orchestration, prompt and agent engineering, best-effort guardrail hooks, an output style, and trigger evals",
+  "version": "1.1.0",
+  "author": {
+    "name": "brody",
+    "url": "https://github.com/brodynelly"
+  },
+  "license": "Educational",
+  "repository": "https://github.com/brodynelly/bnelly-claude-software",
+  "homepage": "https://agenticengineer.com/tactical-agentic-coding",
+  "keywords": [
+    "adw",
+    "agent-experts",
+    "agentic-coding",
+    "closed-loop",
+    "context-engineering",
+    "guardrails",
+    "multi-agent",
+    "prompt-engineering",
+    "retro",
+    "self-improving",
+    "spec-driven",
+    "tac",
+    "worktrees"
+  ]
+}

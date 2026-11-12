@@ -1,0 +1,51 @@
+# Expertise: <domain>
+# Mental model for agents working in this domain. A map to verify, NOT a source of truth: the code is.
+# Store: .claude/experts/<domain>/expertise.yaml. Maintained by /tac-final:expert improve (tac-final:expertise-curator).
+# Keep under line_limit (see references/expertise-format.md). Only core_files entries use the "- path:" key;
+# the Learn hook matches changed files against them.
+
+domain: <domain>
+source_revision: <git rev-parse HEAD at last validation>  # improve diffs from here
+last_validated: <YYYY-MM-DD>                               # fallback when source_revision is unknown to git
+line_limit: 400
+evals: evals.yaml                                          # relative to this file; omit if none
+last_eval:
+  date: <YYYY-MM-DD>
+  revision: <commit SHA>
+  score: "<pass>/<total>"
+
+overview:
+  purpose: "<what this domain does, 1-2 sentences>"
+  boundaries: "<what is in and out of this domain>"
+  stack: "<frameworks, libraries, storage>"
+
+core_files:
+  - path: "<path/to/file.ext>"   # a file, or a directory ending in "/"
+    role: "<what lives here>"
+    key_symbols: ["<FunctionOrClass>", "<another>"]
+
+key_operations:
+  - name: "<operation, e.g. create invoice>"
+    entry: "<path/to/file.ext:function>"
+    flow: "<the steps, briefly>"
+    gotchas: ["<edge case or invariant>"]
+
+data_model:
+  - entity: "<name>"
+    defined_in: "<path>"
+    invariants: ["<rule that must always hold>"]
+
+conventions:
+  - "<pattern agents must follow in this domain>"
+
+integration_points:
+  - system: "<other domain or external service>"
+    via: "<API, queue, table>"
+
+testing:
+  commands: ["<narrow test command for this domain>"]
+  key_tests: ["<path/to/test>"]
+
+known_issues:
+  - issue: "<description>"
+    workaround: "<how to handle it>"

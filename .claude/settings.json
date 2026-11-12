@@ -1,0 +1,10 @@
+{
+  "extraKnownMarketplaces": {
+    "daily-workspace-local": {
+      "source": { "source": "directory", "path": "./.claude/plugins" }
+    }
+  },
+  "enabledPlugins": {
+    "tac-final@daily-workspace-local": true
+  }
+}

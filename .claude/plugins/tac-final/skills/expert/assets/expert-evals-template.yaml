@@ -1,0 +1,36 @@
+# Expert evals: <domain>
+# Store: .claude/experts/<domain>/evals.yaml. Scored by /tac-final:expert eval <domain>.
+# 5-10 items. Each answer must be verifiable: `evidence` is a repo path, `check` proves the answer still holds.
+# check forms:
+#   grep: <extended regex>   - must match at least one line of the evidence file (run with Grep, read-only)
+#   cmd: <read-only command> - must exit 0 (git ls-files, git grep, test -f, ls; never a build, test, or write)
+# Scoring: pass = the model's answer matches `answer` and check passes; fail = model wrong or silent;
+# stale = check fails (the eval is out of date; a human fixes the eval, not the model).
+
+domain: <domain>
+items:
+  - id: entry-point
+    question: "Where does <the main operation> start?"
+    answer: "<path/to/file.ext:function>"
+    evidence: "<path/to/file.ext>"
+    check: "grep: def <function>\\("
+  - id: core-invariant
+    question: "What invariant must hold for <entity>?"
+    answer: "<the rule, one sentence>"
+    evidence: "<path/to/model.ext>"
+    check: "grep: <a token that enforces the rule>"
+  - id: storage
+    question: "Where is <entity> persisted and in which table/collection?"
+    answer: "<table name> via <path/to/repo.ext>"
+    evidence: "<path/to/repo.ext>"
+    check: "grep: <table name>"
+  - id: integration
+    question: "Which external service or domain does <operation> call?"
+    answer: "<service> through <client path>"
+    evidence: "<path/to/client.ext>"
+    check: "grep: <client class or URL>"
+  - id: narrow-tests
+    question: "Which command runs only this domain's tests?"
+    answer: "<narrow test command>"
+    evidence: "<path/to/tests/>"
+    check: "cmd: git ls-files --error-unmatch <path/to/tests/test_file.ext>"

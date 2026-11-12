@@ -1,0 +1,192 @@
+# tac-final ADW trigger: label an issue "adw" to have an agent plan, build, test, and review; a separate job opens the PR.
+#
+# Install: copy to .github/workflows/tac-adw.yml, add an ANTHROPIC_API_KEY repository secret, create an "adw"
+# label, set PLUGIN_REF to a reviewed commit, and replace the placeholder validation commands in ALLOWED_TOOLS.
+#
+# Threat model: the issue title and body are untrusted input (prompt injection). The design limits what a
+# hijacked agent can reach:
+#   - gate:  runs only when the person who added the label has write, maintain, or admin access.
+#   - agent: gets ANTHROPIC_API_KEY but no GitHub write token (read-only job token, checkout credentials not
+#            persisted), an allowlist of exact validation commands (no npx, no arbitrary git), and no PR step.
+#            It hands its diff to the next job as an artifact.
+#   - ship:  never runs the agent or project code. It applies the diff, refuses workflow-file changes, and opens
+#            the PR with contents/pull-requests write. A human reviews the PR before anything merges.
+# Third-party actions are pinned to full commit SHAs (version in the trailing comment).
+
+name: tac ADW
+
+on:
+  issues:
+    types: [labeled]
+
+concurrency:
+  group: tac-adw-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+permissions: {}   # every job declares only what it needs
+
+env:
+  ISSUE: ${{ github.event.issue.number }}
+
+jobs:
+  gate:
+    if: github.event.label.name == 'adw'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      allowed: ${{ steps.check.outputs.allowed }}
+    steps:
+      - name: Require write access from the labeler
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SENDER: ${{ github.event.sender.login }}
+        run: |
+          perm="$(gh api "repos/$GITHUB_REPOSITORY/collaborators/$SENDER/permission" --jq .permission 2>/dev/null || echo none)"
+          case "$perm" in
+            admin|maintain|write) echo "allowed=true" >> "$GITHUB_OUTPUT" ;;
+            *) echo "allowed=false" >> "$GITHUB_OUTPUT"; echo "::warning::$SENDER has '$perm' access; ADW not started" ;;
+          esac
+
+  agent:
+    needs: gate
+    if: needs.gate.outputs.allowed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      issues: read
+    env:
+      PLUGIN_REPO: brodynelly/bnelly-claude-software   # marketplace repo that contains the plugin
+      PLUGIN_REF: "<40-char-commit-sha>"                # REQUIRED: a reviewed commit SHA, never a branch
+      PLUGIN_PATH: plugins/tac-final                    # plugin directory inside PLUGIN_REPO; adapt if it moves
+      CLAUDE_CODE_VERSION: latest                       # TODO: pin to a reviewed @anthropic-ai/claude-code version
+      WORKFLOW: plan_build_review_fix
+      # Exact validation commands the agent may run. Placeholders: replace with your stack's commands
+      # (see /tac-final:setup). Keep them exact; avoid wildcards like Bash(npx *) or Bash(git *).
+      ALLOWED_TOOLS: >-
+        "Bash(npm run lint)" "Bash(npm run typecheck)" "Bash(npm test)" "Bash(npm run build)"
+        "Bash(git status)" "Bash(git diff *)" "Bash(git log *)" "Bash(ls *)"
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false   # the agent must not find a push token in .git/config
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+
+      # Install your project's dependencies here so validation commands can run, for example:
+      # - run: npm ci
+
+      - name: Fetch the issue text (untrusted) into a file
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue view "$ISSUE" --repo "$GITHUB_REPOSITORY" --json title,body \
+            --template '{{.title}}{{"\n\n"}}{{.body}}' > "$RUNNER_TEMP/issue.md"
+
+      - name: Install Claude Code and the tac-final plugin
+        run: |
+          case "$PLUGIN_REF" in
+            *[!0-9a-f]*|"") echo "::error::PLUGIN_REF must be a 40-char commit SHA"; exit 1 ;;
+          esac
+          [ "${#PLUGIN_REF}" -eq 40 ] || { echo "::error::PLUGIN_REF must be a 40-char commit SHA"; exit 1; }
+          npm install -g "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION"
+          git init -q "$RUNNER_TEMP/marketplace"
+          git -C "$RUNNER_TEMP/marketplace" fetch -q --depth 1 "https://github.com/$PLUGIN_REPO" "$PLUGIN_REF"
+          git -C "$RUNNER_TEMP/marketplace" checkout -q FETCH_HEAD
+          test -f "$RUNNER_TEMP/marketplace/$PLUGIN_PATH/skills/adw/scripts/adw.sh"
+
+      - name: Run ADW (no GitHub token in this step)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TAC_GUARDRAILS: "on"
+        run: |
+          plugin="$RUNNER_TEMP/marketplace/$PLUGIN_PATH"
+          export TAC_CLAUDE_ARGS="--plugin-dir $plugin --permission-mode acceptEdits --max-turns 80 --allowedTools $ALLOWED_TOOLS"
+          # No --pr: committing, pushing, and opening the PR happen in the ship job.
+          # adw.sh runs Learn by default: expertise edits under .claude/experts/ ship in the same patch and PR.
+          # Add --no-learn below if this job must not touch .claude/experts/.
+          bash "$plugin/skills/adw/scripts/adw.sh" -w "$WORKFLOW" -- "GitHub issue #$ISSUE: $(cat "$RUNNER_TEMP/issue.md")"
+
+      - name: Export the diff for the ship job
+        run: |
+          mkdir -p "$RUNNER_TEMP/out"
+          git add -A -- . ':!.tac'
+          git diff --cached --binary > "$RUNNER_TEMP/out/adw.patch"
+          test -s "$RUNNER_TEMP/out/adw.patch" || { echo "::error::ADW passed but produced no changes"; exit 1; }
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: tac-adw-patch-${{ github.event.issue.number }}
+          path: ${{ runner.temp }}/out/adw.patch
+          retention-days: 7
+
+      # Upload only run state, KPIs, and the lessons ledger (metadata lines only). events.jsonl and step logs can
+      # echo tool inputs, file contents, and anything the injected issue text coaxed the agent into printing; keep
+      # them on the runner. /tac-final:retro works from these files; run it locally for step logs and events.
+      - name: Upload run state
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: tac-adw-state-${{ github.event.issue.number }}
+          path: |
+            .tac/runs/*/state.json
+            .tac/kpis.md
+            .tac/lessons.md
+          if-no-files-found: ignore
+          include-hidden-files: true
+          retention-days: 14
+
+  ship:
+    needs: agent
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: tac-adw-patch-${{ github.event.issue.number }}
+          path: ${{ runner.temp }}/in
+
+      - name: Commit, push, and open the PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          patch="$RUNNER_TEMP/in/adw.patch"
+          if grep -Eq '^diff --git .*[ab]/\.github/' "$patch"; then
+            echo "::error::the agent's diff touches .github/; refusing to ship it automatically"; exit 1
+          fi
+          git config user.name "tac-adw[bot]"
+          git config user.email "tac-adw@users.noreply.github.com"
+          branch="adw/issue-$ISSUE-$GITHUB_RUN_ID"
+          git switch -q -c "$branch"
+          git apply --index "$patch"
+          git commit -q -m "chore: tac ADW for issue #$ISSUE" -m "Generated by tac ADW workflow run $GITHUB_RUN_ID"
+          git push -q -u origin "$branch"
+          gh pr create --head "$branch" --title "tac ADW: issue #$ISSUE" \
+            --body "Automated tac ADW run $GITHUB_RUN_ID (workflow artifact tac-adw-state-$ISSUE). Review every change, including any expert updates, before merging.
+
+          Closes #$ISSUE"
+
+  report-failure:
+    needs: [gate, agent, ship]
+    if: failure() && needs.gate.outputs.allowed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" \
+            --body "tac ADW run failed or escalated. Run state is attached to workflow run $GITHUB_RUN_ID."

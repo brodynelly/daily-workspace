@@ -1,0 +1,7 @@
+{
+  "name": "daily-workspace-local",
+  "owner": { "name": "brody" },
+  "plugins": [
+    { "name": "tac-final", "source": "./tac-final", "description": "Tactical Agentic Coding plugin (vendored from the-library)" }
+  ]
+}
