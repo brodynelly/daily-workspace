@@ -5,14 +5,13 @@ let package = Package(
     name: "DailyWorkspace",
     platforms: [.macOS(.v14)],
     products: [
-        .executable(name: "DailyWorkspace", targets: ["DailyWorkspace"]),
-        .library(name: "DailyCore", targets: ["DailyCore"]),
+        .executable(name: "DailyWorkspace", targets: ["DailyWorkspace"])
     ],
     targets: [
         // Pure Foundation logic: caret physics, vault file layer, tasks, date templates.
         .target(name: "DailyCore"),
-        // SwiftUI + AppKit app. Info.plist is embedded so EventKit's usage string
-        // is present even when launched with `swift run`; Scripts/bundle.sh builds a real .app.
+        // SwiftUI + AppKit app. Info.plist is embedded so EventKit's usage strings
+        // are present even when launched with `swift run`; scripts/bundle.sh builds a real .app.
         .executableTarget(
             name: "DailyWorkspace",
             dependencies: ["DailyCore"],
@@ -26,5 +25,7 @@ let package = Package(
             ]
         ),
         .testTarget(name: "DailyCoreTests", dependencies: ["DailyCore"]),
+        // Store-level tests against fakes (`@testable import` of the executable target).
+        .testTarget(name: "DailyWorkspaceTests", dependencies: ["DailyWorkspace"]),
     ]
 )

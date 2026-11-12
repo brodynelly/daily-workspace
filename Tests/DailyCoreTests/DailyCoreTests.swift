@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import DailyCore
 
 final class SpringTests: XCTestCase {
@@ -67,7 +68,7 @@ final class CaretAnimatorTests: XCTestCase {
         var animator = CaretAnimator(config: CaretPreset.glide.config)
         animator.moveTo(a, cellWidth: 8)
         animator.moveTo(CaretRect(x: 18, y: 10, width: 2, height: 18), cellWidth: 8)
-        for _ in 0..<12 { animator.step(dt: 1.0 / 60.0) } // 0.2 s > short length 0.09 s
+        for _ in 0..<12 { animator.step(dt: 1.0 / 60.0) }  // 0.2 s > short length 0.09 s
         XCTAssertFalse(animator.isAnimating)
     }
 
@@ -118,9 +119,14 @@ final class TemplateTests: XCTestCase {
     func testDayBoundaryUsesProvidedCalendar() throws {
         var tokyo = Calendar(identifier: .gregorian)
         tokyo.timeZone = TimeZone(identifier: "Asia/Tokyo")!
-        var comps = DateComponents(); comps.year = 2026; comps.month = 3; comps.day = 8; comps.hour = 23; comps.minute = 30
+        var comps = DateComponents()
+        comps.year = 2026
+        comps.month = 3
+        comps.day = 8
+        comps.hour = 23
+        comps.minute = 30
         comps.timeZone = TimeZone(identifier: "UTC")
-        let instant = Calendar(identifier: .gregorian).date(from: comps)! // 23:30 UTC = 08:30 next day in Tokyo
+        let instant = Calendar(identifier: .gregorian).date(from: comps)!  // 23:30 UTC = 08:30 next day in Tokyo
         XCTAssertEqual(try DailyNoteTemplate().relativePath(for: instant, calendar: tokyo), "2026-03-09.md")
     }
 }
@@ -171,7 +177,8 @@ final class VaultTests: XCTestCase {
         let url = try vault.resolve(relativePath: "n.md")
         _ = try vault.create(url, initialText: "same\n")
         let loaded = try vault.load(url)
-        try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(100)], ofItemAtPath: url.path)
+        try FileManager.default.setAttributes(
+            [.modificationDate: Date().addingTimeInterval(100)], ofItemAtPath: url.path)
         XCTAssertNoThrow(try vault.save("same\nmore\n", to: url, expecting: loaded.snapshot))
     }
 
@@ -201,6 +208,46 @@ final class VaultTests: XCTestCase {
         let url = dir.appendingPathComponent("bin.md")
         try Data([0xff, 0xfe, 0x00, 0x41]).write(to: url)
         XCTAssertThrowsError(try vault.load(url)) { XCTAssertEqual($0 as? VaultError, .notUTF8) }
+    }
+
+    func testAppendCreatesMissingNoteThenAppendsOnItsOwnLine() throws {
+        let vault = NoteVault(root: dir)
+        let url = try vault.resolve(relativePath: "Daily/today.md")
+
+        try vault.append("- one\n", to: url, creatingWith: "# Today")
+        try vault.append("- two\n", to: url, creatingWith: "# ignored\n")
+
+        XCTAssertEqual(try vault.load(url).text, "# Today\n- one\n- two\n")
+    }
+
+    func testNewNotesResolveInsideVaultUnderPrivatePrefix() throws {
+        // /var is a symlink to /private/var; bookmarks resolve to the /private form.
+        let vault = NoteVault(root: URL(fileURLWithPath: "/private" + dir.path, isDirectory: true))
+        let url = try vault.resolve(relativePath: "Daily/not-yet-created.md")
+        XCTAssertEqual(vault.relativePath(of: url), "Daily/not-yet-created.md")
+    }
+
+    func testSymlinksCannotLeadOutOfVault() throws {
+        let vaultDir = dir.appendingPathComponent("vault")
+        let outside = dir.appendingPathComponent("outside")
+        try FileManager.default.createDirectory(
+            at: vaultDir.appendingPathComponent("real"), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(
+            at: vaultDir.appendingPathComponent("link"), withDestinationURL: outside)
+        try FileManager.default.createSymbolicLink(
+            at: vaultDir.appendingPathComponent("dangling"), withDestinationURL: dir.appendingPathComponent("nowhere"))
+        try FileManager.default.createSymbolicLink(
+            at: vaultDir.appendingPathComponent("alias"), withDestinationURL: vaultDir.appendingPathComponent("real"))
+        let vault = NoteVault(root: vaultDir)
+
+        XCTAssertThrowsError(try vault.resolve(relativePath: "link/file.md")) {
+            XCTAssertEqual($0 as? VaultError, .outsideVault)
+        }
+        XCTAssertThrowsError(try vault.resolve(relativePath: "dangling")) {
+            XCTAssertEqual($0 as? VaultError, .outsideVault)
+        }
+        XCTAssertNoThrow(try vault.resolve(relativePath: "alias/file.md"), "links that stay inside the vault are fine")
     }
 
     func testPathsCannotEscapeVault() {
