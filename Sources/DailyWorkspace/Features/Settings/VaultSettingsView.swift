@@ -8,47 +8,43 @@ struct VaultSettingsView: View {
     @EnvironmentObject private var vaultSession: VaultSession
 
     var body: some View {
-        Form {
-            Section("Vault") {
-                LabeledContent("Folder") {
-                    VStack(alignment: .trailing, spacing: 6) {
-                        Text(vaultDescription).foregroundStyle(.secondary).multilineTextAlignment(.trailing)
-                            .textSelection(.enabled)
-                        HStack {
-                            if case .available(let url) = vaultSession.state {
-                                Button("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting([url]) }
-                            }
-                            Button(AppCommand.chooseVault.title) { model.chooseVault() }
-                        }
+        SettingsPage {
+            SettingsGroup(
+                "Vault", description: "The Obsidian vault the app reads and writes. Notes stay plain Markdown."
+            ) {
+                PathSettingsRow("Folder", path: vaultDescription, monospaced: vaultURL != nil, divider: false) {
+                    if let url = vaultURL {
+                        Button("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+                            .buttonStyle(.secondary)
                     }
+                    Button(AppCommand.chooseVault.title) { model.chooseVault() }
+                        .buttonStyle(.secondary)
                 }
             }
-            dailyNoteSection
-            Section("App data") {
-                LabeledContent("Folder") {
-                    VStack(alignment: .trailing, spacing: 6) {
-                        Text(model.directory.url.path).foregroundStyle(.secondary).textSelection(.enabled)
-                        Button("Show in Finder") { NSWorkspace.shared.open(model.directory.url) }
-                    }
+            DailyNoteSettings()
+            SettingsGroup("App data") {
+                PathSettingsRow("Folder", path: model.directory.url.path, divider: false) {
+                    Button("Show in Finder") { NSWorkspace.shared.open(model.directory.url) }
+                        .buttonStyle(.secondary)
                 }
-                Text(
+                SettingsNote(
                     "settings.json, tasks.json and recovery copies of notes live here. Your API key stays in the macOS Keychain."
                 )
-                .font(.caption)
-                .foregroundStyle(.secondary)
             }
-            Section("Syncing") {
-                Text(
+            SettingsGroup("Syncing") {
+                SettingsNote(
                     "To sync, choose a vault inside iCloud Drive, Dropbox, OneDrive, or another synced folder. That service transfers the Markdown files; keep them downloaded on each Mac. External changes are checked every two seconds and when you return to the app, and conflicting edits pause saving and keep recovery copies."
                 )
-                Text(
+                SettingsNote(
                     "Local tasks and settings stay on this Mac, in the app data folder above. Apple Reminders and Calendar use their Apple accounts. Chat history stays in memory."
                 )
             }
-            .font(.caption)
-            .foregroundStyle(.secondary)
         }
-        .formStyle(.grouped)
+    }
+
+    private var vaultURL: URL? {
+        if case .available(let url) = vaultSession.state { return url }
+        return nil
     }
 
     private var vaultDescription: String {
@@ -59,55 +55,87 @@ struct VaultSettingsView: View {
         case .unavailable(let why): return why
         }
     }
+}
 
-    private var dailyNoteSection: some View {
-        Section("Daily note") {
-            Picker("Location", selection: $preferences.dailyNoteSource) {
-                Text("Obsidian settings (recommended)").tag(DailyNoteSource.obsidian)
-                Text("Custom").tag(DailyNoteSource.custom)
+/// Where today's note lives: Obsidian's own daily-note settings (read, never changed) or a custom folder and
+/// file name, and the path that resolves to today.
+private struct DailyNoteSettings: View {
+    @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var preferences: Preferences
+    @EnvironmentObject private var vaultSession: VaultSession
+    @FocusState private var focus: Field?
+
+    private enum Field { case folder, filename }
+
+    var body: some View {
+        SettingsGroup("Daily note") {
+            SettingsRow("Location", description: "Where the app finds and creates today's note.") {
+                Picker("Location", selection: $preferences.dailyNoteSource) {
+                    Text("Obsidian settings (recommended)").tag(DailyNoteSource.obsidian)
+                    Text("Custom").tag(DailyNoteSource.custom)
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .fixedSize()
             }
             switch preferences.dailyNoteSource {
             case .obsidian: obsidianDetails
-            case .custom:
-                TextField("Folder", text: $preferences.dailyFolder, prompt: Text("vault root"))
-                TextField("File name", text: $preferences.dailyFilename, prompt: Text("YYYY-MM-DD"))
+            case .custom: customFields
             }
-            LabeledContent("Today's note") {
-                Text(todayNote).foregroundStyle(.secondary).multilineTextAlignment(.trailing).textSelection(.enabled)
-            }
-            Text(dailyNoteCaption)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            PathSettingsRow("Today's note", path: todayNote.text, monospaced: todayNote.isPath, divider: false)
+            SettingsNote(dailyNoteCaption)
         }
     }
 
     @ViewBuilder private var obsidianDetails: some View {
         switch model.obsidianDailyNotes {
         case .success(let settings?)?:
-            LabeledContent("Folder", value: settings.folder.isEmpty ? "Vault root" : settings.folder)
-            LabeledContent("Format", value: settings.format)
-            LabeledContent("Template", value: settings.templatePath ?? "None")
+            Tray {
+                Facts([
+                    Fact("Folder", settings.folder.isEmpty ? "Vault root" : settings.folder, monospaced: true),
+                    Fact("Format", settings.format, monospaced: true),
+                    Fact("Template", settings.templatePath ?? "None", monospaced: settings.templatePath != nil),
+                ])
+            }
+            .padding(.vertical, Space.s3)
         case .success(nil)?:
-            Text(
+            SettingsNote(
                 "This vault has no .obsidian/daily-notes.json, so the Custom folder and file name are used. A note is created in the vault root only if you choose Custom with an empty folder."
             )
-            .font(.caption)
-            .foregroundStyle(.secondary)
+            .padding(.bottom, Space.s3)
         case .failure(let error)?:
-            Text(error.localizedDescription).font(.caption).foregroundStyle(.secondary)
+            ReasonNote(error.localizedDescription, tone: .danger).padding(.vertical, Space.s3)
         case nil:
-            Text("Choose a vault to read its Obsidian daily-note settings.").font(.caption).foregroundStyle(.secondary)
+            SettingsNote("Choose a vault to read its Obsidian daily-note settings.").padding(.bottom, Space.s3)
         }
     }
 
-    private var todayNote: String {
+    private var customFields: some View {
+        HStack(alignment: .top, spacing: Space.s4) {
+            LabeledField("Folder") {
+                TextField("", text: $preferences.dailyFolder, prompt: Text("vault root"))
+                    .focused($focus, equals: .folder)
+                    .fieldChrome(focused: focus == .folder, monospaced: true)
+            }
+            LabeledField("File name") {
+                TextField("", text: $preferences.dailyFilename, prompt: Text("YYYY-MM-DD"))
+                    .focused($focus, equals: .filename)
+                    .fieldChrome(focused: focus == .filename, monospaced: true)
+            }
+        }
+        .padding(.vertical, Space.s4)
+        .overlay(alignment: .bottom) { Hairline() }
+    }
+
+    /// Today's vault-relative path, or why it cannot be resolved.
+    private var todayNote: (text: String, isPath: Bool) {
         do {
             if vaultSession.vault == nil && preferences.dailyNoteSource == .custom {
-                return try preferences.dailyNoteTemplate.relativePath(for: Date())
+                return (try preferences.dailyNoteTemplate.relativePath(for: Date()), true)
             }
-            return try model.resolveDailyNote(for: Date()).path
+            return (try model.resolveDailyNote(for: Date()).path, true)
         } catch {
-            return error.localizedDescription
+            return (error.localizedDescription, false)
         }
     }
 
