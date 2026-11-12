@@ -10,16 +10,6 @@ protocol RecoveryStoring {
 struct RecoveryStore: RecoveryStoring {
     let folder: URL?
 
-    init(folder: URL? = RecoveryStore.defaultFolder) {
-        self.folder = folder
-    }
-
-    static var defaultFolder: URL? {
-        try? FileManager.default
-            .url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
-            .appendingPathComponent("DailyWorkspace/Recovery", isDirectory: true)
-    }
-
     func stash(_ text: String, label: String) throws {
         guard let folder else { throw CocoaError(.fileNoSuchFile) }
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)

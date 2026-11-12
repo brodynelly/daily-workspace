@@ -34,12 +34,25 @@ struct VaultSettingsView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             }
+            Section("App data") {
+                LabeledContent("Folder") {
+                    VStack(alignment: .trailing, spacing: 6) {
+                        Text(model.directory.url.path).foregroundStyle(.secondary).textSelection(.enabled)
+                        Button("Show in Finder") { NSWorkspace.shared.open(model.directory.url) }
+                    }
+                }
+                Text(
+                    "settings.json, tasks.json and recovery copies of notes live here. Your API key stays in the macOS Keychain."
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
             Section("Syncing") {
                 Text(
                     "To sync, choose a vault inside iCloud Drive, Dropbox, OneDrive, or another synced folder. That service transfers the Markdown files; keep them downloaded on each Mac. External changes are checked every two seconds and when you return to the app, and conflicting edits pause saving and keep recovery copies."
                 )
                 Text(
-                    "Local tasks and settings stay on this Mac. Apple Reminders and Calendar use their Apple accounts. Chat history stays in memory."
+                    "Local tasks and settings stay on this Mac, in the app data folder above. Apple Reminders and Calendar use their Apple accounts. Chat history stays in memory."
                 )
             }
             .font(.caption)

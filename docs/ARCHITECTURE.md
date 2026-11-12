@@ -17,6 +17,7 @@ Sources/DailyCore/
   Vault/          NoteVault (load/create/save/append, conflict detection, path containment),
                   DailyNoteTemplate, VaultIndex (search, backlinks)
   Tasks/          TaskList (TaskItem transitions), TaskPersistence (JSON file)
+  Storage/        WorkspaceDirectory (~/.config/daily-workspace, legacy adoption), WorkspaceSettings + SettingsPersistence
   LocalDay.swift  time-zone-free calendar day
 
 Sources/DailyWorkspace/
@@ -24,7 +25,7 @@ Sources/DailyWorkspace/
                   AppModel              owns every store; actions that span features; system observers
                   AppSection            sidebar screens: titles, symbols, ⌘1…⌘7; AppNavigation, WindowID
                   AppCommand            command registry, CommandRunner, WorkspaceCommands (menu bar)
-                  Preferences           every UserDefaults key
+                  Preferences           every remembered setting (settings.json), legacy UserDefaults import
                   RootView, WorkspaceAppDelegate
   Features/
     Today/          TodayView
@@ -101,6 +102,7 @@ Rules:
 
 | Protocol | Production | Test fake |
 | --- | --- | --- |
+| `SettingsPersisting` | `SettingsPersistence` (DailyCore) | `InMemorySettings` |
 | `TaskPersisting` | `TaskPersistence` (DailyCore) | `InMemoryTaskPersistence` |
 | `RecoveryStoring` | `RecoveryStore` | `FakeRecovery` |
 | `CalendarStore` | `EventKitCalendarStore` | `FakeCalendarStore` |
@@ -108,16 +110,17 @@ Rules:
 | `APIKeyStore` | `KeychainAPIKeyStore` | `FakeKeyStore` |
 | `ChatTransport` | `OpenRouterClient` | `FakeTransport` |
 
-Production instances are wired in `AppModel.Dependencies.live`. The fakes, and `AppModel.Dependencies.test(_:)` (which uses a throwaway `UserDefaults` suite and turns off system observers), live in `Tests/DailyWorkspaceTests/Fakes.swift`. The vault itself is not faked: tests use real temporary directories, because the file-safety behaviour is exactly what needs testing.
+Production instances are wired in `AppModel.Dependencies.live`. The fakes, and `AppModel.Dependencies.test(tasks:settings:configure:)` (in-memory settings, no legacy import, no system observers), live in `Tests/DailyWorkspaceTests/Fakes.swift`. The vault itself is not faked: tests use real temporary directories, because the file-safety behaviour is exactly what needs testing.
 
 ## Persistence
 
 | Data | Location |
 | --- | --- |
 | Notes | The user's vault, as plain Markdown, opened through a security-scoped bookmark |
-| Tasks | `~/Library/Application Support/DailyWorkspace/tasks.json`. A corrupt file is moved aside, never silently overwritten. |
-| Discarded conflict versions | `~/Library/Application Support/DailyWorkspace/Recovery/` |
-| Settings and recent notes | `UserDefaults`; keys are declared in `Preferences.Key` |
+| App folder | `~/.config/daily-workspace/` (`WorkspaceDirectory`), created `0700`. Always under the home folder; `$XDG_CONFIG_HOME` is not honored because Dock-launched apps don't see shell variables. |
+| Settings and recent notes | `settings.json` in the app folder: pretty-printed JSON, safe to edit by hand while the app is closed. Missing keys use defaults, unknown keys are ignored, a corrupt file is moved aside, and an unreadable file is never overwritten. On the first launch without it, the earlier UserDefaults values (`Preferences.LegacyKey`) are imported once. |
+| Tasks | `tasks.json` in the app folder. A corrupt file is moved aside, never silently overwritten. On the first launch without it, `~/Library/Application Support/DailyWorkspace/tasks.json` is copied over; the original is left in place. |
+| Discarded conflict versions | `recovery/` in the app folder |
 | OpenRouter key | Keychain, service `app.dailyworkspace.openrouter` |
 
 ## Logging

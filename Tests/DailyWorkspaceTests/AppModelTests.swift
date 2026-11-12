@@ -11,7 +11,7 @@ final class AppModelTests: XCTestCase {
 
     override func setUp() async throws {
         root = try makeTemporaryVault(self)
-        model = AppModel(dependencies: .test(self) { $0.set("Daily", forKey: Preferences.Key.dailyFolder) })
+        model = AppModel(dependencies: .test { $0.dailyFolder = "Daily" })
         todayPath = try DailyNoteTemplate(folder: "Daily").relativePath(for: Date())
     }
 
@@ -77,7 +77,7 @@ final class CaptureDurabilityTests: XCTestCase {
     func testTaskCaptureThatCannotBeSavedIsRejected() {
         let persistence = InMemoryTaskPersistence()
         persistence.failSaves = true
-        let model = AppModel(dependencies: .test(self, tasks: persistence))
+        let model = AppModel(dependencies: .test(tasks: persistence))
 
         XCTAssertEqual(model.capture("Buy milk", to: .task), .rejected("Tasks could not be saved: disk full"))
         XCTAssertTrue(model.tasks.tasks.items.isEmpty)

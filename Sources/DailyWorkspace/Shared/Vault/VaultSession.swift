@@ -36,8 +36,9 @@ final class VaultSession: ObservableObject {
     /// Remember `url` as the vault and open it.
     func adopt(_ url: URL) {
         do {
-            preferences.vaultBookmark = try url.bookmarkData(
+            let bookmark = try url.bookmarkData(
                 options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil)
+            preferences.rememberVault(at: url, bookmark: bookmark)
         } catch {
             Log.vault.error(
                 "Bookmark creation failed: \(Log.code(error), privacy: .public) \(error.localizedDescription, privacy: .private(mask: .hash))"
@@ -82,8 +83,9 @@ final class VaultSession: ObservableObject {
         }
         if stale {
             do {
-                preferences.vaultBookmark = try url.bookmarkData(
+                let bookmark = try url.bookmarkData(
                     options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil)
+                preferences.rememberVault(at: url, bookmark: bookmark)
                 Log.vault.info("Refreshed stale vault bookmark")
             } catch {
                 // The old bookmark still resolved, so keep using it; it is retried on the next launch.
@@ -92,6 +94,7 @@ final class VaultSession: ObservableObject {
                 )
             }
         }
+        preferences.noteVaultLocation(url)
         vault = NoteVault(root: url)
         state = .available(url)
     }

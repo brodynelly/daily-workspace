@@ -29,7 +29,8 @@ Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) first. In short:
 - **New command:** add a case to `AppCommand`. The menu bar and the command palette pick it up from there.
 - **Shared UI:** `Shared/Components/`. Theme tokens go in `Shared/Theme/WorkspaceTheme`.
 - **Pure logic** (parsing, date math, file rules): `DailyCore`, with tests in `DailyCoreTests`.
-- **New setting:** a property and key in `Preferences`. No `@AppStorage` string literals in views.
+- **New setting:** a field in `WorkspaceSettings` (with a default in its decoder, so older `settings.json` files still load) and a property in `Preferences`. No `@AppStorage` or `UserDefaults` in views.
+- **New app-owned file:** a URL on `WorkspaceDirectory` (`~/.config/daily-workspace/`). Never Application Support, never the vault, and never secrets: keys stay in the Keychain.
 - **New disk, network or OS integration:** put a protocol at the boundary, a production implementation next to the feature, and a fake in `Tests/DailyWorkspaceTests/Fakes.swift`. Wire both in `AppModel.Dependencies`.
 - **Diagnostics:** use the `Log` channels. Never log note text, chat content or keys. Log paths with `privacy: .private`, and log errors as `Log.code(error)` (public) plus the description with `.private(mask: .hash)`.
 

@@ -8,14 +8,6 @@ public struct TaskPersistence {
         self.url = url
     }
 
-    public static func defaultURL(appName: String = "DailyWorkspace") throws -> URL {
-        let base = try FileManager.default.url(
-            for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
-        let dir = base.appendingPathComponent(appName, isDirectory: true)
-        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir.appendingPathComponent("tasks.json")
-    }
-
     private var decoder: JSONDecoder {
         let d = JSONDecoder()
         d.dateDecodingStrategy = .iso8601

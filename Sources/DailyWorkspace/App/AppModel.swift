@@ -7,7 +7,11 @@ import SwiftUI
 @MainActor
 final class AppModel: ObservableObject {
     struct Dependencies {
-        var defaults: UserDefaults
+        /// The app's own folder (`~/.config/daily-workspace`), shown in Settings.
+        var directory: WorkspaceDirectory
+        var settings: SettingsPersisting
+        /// Settings from earlier versions, imported once when no settings file exists yet.
+        var legacyDefaults: UserDefaults?
         var makeTaskPersistence: () throws -> TaskPersisting
         var recovery: RecoveryStoring
         var keyStore: APIKeyStore
@@ -19,10 +23,27 @@ final class AppModel: ObservableObject {
         var observesSystem: Bool
 
         @MainActor static var live: Dependencies {
-            Dependencies(
-                defaults: .standard,
-                makeTaskPersistence: { TaskPersistence(url: try TaskPersistence.defaultURL()) },
-                recovery: RecoveryStore(),
+            let directory = WorkspaceDirectory.standard()
+            do {
+                try directory.prepare()
+            } catch {
+                Log.app.error(
+                    "Workspace folder could not be created: \(Log.code(error), privacy: .public) \(error.localizedDescription, privacy: .private(mask: .hash))"
+                )
+            }
+            return Dependencies(
+                directory: directory,
+                settings: SettingsPersistence(url: directory.settingsURL),
+                legacyDefaults: .standard,
+                makeTaskPersistence: {
+                    // Copy tasks from the old location once; the original file is left in place.
+                    let legacy = WorkspaceDirectory.legacyFolder().appendingPathComponent("tasks.json")
+                    if try WorkspaceDirectory.adopt(legacyFile: legacy, as: directory.tasksURL) {
+                        Log.tasks.info("Copied tasks from the previous Application Support location")
+                    }
+                    return TaskPersistence(url: directory.tasksURL)
+                },
+                recovery: RecoveryStore(folder: directory.recoveryFolder),
                 keyStore: KeychainAPIKeyStore(),
                 chatTransport: OpenRouterClient(),
                 calendarStore: EventKitCalendarStore(),
@@ -51,6 +72,7 @@ final class AppModel: ObservableObject {
         case rejected(String)
     }
 
+    let directory: WorkspaceDirectory
     let preferences: Preferences
     let navigation = AppNavigation()
     let vaultSession: VaultSession
@@ -72,7 +94,8 @@ final class AppModel: ObservableObject {
     }
 
     init(dependencies: Dependencies) {
-        preferences = Preferences(defaults: dependencies.defaults)
+        directory = dependencies.directory
+        preferences = Preferences(store: dependencies.settings, legacyDefaults: dependencies.legacyDefaults)
         vaultSession = VaultSession(preferences: preferences)
         document = NoteDocument(recovery: dependencies.recovery, autosaveDelay: dependencies.autosaveDelay)
         tasks = TaskStore(makePersistence: dependencies.makeTaskPersistence)

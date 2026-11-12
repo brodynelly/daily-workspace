@@ -23,6 +23,22 @@ final class InMemoryTaskPersistence: TaskPersisting {
     }
 }
 
+final class InMemorySettings: SettingsPersisting {
+    var stored: WorkspaceSettings?
+    var loadError: Error?
+    private(set) var saveCount = 0
+
+    func load() throws -> WorkspaceSettings? {
+        if let loadError { throw loadError }
+        return stored
+    }
+
+    func save(_ settings: WorkspaceSettings) throws {
+        saveCount += 1
+        stored = settings
+    }
+}
+
 final class FakeRecovery: RecoveryStoring {
     var folder: URL?
     var fails = false
@@ -129,19 +145,21 @@ final class FakeReminderStore: ReminderStore {
 }
 
 extension AppModel.Dependencies {
-    /// Isolated dependencies: throwaway UserDefaults suite, in-memory stores, no system observers.
+    /// Isolated dependencies: in-memory settings and stores, no legacy import, no system observers.
     @MainActor
     static func test(
-        _ testCase: XCTestCase,
         tasks: InMemoryTaskPersistence = InMemoryTaskPersistence(),
-        configure: (UserDefaults) -> Void = { _ in }
+        settings: InMemorySettings = InMemorySettings(),
+        configure: (inout WorkspaceSettings) -> Void = { _ in }
     ) -> Self {
-        let suite = "DailyWorkspaceTests-\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suite)!
-        testCase.addTeardownBlock { defaults.removePersistentDomain(forName: suite) }
-        configure(defaults)
+        var initial = settings.stored ?? WorkspaceSettings()
+        configure(&initial)
+        settings.stored = initial
         return Self(
-            defaults: defaults,
+            directory: WorkspaceDirectory(
+                url: FileManager.default.temporaryDirectory.appendingPathComponent("daily-workspace-tests")),
+            settings: settings,
+            legacyDefaults: nil,
             makeTaskPersistence: { tasks },
             recovery: FakeRecovery(),
             keyStore: FakeKeyStore(),

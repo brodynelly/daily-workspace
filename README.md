@@ -99,13 +99,13 @@ The app switches back to the system caret in these cases:
 ## Safety rules for your vault
 
 - A note is saved exactly as the text you loaded plus your edits. Frontmatter, wikilinks, embeds, CRLF line endings and Unicode survive byte for byte, and there are no smart quotes or automatic replacements.
-- Saves are atomic. If the file changed on disk after it was loaded (by Obsidian or a sync client), saving pauses and you choose *Reload From Disk* or *Keep My Version*. The version you discard is written to `~/Library/Application Support/DailyWorkspace/Recovery`, never into the vault. If that copy cannot be written, nothing is discarded.
+- Saves are atomic. If the file changed on disk after it was loaded (by Obsidian or a sync client), saving pauses and you choose *Reload From Disk* or *Keep My Version*. The version you discard is written to `~/.config/daily-workspace/recovery/`, never into the vault. If that copy cannot be written, nothing is discarded.
 - The app never deletes, renames or moves vault files. A file that is not valid UTF-8 is refused, not rewritten. Paths, including symlinks inside the vault, can never lead outside the vault.
 - A vault that has moved or whose access was revoked shows as its own state, with a button to choose it again.
 
 ## Privacy
 
-- Notes, tasks and settings stay on this Mac. Tasks live in `~/Library/Application Support/DailyWorkspace/tasks.json`.
+- Notes, tasks and settings stay on this Mac. The app's own files live in `~/.config/daily-workspace/`: `settings.json`, `tasks.json` and `recovery/` (Settings → Vault → App data shows the folder). The API key stays in the macOS Keychain, not in that folder.
 - There is no telemetry. Diagnostic logs go only to the local macOS unified log (subsystem `app.dailyworkspace.mac`) and never contain note text, chat content or keys.
 - **AI chat** sends messages to OpenRouter and its providers, which may incur charges. The text of a note is sent only when **Attach Open Note** is checked. The API key is stored in the macOS Keychain. Chat history is kept in memory only, and Stop and Clear are available. The app never creates a key or sends a paid request on its own.
 - Calendar and Reminders access is requested only when you ask for it, and is used only for the screens described above.

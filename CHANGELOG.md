@@ -15,6 +15,7 @@ All notable changes to this project are documented here. The format follows [Kee
 - `docs/ARCHITECTURE.md`, `docs/TESTING.md`, `CONTRIBUTING.md` and this changelog.
 
 ### Changed
+- The app's own files now live in `~/.config/daily-workspace/`: settings in `settings.json` (readable JSON instead of UserDefaults), tasks in `tasks.json` and conflict recovery copies in `recovery/`. On first launch, existing settings are imported and `tasks.json` is copied from `~/Library/Application Support/DailyWorkspace/`; the old files are left in place. **Settings → Vault → App data** shows the folder. The API key stays in the Keychain.
 - The source is organized into `App/`, `Features/<Feature>/` and `Shared/`, and `DailyCore` into `Caret/`, `Vault/` and `Tasks/`.
 - `AppState` is split into an `AppModel` coordinator and focused stores (`AppNavigation`, `Preferences`, `VaultSession`, `NoteDocument`, `TaskStore`). Every `UserDefaults` key now lives in `Preferences`.
 - Disk, EventKit, Keychain and network access now go through protocols (`TaskPersisting`, `RecoveryStoring`, `CalendarStore`, `ReminderStore`, `APIKeyStore`, `ChatTransport`).
