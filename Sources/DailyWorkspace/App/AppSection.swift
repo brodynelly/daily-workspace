@@ -32,7 +32,7 @@ enum AppSection: String, CaseIterable, Identifiable {
         case .calendar:
             return "One day of Apple Calendar events, to review and edit."
         case .assistant:
-            return "Think through an idea or the open note with the model chosen in Settings."
+            return "Ask about your notes, open loops, projects and calendar; read-only, it cites what it read."
         }
     }
 
