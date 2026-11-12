@@ -30,6 +30,8 @@ final class Preferences: ObservableObject {
 
     static let recentNotesLimit = 8
 
+    /// Where the daily-note location comes from: the vault's Obsidian settings (default) or the fields below.
+    @Published var dailyNoteSource: DailyNoteSource { didSet { persist() } }
     @Published var dailyFolder: String { didSet { persist() } }
     @Published var dailyFilename: String { didSet { persist() } }
     @Published var caretPreset: CaretPreset { didSet { persist() } }
@@ -64,6 +66,7 @@ final class Preferences: ObservableObject {
             )
         }
         canSave = readable
+        dailyNoteSource = settings.dailyNoteSource
         dailyFolder = settings.dailyFolder
         dailyFilename = settings.dailyFilename
         caretPreset = settings.caretPreset
@@ -79,6 +82,10 @@ final class Preferences: ObservableObject {
     }
 
     var dailyNoteTemplate: DailyNoteTemplate { DailyNoteTemplate(folder: dailyFolder, filename: dailyFilename) }
+
+    var dailyNoteResolver: DailyNoteResolver {
+        DailyNoteResolver(source: dailyNoteSource, custom: dailyNoteTemplate)
+    }
 
     func rememberVault(at url: URL, bookmark: Data) {
         vaultBookmark = bookmark
@@ -104,6 +111,7 @@ final class Preferences: ObservableObject {
         WorkspaceSettings(
             vaultBookmark: vaultBookmark,
             vaultPath: vaultPath,
+            dailyNoteSource: dailyNoteSource,
             dailyFolder: dailyFolder,
             dailyFilename: dailyFilename,
             caretPreset: caretPreset,

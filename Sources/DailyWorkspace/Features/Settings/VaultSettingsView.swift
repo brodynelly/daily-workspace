@@ -1,4 +1,5 @@
 import AppKit
+import DailyCore
 import SwiftUI
 
 struct VaultSettingsView: View {
@@ -22,18 +23,7 @@ struct VaultSettingsView: View {
                     }
                 }
             }
-            Section("Daily note") {
-                TextField("Folder", text: $preferences.dailyFolder, prompt: Text("vault root"))
-                TextField("File name", text: $preferences.dailyFilename, prompt: Text("YYYY-MM-DD"))
-                LabeledContent("Today's note") {
-                    Text(previewPath).foregroundStyle(.secondary).textSelection(.enabled)
-                }
-                Text(
-                    "Tokens: YYYY, MM, DD. The folder is created on demand. Existing files are never renamed or moved."
-                )
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            }
+            dailyNoteSection
             Section("App data") {
                 LabeledContent("Folder") {
                     VStack(alignment: .trailing, spacing: 6) {
@@ -70,7 +60,65 @@ struct VaultSettingsView: View {
         }
     }
 
-    private var previewPath: String {
-        (try? preferences.dailyNoteTemplate.relativePath(for: Date())) ?? "Invalid template"
+    private var dailyNoteSection: some View {
+        Section("Daily note") {
+            Picker("Location", selection: $preferences.dailyNoteSource) {
+                Text("Obsidian settings (recommended)").tag(DailyNoteSource.obsidian)
+                Text("Custom").tag(DailyNoteSource.custom)
+            }
+            switch preferences.dailyNoteSource {
+            case .obsidian: obsidianDetails
+            case .custom:
+                TextField("Folder", text: $preferences.dailyFolder, prompt: Text("vault root"))
+                TextField("File name", text: $preferences.dailyFilename, prompt: Text("YYYY-MM-DD"))
+            }
+            LabeledContent("Today's note") {
+                Text(todayNote).foregroundStyle(.secondary).multilineTextAlignment(.trailing).textSelection(.enabled)
+            }
+            Text(dailyNoteCaption)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder private var obsidianDetails: some View {
+        switch model.obsidianDailyNotes {
+        case .success(let settings?)?:
+            LabeledContent("Folder", value: settings.folder.isEmpty ? "Vault root" : settings.folder)
+            LabeledContent("Format", value: settings.format)
+            LabeledContent("Template", value: settings.templatePath ?? "None")
+        case .success(nil)?:
+            Text(
+                "This vault has no .obsidian/daily-notes.json, so the Custom folder and file name are used. A note is created in the vault root only if you choose Custom with an empty folder."
+            )
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        case .failure(let error)?:
+            Text(error.localizedDescription).font(.caption).foregroundStyle(.secondary)
+        case nil:
+            Text("Choose a vault to read its Obsidian daily-note settings.").font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    private var todayNote: String {
+        do {
+            if vaultSession.vault == nil && preferences.dailyNoteSource == .custom {
+                return try preferences.dailyNoteTemplate.relativePath(for: Date())
+            }
+            return try model.resolveDailyNote(for: Date()).path
+        } catch {
+            return error.localizedDescription
+        }
+    }
+
+    private var dailyNoteCaption: String {
+        switch preferences.dailyNoteSource {
+        case .obsidian:
+            return
+                "Read from the vault's Obsidian Daily notes settings, which are never changed. New notes start from the template. Existing files are never renamed or moved."
+        case .custom:
+            return
+                "The folder is used as written. File name tokens (Moment format, as in Obsidian): \(MomentFormat.supportedTokens.joined(separator: " ")). Wrap other letters in [brackets]; use / for subfolders. Folders are created on demand. Existing files are never renamed or moved."
+        }
     }
 }

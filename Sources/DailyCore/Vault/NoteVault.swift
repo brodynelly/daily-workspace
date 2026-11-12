@@ -7,6 +7,8 @@ public enum VaultError: Error, Equatable, LocalizedError {
     case alreadyExists
     case outsideVault
     case invalidTemplate(String)
+    /// The daily note would go in the vault root, which only an explicit custom setting may choose.
+    case dailyNoteFolderUnset
     case io(String)
 
     public var errorDescription: String? {
@@ -17,6 +19,7 @@ public enum VaultError: Error, Equatable, LocalizedError {
         case .alreadyExists: return "A note with that name already exists."
         case .outsideVault: return "That path is outside the selected vault."
         case .invalidTemplate(let why): return "The daily-note template is invalid (\(why))."
+        case .dailyNoteFolderUnset: return "Set where daily notes go in Settings → Vault."
         case .io(let message): return message
         }
     }

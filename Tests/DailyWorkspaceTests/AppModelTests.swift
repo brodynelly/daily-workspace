@@ -11,7 +11,11 @@ final class AppModelTests: XCTestCase {
 
     override func setUp() async throws {
         root = try makeTemporaryVault(self)
-        model = AppModel(dependencies: .test { $0.dailyFolder = "Daily" })
+        model = AppModel(
+            dependencies: .test {
+                $0.dailyNoteSource = .custom
+                $0.dailyFolder = "Daily"
+            })
         todayPath = try DailyNoteTemplate(folder: "Daily").relativePath(for: Date())
     }
 
