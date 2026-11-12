@@ -95,25 +95,28 @@ final class TemplateTests: XCTestCase {
     }
 
     func testDefaultTemplate() throws {
-        let path = try DailyNoteTemplate().relativePath(for: date(2026, 10, 22), calendar: utc)
+        let path = try DailyNoteTemplate().relativePath(for: date(2026, 10, 22), formatter: MomentFormat(calendar: utc))
         XCTAssertEqual(path, "2026-10-22.md")
     }
 
-    func testFolderAndTokens() throws {
-        let t = DailyNoteTemplate(folder: "Daily/YYYY/MM", filename: "DD - Journal")
-        XCTAssertEqual(try t.relativePath(for: date(2026, 1, 5), calendar: utc), "Daily/2026/01/05 - Journal.md")
+    func testFolderIsLiteralAndFileNameIsMomentFormat() throws {
+        let t = DailyNoteTemplate(folder: "Daily", filename: "YYYY/MM-MMM/DD - [Journal]")
+        XCTAssertEqual(
+            try t.relativePath(for: date(2026, 1, 5), formatter: MomentFormat(calendar: utc)),
+            "Daily/2026/01-Jan/05 - Journal.md")
     }
 
     func testRejectsTraversal() {
         XCTAssertThrowsError(try DailyNoteTemplate(folder: "../outside").relativePath(for: Date()))
         XCTAssertThrowsError(try DailyNoteTemplate(filename: "..").relativePath(for: Date()))
-        XCTAssertThrowsError(try DailyNoteTemplate(filename: "a/b").relativePath(for: Date()))
+        XCTAssertThrowsError(try DailyNoteTemplate(filename: "YYYY//DD").relativePath(for: Date()))
         XCTAssertThrowsError(try DailyNoteTemplate(filename: "  ").relativePath(for: Date()))
     }
 
     func testNoDoubleExtension() throws {
         let t = DailyNoteTemplate(filename: "YYYY-MM-DD.md")
-        XCTAssertEqual(try t.relativePath(for: date(2026, 10, 22), calendar: utc), "2026-10-22.md")
+        XCTAssertEqual(
+            try t.relativePath(for: date(2026, 10, 22), formatter: MomentFormat(calendar: utc)), "2026-10-22.md")
     }
 
     func testDayBoundaryUsesProvidedCalendar() throws {
@@ -127,7 +130,9 @@ final class TemplateTests: XCTestCase {
         comps.minute = 30
         comps.timeZone = TimeZone(identifier: "UTC")
         let instant = Calendar(identifier: .gregorian).date(from: comps)!  // 23:30 UTC = 08:30 next day in Tokyo
-        XCTAssertEqual(try DailyNoteTemplate().relativePath(for: instant, calendar: tokyo), "2026-03-09.md")
+        XCTAssertEqual(
+            try DailyNoteTemplate().relativePath(for: instant, formatter: MomentFormat(calendar: tokyo)),
+            "2026-03-09.md")
     }
 }
 

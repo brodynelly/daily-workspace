@@ -7,6 +7,8 @@ public struct WorkspaceSettings: Codable, Equatable {
     public var vaultBookmark: Data?
     /// The vault's path when last opened. For people reading the file; the app opens the bookmark.
     public var vaultPath: String?
+    /// Where the daily-note location comes from. Defaults to the vault's Obsidian settings.
+    public var dailyNoteSource: DailyNoteSource
     public var dailyFolder: String
     public var dailyFilename: String
     public var caretPreset: CaretPreset
@@ -18,6 +20,7 @@ public struct WorkspaceSettings: Codable, Equatable {
     public init(
         vaultBookmark: Data? = nil,
         vaultPath: String? = nil,
+        dailyNoteSource: DailyNoteSource = .obsidian,
         dailyFolder: String = "",
         dailyFilename: String = "YYYY-MM-DD",
         caretPreset: CaretPreset = .glide,
@@ -27,6 +30,7 @@ public struct WorkspaceSettings: Codable, Equatable {
     ) {
         self.vaultBookmark = vaultBookmark
         self.vaultPath = vaultPath
+        self.dailyNoteSource = dailyNoteSource
         self.dailyFolder = dailyFolder
         self.dailyFilename = dailyFilename
         self.caretPreset = caretPreset
@@ -40,6 +44,9 @@ public struct WorkspaceSettings: Codable, Equatable {
         let fallback = WorkspaceSettings()
         vaultBookmark = try c.decodeIfPresent(Data.self, forKey: .vaultBookmark)
         vaultPath = try c.decodeIfPresent(String.self, forKey: .vaultPath)
+        // An unknown source (a typo, or one from a newer version) falls back to the Obsidian settings.
+        dailyNoteSource =
+            (try? c.decodeIfPresent(DailyNoteSource.self, forKey: .dailyNoteSource)) ?? fallback.dailyNoteSource
         dailyFolder = try c.decodeIfPresent(String.self, forKey: .dailyFolder) ?? fallback.dailyFolder
         dailyFilename = try c.decodeIfPresent(String.self, forKey: .dailyFilename) ?? fallback.dailyFilename
         // An unknown preset name (a typo, or one from a newer version) keeps the rest of the file usable.
