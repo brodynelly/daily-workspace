@@ -27,7 +27,7 @@ Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) first. In short:
 
 - **New screen or feature:** a `Features/<Feature>/` folder holding its views, its store (an `ObservableObject`), and its service. Add a case to `AppSection` if it gets a sidebar entry.
 - **New command:** add a case to `AppCommand`. The menu bar and the command palette pick it up from there.
-- **Shared UI:** `Shared/Components/`. Theme tokens go in `Shared/Theme/WorkspaceTheme`.
+- **Shared UI:** `Shared/Components/`. Theme tokens live in `Shared/Theme/` (`ColorToken`/`Theme` colour roles in light and dark, `Radius`, `Space`, `Metrics`, `Motion`, `TextRole`) and follow Luuna's desktop design system; never write a literal colour, size or duration in a view. Build screens from `Shared/Components/` (Page, PageHeader, Panel, RecordList, StatGrid, Facts, Callout, ReasonNote, EmptyState, StatusBadge with a `Tone`, button styles).
 - **Pure logic** (parsing, date math, file rules): `DailyCore`, with tests in `DailyCoreTests`.
 - **New setting:** a field in `WorkspaceSettings` (with a default in its decoder, so older `settings.json` files still load) and a property in `Preferences`. No `@AppStorage` or `UserDefaults` in views.
 - **New app-owned file:** a URL on `WorkspaceDirectory` (`~/.config/daily-workspace/`). Never Application Support, never the vault, and never secrets: keys stay in the Keychain.

@@ -1,8 +1,8 @@
 # Daily Workspace
 
-A calm, local-first Mac workspace for today. It shows your Apple Calendar agenda, a short task list, and your daily Markdown note from an Obsidian vault, and it has a smooth, spring-animated typing caret.
+One calm Mac window over the systems that already own your day: Apple Calendar and Reminders, your Obsidian vault and its daily note, Org, Seeds and Plot, the app's own task list, and (optionally) a Luuna runtime. Every item keeps its owner and shows the owner's own status; actions route back to the owner. A read-only Assistant answers questions over all of it and cites what it read. The look follows Luuna's desktop design system, and the editor has a smooth, spring-animated typing caret.
 
-Native macOS · Swift · SwiftUI + AppKit · local-first notes and tasks · optional OpenRouter chat · no telemetry.
+Native macOS · Swift · SwiftUI + AppKit · local-first · read-only views of external systems · optional Claude Assistant · no telemetry.
 
 > **Status:** builds and launches on macOS 14+. Unit tests cover the core logic and the app's stores. Integrations that depend on permissions or accounts still need a hands-on pass with your own accounts and vault; see [docs/TESTING.md](docs/TESTING.md).
 
@@ -21,22 +21,22 @@ scripts/bundle.sh release               # standalone build/DailyWorkspace.app
 ## First run
 
 1. **Choose your vault.** Click *Choose Vault…* on Today or Notes, or use **File → Choose Vault…**. Pick the folder that holds your Obsidian vault.
-2. **Set where daily notes go.** In **Settings → Vault → Daily note**, enter the folder and a file-name template using the tokens `YYYY`, `MM` and `DD`. The tab shows the resulting path for today.
-3. **Allow Calendar and Reminders**, if you want them, in **Settings → Permissions** or from the Calendar and Reminders screens. Denying either never blocks notes or tasks.
-4. **Optional: AI chat.** Add an OpenRouter API key in **Settings → AI**.
+2. **Check where daily notes go.** By default the app uses the vault's Obsidian Daily notes settings (`.obsidian/daily-notes.json`: folder, Moment format and template). **Settings → Vault → Daily note** shows today's path, or lets you choose Custom.
+3. **Allow Calendar and Reminders**, if you want them, in **Settings → Permissions** or from Calendar and Open Loops. Denying either never blocks notes or tasks.
+4. **Optional: the Assistant.** In **Settings → AI**, turn on **Enable the Assistant**, save an Anthropic API key (it goes to the Keychain) and, if you like, change the model (default `claude-opus-5-5`).
+5. **Optional: Luuna.** Enter a loopback runtime address and token in **Settings → Luuna**.
 
 ## Screens
 
 | Screen | What it does |
 | --- | --- |
-| **Today** ⌘1 | Date, agenda, tasks due today, a preview of today's note (only when today's note is the one open), capture |
-| **Notes** ⌘2 | Markdown editor working on the vault's real files, recent notes, live text preview, backlinks, save status, conflict handling |
-| **Tasks** ⌘3 | Today / Inbox / Upcoming / Completed; edit, link to a note, delete with undo |
-| **Calendar** ⌘4 | Agenda for one day (⌘← / ⌘→ to move), create events, edit or delete one occurrence |
-| **Search** ⌘5 | Searches note names and contents across the vault |
-| **Reminders** ⌘6 | Apple Reminders: incomplete items, add, complete |
-| **AI Chat** ⌘7 | OpenRouter chat, with optional **Attach Open Note** |
-| **Settings** ⌘, | **Vault** (folder, daily-note template, syncing) · **Editor** (caret) · **AI** (key, model) · **Permissions** (Calendar, Reminders) |
+| **Today** ⌘1 | Stat tiles, what's due today and overdue (only items with their own date), the agenda, today's note and capture with an explicit destination |
+| **Projects** ⌘2 | Project hubs from `01-projects/`: purpose, decisions, repositories, Seeds issues, Plot coordination, the latest restart record and an optional read-only Luuna panel |
+| **Open Loops** ⌘3 | Every open item across Org, Seeds, Plot, local tasks and Apple Reminders, with its source and the owner's status. Local tasks and reminders keep their actions; the others open their source |
+| **Notes** ⌘4 | Markdown editor on the vault's real files, recent notes, preview, backlinks, save status, conflict handling, and vault search (⇧⌘F) |
+| **Calendar** ⌘5 | Agenda for one day (⌘← / ⌘→ to move), create events, edit or delete one occurrence |
+| **Assistant** ⌘6 | Questions over your notes, open loops, projects and calendar through read-only tools that cite what they read; drafts restart records for your review |
+| **Settings** ⌘, | **Vault** (folder, daily note, app data, syncing) · **Editor** (caret) · **AI** (Assistant) · **Luuna** (runtime connection) · **Permissions** (Calendar, Reminders) |
 
 **Command Palette** (⌘K) lists every screen and command, with its shortcut.
 
@@ -45,7 +45,7 @@ scripts/bundle.sh release               # standalone build/DailyWorkspace.app
 - **Search** scans visible Markdown files in the vault. It skips symlinks and files over 2 MB, and matches every term you type against both file names and contents. Click Refresh after changing files outside the app.
 - **Backlinks** finds wikilinks and Markdown file links that point to the open note. A wikilink that uses only a basename can match more than one note. Embeds, images and full Obsidian rendering are not supported, and Preview is a text-oriented Markdown preview, not Obsidian's renderer.
 - **Calendar:** double-click an event, or use its context menu, to edit it. Deleting asks for confirmation. For a repeating event, changes apply to that occurrence only.
-- **Reminders:** Add writes to your default Apple Reminders list, and the circle marks an item complete. Refresh fetches changes made elsewhere. Reminders are separate from the app's own Tasks.
+- **Open Loops:** Org, Seeds and Plot are read, never written; Markdown checkboxes are not treated as tasks. Archived, template, generated and board files are skipped before anything is read. New task adds to the app's own `tasks.json`; New reminder adds to your default Apple Reminders list.
 
 ## Capture
 
@@ -72,9 +72,10 @@ If ⌘⇧Space is taken by another app, the global shortcut falls back to ⌃⌥
 | ⌘S | Save Note |
 | ⇧⌘R | Reveal Note in Finder |
 | ⌘K | Command Palette… |
-| ⌘1 … ⌘7 | Today, Notes, Tasks, Calendar, Search, Reminders, AI Chat |
+| ⌘1 … ⌘6 | Today, Projects, Open Loops, Notes, Calendar, Assistant |
+| ⇧⌘F | Search notes |
 | ⌘← / ⌘→ | Previous / next day in Calendar |
-| ⌘↩ | Send a chat message |
+| ⌘↩ | Ask the Assistant |
 | ⌘, | Settings |
 
 ## Typing caret
@@ -105,9 +106,10 @@ The app switches back to the system caret in these cases:
 
 ## Privacy
 
-- Notes, tasks and settings stay on this Mac. The app's own files live in `~/.config/daily-workspace/`: `settings.json`, `tasks.json` and `recovery/` (Settings → Vault → App data shows the folder). The API key stays in the macOS Keychain, not in that folder.
+- Notes, tasks and settings stay on this Mac. The app's own files live in `~/.config/daily-workspace/`: `settings.json`, `tasks.json`, `recovery/`, `restart-ledger.jsonl`, `associations.json` and `luuna-host.json` (Settings → Vault → App data shows the folder). API keys and the Luuna token stay in the macOS Keychain, never in that folder.
+- Luuna connections are accepted only on this Mac's loopback address; the app only reads, never starts or changes the runtime.
 - There is no telemetry. Diagnostic logs go only to the local macOS unified log (subsystem `app.dailyworkspace.mac`) and never contain note text, chat content or keys.
-- **AI chat** sends messages to OpenRouter and its providers, which may incur charges. The text of a note is sent only when **Attach Open Note** is checked. The API key is stored in the macOS Keychain. Chat history is kept in memory only, and Stop and Clear are available. The app never creates a key or sends a paid request on its own.
+- **The Assistant** is off until you enable it. When on, your questions and the notes, open loops, project details and events its tools read are sent to Anthropic, which may incur charges. Its tools are read-only. The conversation is kept in memory only; an accepted restart record is saved to the app folder. The app never creates a key or sends a request on its own.
 - Calendar and Reminders access is requested only when you ask for it, and is used only for the screens described above.
 
 ## Syncing

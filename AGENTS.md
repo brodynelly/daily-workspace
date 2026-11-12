@@ -64,3 +64,7 @@ Add one dated line per session for any decision a future agent would otherwise r
 - 2026-11-12: The closed loop is the reviewed restart record (sources + hashes, decision, next action) in an app-owned ledger.
 - 2026-11-12: App files moved to `~/.config/daily-workspace/` (settings.json replaces UserDefaults; legacy values imported once; legacy `tasks.json` copied, never moved). API keys stay in the Keychain.
 - 2026-11-12: Increment 0 is the daily-note path bug (empty folder, no `MMM`/`dddd` tokens), which wrote `2026-11-12.md` to the vault root.
+- 2026-11-12: Increments 0–3 built in parallel (worktree agents, merged on `main`). The UI follows Luuna's desktop design system (`~/github/luuna-ai/luuna/docs/DESIGN-SYSTEM.md`): tokens in `Shared/Theme`, components in `Shared/Components`; green only for verified or authorised states, never for "done".
+- 2026-11-12: The Assistant talks to Anthropic directly (`AnthropicClient`, model `claude-opus-5-5`, off by default). The old OpenRouter chat is unreachable and due for removal.
+- 2026-11-12: Lint with both swift-format 6.1 (CI's toolchain) and the local one; `.swift-format` must stay readable by 6.1.
+- 2026-11-12: The Luuna token rule: `connectLuuna(token: nil)` keeps the saved token, `""` removes it.

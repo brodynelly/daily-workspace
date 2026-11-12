@@ -55,7 +55,7 @@ Today never invents daily attention for undated Seeds or Luuna items (research: 
 | --- | --- | --- | --- |
 | Assistant (Q&A over sources, restart drafts) | `claude-opus-5-5`, adaptive thinking, effort set explicitly per route (`low` for chat, `medium` for restart drafts), streaming | Current default Claude model; strong tool use over long context | Server-side `fallbacks: "default"` for refusals; for outages, the deterministic views (the Assistant shows "unavailable"; nothing else depends on it) |
 
-- **Transport (decision pending, recommended):** add an `AgentTransport` that speaks the Anthropic Messages API directly over HTTPS (Swift has no official SDK). The existing `ChatTransport.complete(...) -> String` returns text only, so it cannot carry tool calls. Tool use, prompt caching, refusal fallbacks and thinking-block replay are first-party API features that an OpenAI-compatible route may not pass through. `OpenRouterClient` can stay as a plain-chat transport. No API key is configured today.
+- **Transport (decided and built 2026-11-12):** an `AgentTransport` that speaks the Anthropic Messages API directly over HTTPS (Swift has no official SDK). The existing `ChatTransport.complete(...) -> String` returns text only, so it cannot carry tool calls. Tool use, prompt caching, refusal fallbacks and thinking-block replay are first-party API features that an OpenAI-compatible route may not pass through. `OpenRouterClient` can stay as a plain-chat transport. No API key is configured today.
 - Model choice and any cheaper tier are Brody's call, configured in Settings → AI. Nothing downgrades automatically.
 - Forced `tool_choice` (`any`/`tool`) is rejected on this model: use `auto`, `strict: true` tools and the prompt.
 - Determinism: no model output is ever the source of a status, an owner, a path or a date (see §8).
@@ -141,10 +141,10 @@ There is one Assistant agent plus deterministic adapters. There is no gateway or
 
 | # | Outcome | Notes |
 | --- | --- | --- |
-| 0 | `DailyNoteResolver` + Moment tokens; capture and Today use the real daily note | A bug that writes to the wrong place today; fix first |
-| 1 | IA 7 → 6; **Projects** (hubs, decisions, checkouts) and **Open Loops** (Local + Org + Seeds + Plot + Reminders, read-only external); visual system refresh across the new screens | `tasks.json` untouched; no writes to external owners |
-| 2 | Assistant v1: `AgentTransport`, read-only tools, restart-record drafts → `RestartLedger` | Needs the transport decision and a key; golden-set eval |
-| 3 | Association registry + qualified `LuunaRuntimeReader` (health, projects, component status) | Pick the runtime build/checkout; disposable fixtures |
+| 0 | `DailyNoteResolver` + Moment tokens; capture and Today use the real daily note | **Done** 2026-11-12 |
+| 1 | IA 7 → 6; **Projects** (hubs, decisions, checkouts) and **Open Loops** (Local + Org + Seeds + Plot + Reminders, read-only external); visual system refresh across the new screens (Luuna design system) | **Done** 2026-11-12. `tasks.json` untouched; no writes to external owners |
+| 2 | Assistant v1: `AgentTransport`, read-only tools, restart-record drafts → `RestartLedger` | **Built** 2026-11-12, off by default. Still open: the golden-set eval (§10) before turning it on by default, and a hands-on pass with a real key |
+| 3 | Association registry + qualified `LuunaRuntimeReader` (health, projects, component status) | **Built** 2026-11-12 against the TS client's contract with stubbed responses. Still open: qualify against a running runtime build in a disposable fixture |
 | 4 | **Proposal only:** capture/write adapters per owner (Org inbox, Seeds via the vault launcher with an explicit actor, Quick Notes, Luuna) and any `tasks.json` migration | Separate review and approval before any code |
 
 ## 13. Open questions and logic debt
