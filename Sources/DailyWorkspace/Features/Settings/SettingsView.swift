@@ -1,12 +1,13 @@
 import SwiftUI
 
-/// Settings window: Vault, Editor, AI, Permissions, each tab on the Luuna surface.
+/// Settings window: Vault, Editor, AI, Luuna, Permissions, each tab on the Luuna surface.
 struct SettingsView: View {
     var body: some View {
         TabView {
             VaultSettingsView().tabItem { Label("Vault", systemImage: "folder") }
             EditorSettingsView().tabItem { Label("Editor", systemImage: "cursorarrow.motionlines") }
             AISettingsView().tabItem { Label("AI", systemImage: "bubble.left") }
+            LuunaSettingsView().tabItem { Label("Luuna", systemImage: "point.3.connected.trianglepath.dotted") }
             PermissionsSettingsView().tabItem { Label("Permissions", systemImage: "hand.raised") }
         }
         .frame(width: 640, height: 560)
