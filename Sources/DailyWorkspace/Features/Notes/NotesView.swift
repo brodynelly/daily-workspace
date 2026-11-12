@@ -1,13 +1,31 @@
 import SwiftUI
 
 /// Notes: the editor for the open note, and vault search as a mode of the same screen (also ⇧⌘F and ⌘K).
+/// Backlinks open in the inspector.
 struct NotesView: View {
+    @EnvironmentObject private var navigation: AppNavigation
+    @EnvironmentObject private var document: NoteDocument
+    @State private var showBacklinks = false
+
+    var body: some View {
+        NotesPage(showBacklinks: $showBacklinks)
+            .navigationTitle(document.url?.deletingPathExtension().lastPathComponent ?? AppSection.notes.title)
+            .inspector(isPresented: $showBacklinks) {
+                BacklinksView().inspectorColumnWidth(min: 220, ideal: 260, max: 360)
+            }
+            // Opening a note (from search, the sidebar or a command) shows it.
+            .onChange(of: document.url) { _, _ in navigation.notesMode = .editor }
+    }
+}
+
+/// The Notes page column: the header with its mode, recent-note and view toggles, then the editor or search.
+struct NotesPage: View {
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var navigation: AppNavigation
     @EnvironmentObject private var preferences: Preferences
     @EnvironmentObject private var vaultSession: VaultSession
     @EnvironmentObject private var document: NoteDocument
-    @State private var showBacklinks = false
+    @Binding var showBacklinks: Bool
 
     var body: some View {
         Page(scrolls: false) {
@@ -23,10 +41,6 @@ struct NotesView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
-        .navigationTitle(document.url?.deletingPathExtension().lastPathComponent ?? AppSection.notes.title)
-        .inspector(isPresented: $showBacklinks) { BacklinksView() }
-        // Opening a note (from search, the sidebar or a command) shows it.
-        .onChange(of: document.url) { _, _ in navigation.notesMode = .editor }
     }
 
     @ViewBuilder private var headerActions: some View {
@@ -61,57 +75,70 @@ struct NotesView: View {
     @ViewBuilder private var editorArea: some View {
         if case .available = vaultSession.state {
             if document.url == nil {
-                ContentUnavailableView {
-                    Label("No note open", systemImage: "doc.text")
-                } description: {
-                    Text("Open today's note, or pick a recent one.")
-                } actions: {
-                    Button(AppCommand.openTodayNote.title) { model.openToday() }
-                        .buttonStyle(.secondary)
-                    if let message = document.message { Text(message).font(.caption) }
-                }
+                noNoteOpen
             } else {
-                editor
+                NoteEditorPane()
             }
         } else {
             VaultStatusView(state: vaultSession.state)
         }
     }
 
-    private var editor: some View {
-        VStack(spacing: 0) {
-            if document.isConflict {
-                ConflictBanner()
-            } else if let message = document.message {
-                InfoBanner(text: message)
+    /// No note is open: say so, offer today's note, and list the recent notes as rows.
+    private var noNoteOpen: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: Space.s6) {
+                EmptyState(
+                    "No note open", description: "Open today's note, or pick a recent one.",
+                    systemImage: "doc.text", boxed: true
+                ) {
+                    Button(AppCommand.openTodayNote.title) { model.openToday() }
+                        .buttonStyle(.primary)
+                }
+                if let message = document.message { Callout(message) }
+                if !preferences.recentNotes.isEmpty {
+                    VStack(alignment: .leading, spacing: Space.s3) {
+                        SectionHeading("Recent notes")
+                        RecordList(variant: .rows) {
+                            ForEach(preferences.recentNotes, id: \.self) { path in
+                                NoteRecordRow(path: path) { model.openNote(path) }
+                            }
+                        }
+                    }
+                }
             }
-            HSplitView {
-                MarkdownEditor(
-                    text: Binding(get: { document.text }, set: { document.userEdited($0) }),
-                    documentID: document.url,
-                    preset: preferences.caretPreset,
-                    reduceMotion: model.systemReduceMotion
-                )
-                if preferences.showNotePreview { NotePreviewView(text: document.text).frame(minWidth: 220) }
-            }
-            Divider()
-            statusBar
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
+}
 
-    private var statusBar: some View {
-        HStack(spacing: 8) {
-            Text(document.relativePath ?? "")
-                .lineLimit(1)
-                .truncationMode(.middle)
-            Spacer()
-            Text("\(document.text.count) characters").monospacedDigit()
-            Spacer()
-            SaveStatusLabel(state: document.saveState)
+/// A note as a record row: its title, then its folder muted and whole on its own line (wrapped, never cut),
+/// and an optional excerpt. The whole row opens the note.
+struct NoteRecordRow: View {
+    let path: String
+    var excerpt: String?
+    let action: () -> Void
+
+    var body: some View {
+        RecordRow(action: action) {
+            Text(NotePath.title(path))
+                .textRole(.body, lineBox: false)
+                .foregroundStyle(Theme.ink)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(NotePath.folder(path) ?? "Vault root")
+                .textRole(.caption, lineBox: false)
+                .foregroundStyle(Theme.inkMuted)
+                .fixedSize(horizontal: false, vertical: true)
+            if let excerpt, !excerpt.isEmpty {
+                // Prose may clamp to two lines; the path above never does.
+                Text(excerpt)
+                    .textRole(.bodySmall, lineBox: false)
+                    .foregroundStyle(Theme.inkMuted)
+                    .lineLimit(2)
+            }
         }
-        .font(.caption)
-        .foregroundStyle(.secondary)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .help(path)
+        .accessibilityElement(children: .combine)
+        .accessibilityHint("Opens the note")
     }
 }
