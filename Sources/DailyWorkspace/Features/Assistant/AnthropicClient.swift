@@ -73,7 +73,7 @@ struct AgentError: LocalizedError, Equatable {
     enum Kind: Equatable, Sendable {
         case missingKey, keychain, unauthorized, forbidden, notFound, rateLimited, overloaded, server
         case badRequest, tooLarge, timedOut, offline, network, incomplete, refused, truncated, toolLimit
-        case invalidDraft, busy
+        case invalidDraft, busy, disabled
     }
 
     let kind: Kind

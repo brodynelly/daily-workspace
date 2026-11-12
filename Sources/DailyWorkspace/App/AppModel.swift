@@ -7,78 +7,6 @@ import SwiftUI
 /// actions that span features (choosing a vault, opening notes, capture). Feature state lives in the stores.
 @MainActor
 final class AppModel: ObservableObject {
-    struct Dependencies {
-        /// The app's own folder (`~/.config/daily-workspace`), shown in Settings.
-        var directory: WorkspaceDirectory
-        var settings: SettingsPersisting
-        /// Settings from earlier versions, imported once when no settings file exists yet.
-        var legacyDefaults: UserDefaults?
-        var makeTaskPersistence: () throws -> TaskPersisting
-        var recovery: RecoveryStoring
-        var keyStore: APIKeyStore
-        var chatTransport: ChatTransport
-        var calendarStore: CalendarStore
-        var reminderStore: ReminderStore
-        /// Read-only GETs against an already running Luuna runtime.
-        var luunaReader: LuunaRuntimeReading
-        /// The Luuna bearer token (Keychain service `app.dailyworkspace.luuna`).
-        var luunaKeyStore: APIKeyStore
-        var autosaveDelay: Duration
-        /// System notifications and the external-change poll. Off in tests.
-        var observesSystem: Bool
-
-        @MainActor static var live: Dependencies {
-            let directory = WorkspaceDirectory.standard()
-            do {
-                try directory.prepare()
-            } catch {
-                Log.app.error(
-                    "Workspace folder could not be created: \(Log.code(error), privacy: .public) \(error.localizedDescription, privacy: .private(mask: .hash))"
-                )
-            }
-            return Dependencies(
-                directory: directory,
-                settings: SettingsPersistence(url: directory.settingsURL),
-                legacyDefaults: .standard,
-                makeTaskPersistence: {
-                    // Copy tasks from the old location once; the original file is left in place.
-                    let legacy = WorkspaceDirectory.legacyFolder().appendingPathComponent("tasks.json")
-                    if try WorkspaceDirectory.adopt(legacyFile: legacy, as: directory.tasksURL) {
-                        Log.tasks.info("Copied tasks from the previous Application Support location")
-                    }
-                    return TaskPersistence(url: directory.tasksURL)
-                },
-                recovery: RecoveryStore(folder: directory.recoveryFolder),
-                keyStore: KeychainAPIKeyStore(),
-                chatTransport: OpenRouterClient(),
-                calendarStore: EventKitCalendarStore(),
-                reminderStore: EventKitReminderStore(),
-                luunaReader: LuunaRuntimeClient(),
-                luunaKeyStore: KeychainAPIKeyStore.luuna,
-                autosaveDelay: .milliseconds(800),
-                observesSystem: true
-            )
-        }
-    }
-
-    enum CaptureDestination: String, CaseIterable, Identifiable {
-        case task, note
-
-        var id: String { rawValue }
-
-        var title: String {
-            switch self {
-            case .task: return "Task for Today"
-            case .note: return "Today's Note"
-            }
-        }
-    }
-
-    enum CaptureOutcome: Equatable {
-        case captured
-        case rejected(String)
-    }
-
     let directory: WorkspaceDirectory
     let preferences: Preferences
     let navigation = AppNavigation()
@@ -91,6 +19,11 @@ final class AppModel: ObservableObject {
     let luuna: LuunaStore
     let openLoops: OpenLoopsStore
     let projects: ProjectsStore
+    let assistant: AssistantSession
+    /// Whether an Anthropic key is saved, for Settings and the Assistant screen.
+    let assistantKey: AssistantKey
+    let restarts: RestartRecords
+    let assistantContext: WorkspaceAssistantContext
 
     /// A problem with the saved Luuna settings (an unreadable token or host file), for Settings to show. Cleared by
     /// a successful `connectLuuna`.
@@ -106,6 +39,9 @@ final class AppModel: ObservableObject {
     let luunaSettings: LuunaSettings
     /// Follows `vaultSession` for Open Loops and Projects (`AppModel+Sources.swift`).
     var vaultSubscription: AnyCancellable?
+    /// The vault and `AGENTS.md` hash the Assistant's conversation started with (`AppModel+Assistant.swift`).
+    var assistantAgentsFingerprint: String?
+    var assistantSubscriptions: Set<AnyCancellable> = []
 
     convenience init() {
         self.init(dependencies: .live)
@@ -126,10 +62,22 @@ final class AppModel: ObservableObject {
         luunaSettingsNotice = saved.notice
         openLoops = OpenLoopsStore(tasks: tasks, reminders: reminders)
         projects = ProjectsStore(registry: AssociationRegistry(directory: dependencies.directory), luuna: luuna)
+        let session = vaultSession
+        let vaultRoot = { session.vault?.root }
+        let ledger = RestartLedger(url: dependencies.directory.restartLedgerURL)
+        assistantContext = WorkspaceAssistantContext(
+            vaultRoot: vaultRoot, openLoops: openLoops, projects: projects, calendarStore: dependencies.calendarStore,
+            ledger: ledger)
+        assistantKey = AssistantKey(store: dependencies.assistantKeyStore)
+        assistant = AssistantSession(
+            transport: dependencies.agentTransport, keyStore: dependencies.assistantKeyStore,
+            context: assistantContext, isEnabled: preferences.assistantEnabled)
+        restarts = RestartRecords(ledger: ledger, vaultRoot: vaultRoot)
 
         vaultSession.resolve()
         document.attach(vaultSession.vault)
         if vaultSession.vault != nil { openToday(create: false) }
+        observeAssistant()
         observeVault(refreshNow: dependencies.observesSystem)
         if dependencies.observesSystem { startObserving() }
     }
@@ -293,6 +241,8 @@ final class AppModel: ObservableObject {
             model.calendar.reload()
             // Open Loops re-reads Reminders (when allowed) along with the vault's Org, Seeds and Plot files.
             model.refreshSources()
+            model.assistantContext.invalidateNotes()
+            model.syncAssistantVaultAgents()
         }
         pollTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.document.checkExternalChange() }
@@ -364,5 +314,8 @@ extension View {
             .environmentObject(model.luuna)
             .environmentObject(model.openLoops)
             .environmentObject(model.projects)
+            .environmentObject(model.assistant)
+            .environmentObject(model.assistantKey)
+            .environmentObject(model.restarts)
     }
 }

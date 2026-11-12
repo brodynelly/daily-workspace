@@ -15,6 +15,13 @@ protocol AssistantContext: Sendable {
     func project(slug: String) async throws -> ToolProject
     /// Calendar events on `day`.
     func agenda(day: LocalDay) async throws -> [ToolEvent]
+    /// Open-loop sources that could not be read or have not been read yet, each with why, so the model never
+    /// takes a source it couldn't see for one with nothing to do.
+    func unreadableLoopSources() async -> [String: String]
+}
+
+extension AssistantContext {
+    func unreadableLoopSources() async -> [String: String] { [:] }
 }
 
 // Small value types local to the Assistant. The app maps its real models onto these.

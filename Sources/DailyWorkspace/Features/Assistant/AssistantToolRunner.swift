@@ -82,7 +82,9 @@ struct AssistantToolRunner: Sendable {
             let rows = try await context.openLoops(
                 source: args.optionalString("source"), project: args.optionalString("project"),
                 status: args.optionalString("status"))
-            return try (Self.encode(["rows": rows]), rows.flatMap(\.citations))
+            let unreadable = await context.unreadableLoopSources()
+            let result = LoopsResult(rows: rows, unreadableSources: unreadable.isEmpty ? nil : unreadable)
+            return try (Self.encode(result), rows.flatMap(\.citations))
         case .getProject:
             let project = try await context.project(slug: args.string("slug"))
             return try (Self.encode(project), project.citations)
@@ -107,6 +109,12 @@ struct AssistantToolRunner: Sendable {
         calendar.timeZone = TimeZone(identifier: "UTC") ?? .current
         guard DateComponents(year: year, month: month, day: day).isValidDate(in: calendar) else { return nil }
         return LocalDay(year: year, month: month, day: day)
+    }
+
+    private struct LoopsResult: Encodable {
+        let rows: [ToolLoopRow]
+        /// Omitted when every source was read.
+        let unreadableSources: [String: String]?
     }
 
     private struct AgendaResult: Encodable {

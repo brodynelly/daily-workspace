@@ -38,6 +38,10 @@ final class Preferences: ObservableObject {
     @Published var showNotePreview: Bool { didSet { persist() } }
     /// Blank means the OpenRouter account default.
     @Published var openRouterModel: String { didSet { persist() } }
+    /// Off by default: while off, the Assistant sends nothing to Anthropic.
+    @Published var assistantEnabled: Bool { didSet { persist() } }
+    /// The Anthropic model ID; blank means `WorkspaceSettings.defaultAssistantModel`.
+    @Published var assistantModel: String { didSet { persist() } }
     @Published private(set) var recentNotes: [String]
     /// Security-scoped bookmark of the chosen vault folder.
     private(set) var vaultBookmark: Data?
@@ -72,6 +76,8 @@ final class Preferences: ObservableObject {
         caretPreset = settings.caretPreset
         showNotePreview = settings.showNotePreview
         openRouterModel = settings.openRouterModel
+        assistantEnabled = settings.assistantEnabled
+        assistantModel = settings.assistantModel
         recentNotes = settings.recentNotes
         vaultBookmark = settings.vaultBookmark
         vaultPath = settings.vaultPath
@@ -117,7 +123,9 @@ final class Preferences: ObservableObject {
             caretPreset: caretPreset,
             showNotePreview: showNotePreview,
             openRouterModel: openRouterModel,
-            recentNotes: recentNotes
+            recentNotes: recentNotes,
+            assistantEnabled: assistantEnabled,
+            assistantModel: assistantModel
         )
     }
 

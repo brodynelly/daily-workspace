@@ -156,6 +156,9 @@ extension AppModel.Dependencies {
         reminderStore: FakeReminderStore? = nil,
         luunaReader: FakeLuunaReader = FakeLuunaReader(),
         luunaKeys: FakeKeyStore = FakeKeyStore(),
+        agentTransport: FakeAgentTransport = FakeAgentTransport(),
+        assistantKeys: FakeKeyStore = FakeKeyStore(),
+        calendarStore: FakeCalendarStore? = nil,
         configure: (inout WorkspaceSettings) -> Void = { _ in }
     ) -> Self {
         var initial = settings.stored ?? WorkspaceSettings()
@@ -172,10 +175,12 @@ extension AppModel.Dependencies {
             recovery: FakeRecovery(),
             keyStore: FakeKeyStore(),
             chatTransport: FakeTransport(),
-            calendarStore: FakeCalendarStore(),
+            calendarStore: calendarStore ?? FakeCalendarStore(),
             reminderStore: reminderStore ?? FakeReminderStore(),
             luunaReader: luunaReader,
             luunaKeyStore: luunaKeys,
+            agentTransport: agentTransport,
+            assistantKeyStore: assistantKeys,
             autosaveDelay: .seconds(60),
             observesSystem: false
         )
