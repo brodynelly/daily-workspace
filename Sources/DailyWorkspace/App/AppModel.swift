@@ -121,10 +121,10 @@ final class AppModel: ObservableObject {
         return LocalDay(Date())
     }
 
-    /// Vault-relative path of today's daily note, or nil when the template is invalid.
+    /// Vault-relative path of today's daily note, or nil without a vault or when it cannot be resolved.
     var todayNotePath: String? {
         _ = dayTick
-        return try? preferences.dailyNoteTemplate.relativePath(for: Date())
+        return try? resolveDailyNote(for: Date()).path
     }
 
     /// True only when the editor holds today's note, not whichever note was opened last.
@@ -132,8 +132,6 @@ final class AppModel: ObservableObject {
         guard let path = todayNotePath else { return false }
         return document.relativePath == path
     }
-
-    private var dailyNoteHeader: String { "# \(LocalDay(Date()))\n\n" }
 
     // MARK: Vault and notes
 
@@ -156,20 +154,25 @@ final class AppModel: ObservableObject {
     /// Open (and by default create) today's note.
     func openToday(create: Bool = true, navigate: Bool = false) {
         if navigate { navigation.section = .notes }
-        guard vaultSession.vault != nil else {
+        guard let vault = vaultSession.vault else {
             document.post("Choose a vault first.")
             return
         }
-        let path: String
+        let now = Date()
+        let resolution: DailyNoteResolution
         do {
-            path = try preferences.dailyNoteTemplate.relativePath(for: Date())
+            resolution = try resolveDailyNote(for: now)
         } catch {
             document.post(error.localizedDescription)
             return
         }
         guard document.flushBeforeSwitching() else { return }
         do {
-            let result = try document.open(relativePath: path, createIfMissing: create, initialText: dailyNoteHeader)
+            let path = resolution.path
+            let url = try vault.resolve(relativePath: path)
+            let isNew = create && !vault.exists(url)
+            let initialText = isNew ? newDailyNoteText(for: resolution, in: vault, date: now) : dailyNoteHeader
+            let result = try document.open(relativePath: path, createIfMissing: create, initialText: initialText)
             if result == .opened { preferences.rememberRecent(path) }
         } catch {
             Log.notes.error(
@@ -218,12 +221,14 @@ final class AppModel: ObservableObject {
 
     private func appendToTodayNote(_ block: String) -> CaptureOutcome {
         guard let vault = vaultSession.vault else { return .rejected("Choose a vault to capture notes.") }
-        let path: String
+        let now = Date()
+        let resolution: DailyNoteResolution
         do {
-            path = try preferences.dailyNoteTemplate.relativePath(for: Date())
+            resolution = try resolveDailyNote(for: now)
         } catch {
             return .rejected(error.localizedDescription)
         }
+        let path = resolution.path
         if document.relativePath == path {
             if document.append(block) { return .captured }
             switch document.saveState {
@@ -232,7 +237,10 @@ final class AppModel: ObservableObject {
             }
         }
         do {
-            try vault.append(block, to: try vault.resolve(relativePath: path), creatingWith: dailyNoteHeader)
+            let url = try vault.resolve(relativePath: path)
+            let initialText =
+                vault.exists(url) ? dailyNoteHeader : newDailyNoteText(for: resolution, in: vault, date: now)
+            try vault.append(block, to: url, creatingWith: initialText)
             Log.capture.info("Appended a capture to today's note on disk")
             return .captured
         } catch {
@@ -275,6 +283,44 @@ final class AppModel: ObservableObject {
             }
         }
         observers.append((center, token))
+    }
+}
+
+// MARK: Daily note
+
+extension AppModel {
+    /// Where the daily note for `date` lives under the current settings. Reads `.obsidian/daily-notes.json`
+    /// fresh each time, so a change made in Obsidian applies at once. Throws a user-facing reason on refusal.
+    func resolveDailyNote(for date: Date) throws -> DailyNoteResolution {
+        guard let vault = vaultSession.vault else { throw VaultError.io("Choose a vault first.") }
+        return try preferences.dailyNoteResolver.resolve(in: vault, for: date)
+    }
+
+    /// The vault's Obsidian daily-note settings for Settings to show: nil without a vault, `.success(nil)`
+    /// when the vault has no `.obsidian/daily-notes.json`.
+    var obsidianDailyNotes: Result<ObsidianDailyNotes?, Error>? {
+        guard let vault = vaultSession.vault else { return nil }
+        return Result { try ObsidianDailyNotes.load(from: vault) }
+    }
+
+    private var dailyNoteHeader: String { "# \(LocalDay(Date()))\n\n" }
+
+    /// Text for a new daily note: the configured Obsidian template rendered for `date` when it can be read,
+    /// otherwise the plain date header. The template file is only read, never written.
+    private func newDailyNoteText(for resolution: DailyNoteResolution, in vault: NoteVault, date: Date) -> String {
+        guard let templatePath = resolution.templatePath else { return dailyNoteHeader }
+        do {
+            guard let body = try ObsidianDailyNotes.readTemplate(at: templatePath, in: vault) else {
+                Log.notes.notice("Daily-note template not found at \(templatePath, privacy: .private)")
+                return dailyNoteHeader
+            }
+            return ObsidianDailyNotes.render(template: body, title: resolution.title, date: date)
+        } catch {
+            Log.notes.error(
+                "Daily-note template could not be read: \(Log.code(error), privacy: .public) \(error.localizedDescription, privacy: .private(mask: .hash))"
+            )
+            return dailyNoteHeader
+        }
     }
 }
 
