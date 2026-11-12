@@ -46,7 +46,7 @@ struct RemindersView: View {
                 }
             } else {
                 ContentUnavailableView {
-                    Label("Apple Reminders", systemImage: AppSection.reminders.symbol)
+                    Label("Apple Reminders", systemImage: "list.bullet.circle")
                 } description: {
                     PermissionPrompt(kind: .reminders, status: reminders.status) { await reminders.requestAccess() }
                         .frame(maxWidth: 420)

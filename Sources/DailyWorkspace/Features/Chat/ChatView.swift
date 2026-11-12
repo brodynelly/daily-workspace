@@ -17,11 +17,7 @@ struct ChatView: View {
             if let error = chat.error { InfoBanner(text: error) }
             composer
         }
-        .navigationTitle(AppSection.chat.title)
-        .toolbar {
-            Button("Clear Chat", systemImage: "trash") { chat.clear() }
-                .disabled(chat.sending || chat.messages.isEmpty)
-        }
+        .navigationTitle(AppSection.assistant.title)
         .onAppear { chat.refreshKeyStatus() }
         .onChange(of: chat.sending) { _, sending in
             if !sending && chat.error == nil && chat.messages.last?.role == .assistant {
