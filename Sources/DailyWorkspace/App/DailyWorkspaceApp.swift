@@ -8,6 +8,11 @@ struct DailyWorkspaceApp: App {
 
     @NSApplicationDelegateAdaptor(WorkspaceAppDelegate.self) private var appDelegate
 
+    init() {
+        // Before any view resolves a type role; a no-op when the bundle has no Fonts folder (swift run).
+        BundledFonts.register()
+    }
+
     var body: some Scene {
         WindowGroup("Daily Workspace", id: WindowID.workspace) {
             RootView()

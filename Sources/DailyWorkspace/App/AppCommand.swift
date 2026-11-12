@@ -10,6 +10,7 @@ enum AppCommand: Hashable, Identifiable {
     case saveNote
     case revealNote
     case commandPalette
+    case searchNotes
     case chooseVault
     case settings
     case go(AppSection)
@@ -27,6 +28,7 @@ enum AppCommand: Hashable, Identifiable {
         case .saveNote: return "Save Note"
         case .revealNote: return "Reveal Note in Finder"
         case .commandPalette: return "Command Palette…"
+        case .searchNotes: return "Search Notes…"
         case .chooseVault: return "Choose Vault…"
         case .settings: return "Settings…"
         case .go(let section): return section.title
@@ -47,6 +49,7 @@ enum AppCommand: Hashable, Identifiable {
         case .saveNote: return "square.and.arrow.down"
         case .revealNote: return "folder"
         case .commandPalette: return "command"
+        case .searchNotes: return "magnifyingglass"
         case .chooseVault: return "folder.badge.plus"
         case .settings: return "gearshape"
         case .go(let section): return section.symbol
@@ -61,6 +64,7 @@ enum AppCommand: Hashable, Identifiable {
         case .saveNote: return KeyboardShortcut("s", modifiers: .command)
         case .revealNote: return KeyboardShortcut("r", modifiers: [.command, .shift])
         case .commandPalette: return KeyboardShortcut("k", modifiers: .command)
+        case .searchNotes: return KeyboardShortcut("f", modifiers: [.command, .shift])
         case .settings: return KeyboardShortcut(",", modifiers: .command)
         case .chooseVault: return nil
         case .go(let section): return section.shortcut
@@ -79,10 +83,12 @@ enum AppCommand: Hashable, Identifiable {
         return label + String(shortcut.key.character).uppercased()
     }
 
-    /// What the palette offers: every screen, then every action except the palette itself.
+    /// What the palette offers: every screen, then every action except the palette itself. Vault search
+    /// lives in Notes and stays one command away here.
     static let paletteCommands: [AppCommand] =
         AppSection.allCases.map(AppCommand.go) + [
-            .quickCapture, .captureWindow, .openTodayNote, .saveNote, .revealNote, .chooseVault, .settings,
+            .searchNotes, .quickCapture, .captureWindow, .openTodayNote, .saveNote, .revealNote, .chooseVault,
+            .settings,
         ]
 }
 
@@ -104,7 +110,7 @@ struct CommandRunner {
 
     func run(_ command: AppCommand) {
         switch command {
-        case .quickCapture: model.navigation.showQuickCapture = true
+        case .quickCapture, .commandPalette, .searchNotes, .go: navigate(command)
         case .captureWindow:
             openWindow(id: WindowID.capture)
             NSApp.activate(ignoringOtherApps: true)
@@ -112,10 +118,22 @@ struct CommandRunner {
         case .saveNote: model.document.saveNow()
         case .revealNote:
             if let url = model.document.url { NSWorkspace.shared.activateFileViewerSelecting([url]) }
-        case .commandPalette: model.navigation.showCommandPalette = true
         case .chooseVault: model.chooseVault()
         case .settings: openSettings?()
-        case .go(let section): model.navigation.section = section
+        }
+    }
+
+    /// Commands that only change what the window shows.
+    private func navigate(_ command: AppCommand) {
+        let navigation = model.navigation
+        switch command {
+        case .quickCapture: navigation.showQuickCapture = true
+        case .commandPalette: navigation.showCommandPalette = true
+        case .searchNotes:
+            navigation.notesMode = .search
+            navigation.section = .notes
+        case .go(let section): navigation.section = section
+        default: break
         }
     }
 }
@@ -143,9 +161,10 @@ struct WorkspaceCommands: Commands {
         CommandGroup(after: .toolbar) {
             item(.commandPalette)
         }
-        SidebarCommands()
         CommandMenu("Go") {
             ForEach(AppSection.allCases) { item(.go($0)) }
+            Divider()
+            item(.searchNotes)
         }
     }
 

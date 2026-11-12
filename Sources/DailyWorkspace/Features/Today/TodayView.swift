@@ -15,38 +15,26 @@ struct TodayView: View {
     private var openTasks: [TaskItem] { tasks.tasks.dueToday(model.today) }
 
     var body: some View {
-        ScrollView {
+        Page {
+            PageHeader(title: AppSection.today.title, description: AppSection.today.description, meta: dateLine)
             VStack(alignment: .leading, spacing: 28) {
-                header
                 agenda
                 tasksSection
                 noteSection
                 capture
             }
-            .padding(28)
-            .frame(maxWidth: 760, alignment: .leading)
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .navigationTitle("Today")
+        .navigationTitle(AppSection.today.title)
         .task(id: model.today) { calendar.show(day: Date()) }
     }
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(Date.now, format: .dateTime.weekday(.wide))
-                .font(.largeTitle.bold())
-            Text(Date.now, format: .dateTime.month(.wide).day().year())
-                .font(.title3)
-                .foregroundStyle(.secondary)
-            Text(
-                TimeZone.current.localizedName(
-                    for: TimeZone.current.isDaylightSavingTime() ? .daylightSaving : .standard, locale: .current)
-                    ?? TimeZone.current.identifier
-            )
-            .font(.caption)
-            .foregroundStyle(.secondary)
-        }
-        .accessibilityElement(children: .combine)
+    /// "Thursday, November 12, 2026 · Central Standard Time"; re-read when the day changes.
+    private var dateLine: String {
+        let zone = TimeZone.current
+        let zoneName =
+            zone.localizedName(for: zone.isDaylightSavingTime() ? .daylightSaving : .standard, locale: .current)
+            ?? zone.identifier
+        return Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day().year()) + " · " + zoneName
     }
 
     private var agenda: some View {
@@ -58,7 +46,7 @@ struct TodayView: View {
     private var tasksSection: some View {
         section("Tasks", symbol: "checklist") {
             if openTasks.isEmpty {
-                Text("Nothing due today. Capture one below, or plan on the Tasks screen.")
+                Text("Nothing due today. Capture one below.")
                     .foregroundStyle(.secondary)
             } else {
                 VStack(alignment: .leading, spacing: 2) {

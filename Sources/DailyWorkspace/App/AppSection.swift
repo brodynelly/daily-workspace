@@ -1,32 +1,49 @@
 import SwiftUI
 
-/// Sidebar screens. Order defines the sidebar, the Go menu and the ⌘1…⌘7 shortcuts.
+/// Sidebar screens. Order defines the sidebar, the Go menu and the ⌘1…⌘6 shortcuts.
+/// Each screen opens with its title and one sentence that says what it is for (`description`).
 enum AppSection: String, CaseIterable, Identifiable {
-    case today, notes, tasks, calendar, search, reminders, chat
+    case today, projects, openLoops, notes, calendar, assistant
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .today: return "Today"
+        case .projects: return "Projects"
+        case .openLoops: return "Open Loops"
         case .notes: return "Notes"
-        case .tasks: return "Tasks"
         case .calendar: return "Calendar"
-        case .search: return "Search"
-        case .reminders: return "Reminders"
-        case .chat: return "AI Chat"
+        case .assistant: return "Assistant"
+        }
+    }
+
+    /// The one sentence under the screen's title.
+    var description: String {
+        switch self {
+        case .today:
+            return "Today's agenda, what is due today and today's note, with capture close at hand."
+        case .projects:
+            return "Each project's purpose, decisions and latest restart record, read from the vault."
+        case .openLoops:
+            return "Every open item across its owners, shown with its source and the owner's own status."
+        case .notes:
+            return "Write in your vault's Markdown notes, and search their names and contents."
+        case .calendar:
+            return "One day of Apple Calendar events, to review and edit."
+        case .assistant:
+            return "Think through an idea or the open note with the model chosen in Settings."
         }
     }
 
     var symbol: String {
         switch self {
         case .today: return "sun.max"
+        case .projects: return "folder"
+        case .openLoops: return "circle.dashed"
         case .notes: return "doc.text"
-        case .tasks: return "checklist"
         case .calendar: return "calendar"
-        case .search: return "magnifyingglass"
-        case .reminders: return "list.bullet.circle"
-        case .chat: return "bubble.left.and.bubble.right"
+        case .assistant: return "bubble.left.and.bubble.right"
         }
     }
 
@@ -43,10 +60,23 @@ enum WindowID {
     static let capture = "capture"
 }
 
+/// What the Notes screen shows: the open note, or vault search.
+enum NotesMode: String, CaseIterable {
+    case editor, search
+
+    var title: String {
+        switch self {
+        case .editor: return "Editor"
+        case .search: return "Search"
+        }
+    }
+}
+
 /// Which screen and which modal surfaces are showing.
 @MainActor
 final class AppNavigation: ObservableObject {
     @Published var section: AppSection = .today
+    @Published var notesMode: NotesMode = .editor
     @Published var showQuickCapture = false
     @Published var showCommandPalette = false
 }

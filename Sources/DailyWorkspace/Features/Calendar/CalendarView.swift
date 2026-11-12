@@ -5,7 +5,12 @@ struct CalendarView: View {
     @State private var creating = false
 
     var body: some View {
-        ScrollView {
+        Page {
+            PageHeader(title: AppSection.calendar.title, description: AppSection.calendar.description) {
+                Button("New Event", systemImage: "plus") { creating = true }
+                    .buttonStyle(.secondary)
+                    .disabled(calendar.status != .authorized)
+            }
             VStack(alignment: .leading, spacing: 18) {
                 HStack {
                     Button {
@@ -36,15 +41,8 @@ struct CalendarView: View {
                 }
                 AgendaList()
             }
-            .padding(28)
-            .frame(maxWidth: 760, alignment: .leading)
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .navigationTitle("Calendar")
-        .toolbar {
-            Button("New Event", systemImage: "plus") { creating = true }
-                .disabled(calendar.status != .authorized)
-        }
+        .navigationTitle(AppSection.calendar.title)
         .sheet(isPresented: $creating) { EventEditorView(event: nil) }
         .onAppear { calendar.reload() }
     }

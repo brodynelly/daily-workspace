@@ -1,9 +1,10 @@
 import DailyCore
 import SwiftUI
 
-/// Vault search: note names and contents.
+/// Vault search: note names and contents. Shown as the Search mode of Notes; reachable from ⌘K and ⇧⌘F.
 struct SearchView: View {
     @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var navigation: AppNavigation
     @EnvironmentObject private var vaultSession: VaultSession
     @State private var query = ""
     @State private var notes: [IndexedNote] = []
@@ -16,11 +17,19 @@ struct SearchView: View {
     var body: some View {
         Group {
             if case .available = vaultSession.state {
-                VStack(spacing: 0) {
-                    if loading { ProgressView().controlSize(.small).padding() }
+                VStack(alignment: .leading, spacing: Space.s3) {
+                    HStack(spacing: Space.s2) {
+                        SearchField("Search note names and contents", text: $query)
+                        Button("Refresh", systemImage: "arrow.clockwise") { Task { await refresh() } }
+                            .buttonStyle(.quiet)
+                            .help("Rescan the vault after external changes")
+                            .disabled(loading)
+                        if loading { ProgressView().controlSize(.small) }
+                    }
                     if let error { InfoBanner(text: error) }
                     List(results) { note in
                         Button {
+                            navigation.notesMode = .editor
                             model.openNote(note.path)
                         } label: {
                             VStack(alignment: .leading, spacing: 4) {
@@ -33,18 +42,12 @@ struct SearchView: View {
                         }
                         .buttonStyle(.plain)
                     }
+                    .scrollContentBackground(.hidden)
                     .overlay { emptyState }
                 }
-                .searchable(text: $query, prompt: "Search note names and contents")
             } else {
                 VaultStatusView(state: vaultSession.state)
             }
-        }
-        .navigationTitle("Search")
-        .toolbar {
-            Button("Refresh", systemImage: "arrow.clockwise") { Task { await refresh() } }
-                .help("Rescan the vault after external changes")
-                .disabled(loading)
         }
         .task { await refresh() }
     }
