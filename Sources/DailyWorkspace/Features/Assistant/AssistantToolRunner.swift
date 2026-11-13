@@ -49,7 +49,7 @@ struct AssistantToolRunner: Sendable {
             if let failure = error as? ToolFailure {
                 message = failure.message
             } else {
-                Log.chat.error(
+                Log.assistant.error(
                     "Assistant tool \(use.name, privacy: .public) failed: \(Log.code(error), privacy: .public)")
                 message =
                     (error as? LocalizedError)?.errorDescription ?? "The tool failed. The source may be unavailable."
@@ -78,6 +78,12 @@ struct AssistantToolRunner: Sendable {
             let maxBytes = args.integer("max_bytes", default: 20_000, in: AssistantTool.readLimit)
             let note = try await context.readNote(path: args.string("path"), maxBytes: maxBytes).limited(to: maxBytes)
             return try (Self.encode(note), [.init(kind: .path, value: note.path)])
+        case .listProjects:
+            let inventory = await context.listProjects()
+            return try (
+                Self.encode(inventory),
+                inventory.projects.map { ToolCitation(kind: .path, value: $0.path) }
+            )
         case .listOpenLoops:
             let rows = try await context.openLoops(
                 source: args.optionalString("source"), project: args.optionalString("project"),
@@ -210,6 +216,7 @@ extension ToolProject {
     var citations: [ToolCitation] {
         var all = [ToolCitation(kind: .path, value: hubPath)]
         all += openLoops.flatMap(\.citations)
+        all += nativeTickets.map { ToolCitation(kind: .record, value: $0.id) }
         all += relatedNotes.map { ToolCitation(kind: .path, value: $0) }
         if let latestRestart { all.append(ToolCitation(kind: .record, value: latestRestart.id.uuidString)) }
         return ToolCitation.unique(all)

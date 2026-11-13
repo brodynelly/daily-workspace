@@ -153,7 +153,7 @@ struct CitationRow: View {
         }
     }
 
-    /// Markdown and Org notes open in Notes; other files (Seeds, Plot) are not notes.
+    /// Only Markdown paths open in Notes; record IDs are shown separately.
     static func opensInNotes(_ path: String) -> Bool {
         VaultReadPolicy.noteExtensions.contains((path as NSString).pathExtension.lowercased())
     }

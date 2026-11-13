@@ -1,7 +1,6 @@
 import Foundation
 
-/// Sends one Messages API request and streams the response. Unlike `ChatTransport`, it carries tool calls,
-/// thinking blocks and stop reasons, which the Assistant's tool loop needs.
+/// Sends one Messages API request and streams the response, including tool calls, thinking blocks and stop reasons.
 protocol AgentTransport: Sendable {
     /// Send `request`, reporting progress through `onUpdate` (awaited, in order), and return the full response.
     func send(
@@ -86,51 +85,55 @@ struct AgentError: LocalizedError, Equatable {
 
     var errorDescription: String? { message }
 
-    static func http(status: Int, errorType: String?, retryAfter: String?) -> AgentError {
+    static func http(
+        status: Int, errorType: String?, retryAfter: String?, provider: String = "Anthropic"
+    ) -> AgentError {
         switch status {
-        case 400: return AgentError(.badRequest, "Anthropic rejected the request as invalid (HTTP 400).")
-        case 401: return AgentError(.unauthorized, "Anthropic rejected the API key. Check it in Settings → AI.")
+        case 400: return AgentError(.badRequest, "\(provider) rejected the request as invalid (HTTP 400).")
+        case 401: return AgentError(.unauthorized, "\(provider) rejected the API key. Check it in Settings → AI.")
         case 403:
-            return AgentError(.forbidden, "This API key isn't allowed to use the model. Check your Anthropic account.")
+            return AgentError(
+                .forbidden, "This API key isn't allowed to use the model. Check your \(provider) account.")
         case 404:
-            return AgentError(.notFound, "Anthropic didn't recognize the model. Check the model in Settings → AI.")
+            return AgentError(.notFound, "\(provider) didn't recognize the model. Check the model in Settings → AI.")
         case 413: return AgentError(.tooLarge, "The conversation is too large to send. Clear it and try again.")
         case 429:
             let wait =
                 retryAfter.flatMap(Int.init).map { " Try again in \($0) seconds." } ?? " Wait a moment and try again."
-            return AgentError(.rateLimited, "Anthropic's rate limit was reached." + wait)
-        case 529: return overloadedError
+            return AgentError(.rateLimited, "\(provider)'s rate limit was reached." + wait)
+        case 529: return overloaded(provider: provider)
         case 500..<600:
-            if errorType == "overloaded_error" { return overloadedError }
-            return AgentError(.server, "Anthropic had a server problem (HTTP \(status)). Try again in a moment.")
-        default: return AgentError(.server, "Anthropic returned HTTP \(status).")
+            if errorType == "overloaded_error" { return overloaded(provider: provider) }
+            return AgentError(.server, "\(provider) had a server problem (HTTP \(status)). Try again in a moment.")
+        default: return AgentError(.server, "\(provider) returned HTTP \(status).")
         }
     }
 
     /// An `error` event in the middle of a stream. Only its `type` is read.
-    static func stream(_ error: [String: Any]?) -> AgentError {
+    static func stream(_ error: [String: Any]?, provider: String = "Anthropic") -> AgentError {
         switch error?["type"] as? String {
-        case "overloaded_error": return overloadedError
-        case "rate_limit_error": return http(status: 429, errorType: nil, retryAfter: nil)
-        case "authentication_error": return http(status: 401, errorType: nil, retryAfter: nil)
-        case "permission_error": return http(status: 403, errorType: nil, retryAfter: nil)
-        case "invalid_request_error": return http(status: 400, errorType: nil, retryAfter: nil)
-        case "request_too_large": return http(status: 413, errorType: nil, retryAfter: nil)
-        default: return AgentError(.server, "Anthropic stopped the response with an error. Try again in a moment.")
+        case "overloaded_error": return overloaded(provider: provider)
+        case "rate_limit_error": return http(status: 429, errorType: nil, retryAfter: nil, provider: provider)
+        case "authentication_error": return http(status: 401, errorType: nil, retryAfter: nil, provider: provider)
+        case "permission_error": return http(status: 403, errorType: nil, retryAfter: nil, provider: provider)
+        case "invalid_request_error": return http(status: 400, errorType: nil, retryAfter: nil, provider: provider)
+        case "request_too_large": return http(status: 413, errorType: nil, retryAfter: nil, provider: provider)
+        default: return AgentError(.server, "\(provider) stopped the response with an error. Try again in a moment.")
         }
     }
 
-    static func network(_ error: URLError) -> AgentError {
+    static func network(_ error: URLError, provider: String = "Anthropic") -> AgentError {
         switch error.code {
-        case .timedOut: return AgentError(.timedOut, "Anthropic didn't respond within 120 seconds. Try again.")
+        case .timedOut: return AgentError(.timedOut, "\(provider) didn't respond within 120 seconds. Try again.")
         case .notConnectedToInternet, .networkConnectionLost, .dataNotAllowed:
             return AgentError(.offline, "The Mac is offline. Connect to the internet and try again.")
-        default: return AgentError(.network, "Couldn't reach Anthropic. Check your connection and try again.")
+        default: return AgentError(.network, "Couldn't reach \(provider). Check your connection and try again.")
         }
     }
 
-    private static let overloadedError = AgentError(
-        .overloaded, "Anthropic is overloaded right now. Try again in a moment.")
+    private static func overloaded(provider: String) -> AgentError {
+        AgentError(.overloaded, "\(provider) is overloaded right now. Try again in a moment.")
+    }
 }
 
 /// The Anthropic Messages API over HTTPS, streamed as server-sent events.
@@ -164,32 +167,56 @@ struct AnthropicClient: AgentTransport {
     func send(
         _ request: AgentRequest, apiKey: String, onUpdate: @escaping @Sendable (AgentStreamUpdate) async -> Void
     ) async throws -> AgentResponse {
+        try await MessagesAPIClient(
+            provider: "Anthropic", idleTimeout: idleTimeout, totalTimeout: totalTimeout,
+            protocolClasses: protocolClasses
+        ).send(urlRequest(for: request, apiKey: apiKey), onUpdate: onUpdate)
+    }
+}
+
+/// The shared Messages SSE network path. Provider-specific request bodies and authentication stay with each client.
+struct MessagesAPIClient {
+    let provider: String
+    let idleTimeout: TimeInterval
+    let totalTimeout: TimeInterval
+    let protocolClasses: [AnyClass]?
+
+    func send(
+        _ request: URLRequest, onUpdate: @escaping @Sendable (AgentStreamUpdate) async -> Void
+    ) async throws -> AgentResponse {
+        try Task.checkCancellation()
         // Ephemeral: no URL cache, cookies or credentials persist for this traffic.
         let configuration = URLSessionConfiguration.ephemeral
         configuration.timeoutIntervalForRequest = idleTimeout
         configuration.timeoutIntervalForResource = totalTimeout
         configuration.urlCache = nil
+        configuration.httpShouldSetCookies = false
+        configuration.httpCookieStorage = nil
+        configuration.urlCredentialStorage = nil
         if let protocolClasses { configuration.protocolClasses = protocolClasses }
-        let session = URLSession(configuration: configuration)
+        let session = URLSession(configuration: configuration, delegate: MessagesNoRedirects(), delegateQueue: nil)
         defer { session.invalidateAndCancel() }
         do {
-            let (bytes, response) = try await session.bytes(for: urlRequest(for: request, apiKey: apiKey))
+            let (bytes, response) = try await session.bytes(for: request)
             let http = response as? HTTPURLResponse
             let status = http?.statusCode ?? 0
             guard (200..<300).contains(status) else {
                 let errorType = await Self.errorType(in: bytes)
-                Log.chat.error(
-                    "Anthropic returned HTTP \(status, privacy: .public) \(errorType ?? "-", privacy: .public)")
+                Log.assistant.error(
+                    "\(provider, privacy: .public): HTTP \(status, privacy: .public), \(errorType ?? "-", privacy: .public)"
+                )
                 throw AgentError.http(
-                    status: status, errorType: errorType, retryAfter: http?.value(forHTTPHeaderField: "retry-after"))
+                    status: status, errorType: errorType, retryAfter: http?.value(forHTTPHeaderField: "retry-after"),
+                    provider: provider)
             }
             var parser = SSEParser()
             var accumulator = MessageStreamAccumulator()
             for try await byte in bytes {
+                try Task.checkCancellation()
                 guard let event = parser.push(byte) else { continue }
-                if let update = try accumulator.apply(event) { await onUpdate(update) }
+                if let update = try apply(event, to: &accumulator) { await onUpdate(update) }
             }
-            if let event = parser.finish(), let update = try accumulator.apply(event) { await onUpdate(update) }
+            if let event = parser.finish(), let update = try apply(event, to: &accumulator) { await onUpdate(update) }
             try Task.checkCancellation()
             guard accumulator.isComplete else {
                 throw AgentError(.incomplete, "The response ended before it finished. Try again.")
@@ -197,9 +224,19 @@ struct AnthropicClient: AgentTransport {
             return accumulator.finalResponse()
         } catch let error as URLError {
             if error.code == .cancelled || Task.isCancelled { throw CancellationError() }
-            Log.chat.error("Anthropic request failed: \(Log.code(error), privacy: .public)")
-            throw AgentError.network(error)
+            Log.assistant.error("\(provider, privacy: .public) request failed: \(Log.code(error), privacy: .public)")
+            throw AgentError.network(error, provider: provider)
         }
+    }
+
+    private func apply(_ event: SSEEvent, to accumulator: inout MessageStreamAccumulator) throws -> AgentStreamUpdate? {
+        if provider != "Anthropic",
+            let object = parseJSONObject(Data(event.data.utf8)),
+            object["type"] as? String == "error"
+        {
+            throw AgentError.stream(object["error"] as? [String: Any], provider: provider)
+        }
+        return try accumulator.apply(event)
     }
 
     /// The `error.type` of an error body (a short identifier such as `overloaded_error`), never its message.
@@ -216,5 +253,14 @@ struct AnthropicClient: AgentTransport {
         let type = (parseJSONObject(data)?["error"] as? [String: Any])?["type"] as? String
         guard let type, type.count <= 64, type.allSatisfy({ $0.isLetter || $0 == "_" }) else { return nil }
         return type
+    }
+}
+
+private final class MessagesNoRedirects: NSObject, URLSessionTaskDelegate {
+    func urlSession(
+        _ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void
+    ) {
+        completionHandler(nil)
     }
 }

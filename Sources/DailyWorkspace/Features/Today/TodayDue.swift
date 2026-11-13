@@ -11,13 +11,12 @@ struct TodayDueItem: Identifiable, Equatable {
 
 /// What Today shows from Open Loops. Pure, so it can be tested without a view.
 ///
-/// Only sources that date their own items are listed: Org headings by their own `SCHEDULED`/`DEADLINE`, local
-/// tasks and reminders by their due date. Seeds and Plot items are never listed, dated or not: Today never invents
-/// daily attention for them (SYSTEM-INVENTORY §3).
+/// Only local tasks and reminders with their own due dates are listed. Luuna and Mail items
+/// are never listed: Today does not invent daily attention for them.
 @MainActor
 enum TodayDue {
     /// The owners whose items may appear in "Due today".
-    static let datedAuthorities: Set<LoopAuthority> = [.org, .local, .reminders]
+    static let datedAuthorities: Set<LoopAuthority> = [.local, .reminders]
 
     /// Overdue first (in Open Loops order), then what is due today: open items before done ones.
     static func items(dueToday: [OpenLoop], overdue: [OpenLoop], on day: LocalDay) -> [TodayDueItem] {
@@ -39,23 +38,13 @@ enum TodayDue {
         items(dueToday: store.dueOn(day, includeDone: true), overdue: store.overdue(before: day), on: day)
     }
 
-    /// The badge tone for an item's native status: waiting on Brody while open, recorded once done. Never success:
-    /// a finished item is not evidence.
+    /// The badge tone follows the owner's native status, without inferring a new status.
     static func tone(for loop: OpenLoop) -> Tone {
-        loop.isDoneInSource ? .neutral : .attention
+        LoopTone.tone(for: loop)
     }
 
     /// The owner's name, for the source tag.
-    static func sourceName(_ authority: LoopAuthority) -> String {
-        switch authority {
-        case .org: return "Org"
-        case .seeds: return "Seeds"
-        case .plot: return "Plot"
-        case .local: return "Local"
-        case .reminders: return "Reminders"
-        case .luuna: return "Luuna"
-        }
-    }
+    static func sourceName(_ authority: LoopAuthority) -> String { authority.ownerName }
 
     /// "Scheduled 09:30" for an item due today with a time, "Deadline Nov 10" for an overdue one, nil for an item
     /// due today without a time.
@@ -63,7 +52,7 @@ enum TodayDue {
         let loop = item.loop
         let dated: [(label: String, date: LoopDate)] = [
             loop.scheduled.map { ("Scheduled", $0) },
-            loop.deadline.map { (loop.authority == .org ? "Deadline" : "Due", $0) },
+            loop.deadline.map { ("Due", $0) },
         ].compactMap { $0 }.filter { $0.date.isActive }
         if item.isOverdue {
             guard let latest = dated.filter({ $0.date.localDay < day }).max(by: { $0.date.localDay < $1.date.localDay })

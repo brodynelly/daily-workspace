@@ -32,8 +32,8 @@ final class AssistantToolTests: XCTestCase {
 
     func testLimitsAreClampedAndFiltersPassedThrough() async throws {
         _ = try await run("search_notes", #"{"query":"alpha","limit":500}"#)
-        _ = try await run("list_open_loops", #"{"source":"org","status":"TODO"}"#)
-        XCTAssertEqual(context.calls, ["search_notes(alpha, 25)", "list_open_loops(org, -, TODO)"])
+        _ = try await run("list_open_loops", #"{"source":"local","status":"open"}"#)
+        XCTAssertEqual(context.calls, ["search_notes(alpha, 25)", "list_open_loops(local, -, open)"])
     }
 
     func testListOpenLoopsCitesRecordIDsAndPaths() async throws {
@@ -41,12 +41,87 @@ final class AssistantToolTests: XCTestCase {
         XCTAssertEqual(
             result.call.citations,
             [
-                ToolCitation(kind: .record, value: "seeds:alpha-12"),
-                ToolCitation(kind: .path, value: ".seeds/issues.jsonl"),
+                ToolCitation(kind: .record, value: "local:alpha-12"),
+                ToolCitation(kind: .path, value: "01-projects/alpha/hub.md"),
             ])
         let content = block["content"] as? String ?? ""
-        XCTAssertTrue(content.contains(#""status":"in_progress""#))
+        XCTAssertTrue(content.contains(#""status":"open""#))
         XCTAssertTrue(content.contains(#""observed_at":"#))
+    }
+
+    func testMailOpenLoopsNeverReachAssistantToolResultsOrProvider() async throws {
+        let root = try makeTemporaryVault(self)
+        let model = AppModel(dependencies: .test())
+        let mailResponse = FakeMailResponseSource(
+            .data(
+                rows: [["private-mail-7", "Private mail subject", "flagged status: true"]], incomplete: false))
+        let store = OpenLoopsStore(
+            tasks: model.tasks, reminders: model.reminders, vaultRoot: root,
+            makeMail: { MailOpenLoopReader(enabled: $0, responseSource: mailResponse) })
+        await store.refresh()
+        XCTAssertEqual(mailResponse.reads, 0, "Mail must not be read without consent")
+        XCTAssertEqual(store.observations[.mail]?.state, .unauthorized)
+        XCTAssertEqual(store.observations[.local]?.state, .empty)
+        store.setMailEnabled(true)
+        await store.refreshMail()
+        XCTAssertEqual(mailResponse.reads, 1)
+        XCTAssertEqual(store.observations[.mail]?.state, .populated)
+        XCTAssertEqual(store.loops(authority: .mail, includeDone: true).map(\.title), ["Private mail subject"])
+        XCTAssertEqual(store.loops(authority: .mail).first?.nativeStatus, "flagged status: true")
+
+        let assistantContext = WorkspaceAssistantContext(
+            vaultRoot: { root }, openLoops: store, projects: model.projects, luunaWork: model.luunaWork,
+            calendarStore: FakeCalendarStore(),
+            ledger: RestartLedger(url: root.appendingPathComponent("restart-ledger.jsonl")))
+        let toolRunner = AssistantToolRunner(context: assistantContext)
+        let all = await toolRunner.run(AgentToolUse(id: "all", name: "list_open_loops", input: Data("{}".utf8)))
+        let allBlock = try XCTUnwrap(parseJSONObject(all.block))
+        let allContent = allBlock["content"] as? String ?? ""
+        XCTAssertFalse(all.call.isError)
+        XCTAssertTrue(all.call.citations.isEmpty)
+        XCTAssertFalse(allContent.contains("flagged status: true"))
+        XCTAssertFalse(allContent.contains("mail:private-mail-7"))
+        XCTAssertFalse(allContent.contains("private-mail-7"))
+        XCTAssertFalse(allContent.contains(#""mail":"#))
+
+        do {
+            _ = try await assistantContext.openLoops(source: "mail", project: nil, status: nil)
+            XCTFail("The context must refuse Mail even if the tool schema changes.")
+        } catch let failure as ToolFailure {
+            XCTAssertEqual(failure.message, "Mail is not available to the Assistant.")
+        }
+        let mail = await toolRunner.run(
+            AgentToolUse(
+                id: "mail", name: "list_open_loops", input: Data(#"{"source":"mail"}"#.utf8)))
+        let mailBlock = try XCTUnwrap(parseJSONObject(mail.block))
+        XCTAssertTrue(mail.call.isError)
+        XCTAssertFalse((mailBlock["content"] as? String ?? "").contains("Private mail subject"))
+        XCTAssertFalse((mailBlock["content"] as? String ?? "").contains("private-mail-7"))
+        XCTAssertTrue(mail.call.citations.isEmpty)
+
+        let keys = FakeKeyStore()
+        keys.key = "sk-ant-test"
+        let transport = FakeAgentTransport([
+            .success(
+                agentResponse(
+                    [
+                        toolCall("all", "list_open_loops", "{}"),
+                        toolCall("mail", "list_open_loops", #"{"source":"mail"}"#),
+                    ], stop: "tool_use")),
+            .success(agentResponse([.text("Done.")], stop: "end_turn")),
+        ])
+        let session = AssistantSession(transport: transport, keyStore: keys, context: assistantContext)
+        session.send("What is open?")
+        await session.waitForCompletion()
+        XCTAssertEqual(transport.requests.count, 2)
+        let providerBody = transport.requests[1].body()
+        for secret in ["Private mail subject", "flagged status: true", "mail:private-mail-7", "private-mail-7"] {
+            XCTAssertFalse(providerBody.containsBytes(Data(secret.utf8)), secret)
+        }
+        let results = try transport.requests[1].messages[2].content.map { try XCTUnwrap(parseJSONObject($0)) }
+        XCTAssertEqual(results.count, 2)
+        XCTAssertEqual(results[1]["is_error"] as? Bool, true)
+        XCTAssertFalse((results[1]["content"] as? String ?? "").contains("Private mail subject"))
     }
 
     func testBadInputAndSourceFailuresBecomeErrorResults() async throws {

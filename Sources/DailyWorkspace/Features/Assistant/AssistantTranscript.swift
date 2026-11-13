@@ -117,6 +117,17 @@ struct AssistantQuestion: View {
 /// an uncited status claim, and the lookups behind it.
 struct AssistantAnswerCard: View {
     let turn: AssistantTurn
+    @State private var showNoteReview = false
+
+    private var noteSources: [String] {
+        turn.citations.compactMap { citation in
+            citation.kind == .path && citation.value.lowercased().hasSuffix(".md") ? citation.value : nil
+        }
+    }
+
+    private var suggestedDraft: String {
+        turn.finalAnswer + "\n\nSources:\n" + noteSources.map { "- \($0)" }.joined(separator: "\n")
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Space.s3) {
@@ -134,11 +145,19 @@ struct AssistantAnswerCard: View {
                 Spacer(minLength: 0)
             }
             MarkdownText(turn.answer)
+            if !noteSources.isEmpty {
+                Button("Draft vault note", systemImage: "square.and.pencil") { showNoteReview = true }
+                    .buttonStyle(.secondary)
+                    .help("Edit the cited draft and choose a Markdown path before reviewing and confirming a save")
+            }
             if !turn.toolCalls.isEmpty { ToolCallsDisclosure(calls: turn.toolCalls) }
         }
         .padding(Space.s4)
         .frame(maxWidth: .infinity, alignment: .leading)
         .cardSurface()
+        .sheet(isPresented: $showNoteReview) {
+            VaultNoteReviewSheet(source: .assistant(paths: noteSources), draft: suggestedDraft)
+        }
     }
 }
 
@@ -211,12 +230,9 @@ struct MarkdownText: View {
     }
 }
 
-/// The deliberately simple check behind the "unverified" mark: an answer that mentions a status (an Org keyword
-/// or a status word) while no lookup returned a record ID.
+/// The deliberately simple check behind the "unverified" mark: an answer that mentions a status
+/// while no lookup returned a record ID.
 enum AnswerClaims {
-    static let orgKeywords: Set<String> = [
-        "TODO", "NEXT", "DONE", "WAITING", "HOLD", "STARTED", "SOMEDAY", "CANCELLED", "CANCELED",
-    ]
     static let statusWords: Set<String> = [
         "status", "done", "completed", "closed", "overdue", "blocked", "incomplete", "archived", "in_progress",
     ]
@@ -227,6 +243,6 @@ enum AnswerClaims {
 
     static func mentionsStatus(_ text: String) -> Bool {
         let words = text.split { !($0.isLetter || $0 == "_") }.map(String.init)
-        return words.contains { orgKeywords.contains($0) || statusWords.contains($0.lowercased()) }
+        return words.contains { statusWords.contains($0.lowercased()) }
     }
 }

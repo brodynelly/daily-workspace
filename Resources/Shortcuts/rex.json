@@ -1,0 +1,107 @@
+{
+  "sections": [
+    {
+      "title": "Panes",
+      "rows": [
+        { "label": "Split right", "keys": [["⇧⌘\\"]] },
+        { "label": "Split down", "keys": [["⇧⌘'"]] },
+        { "label": "Focus pane left (Vim-aware)", "keys": [["⌃H"]] },
+        { "label": "Focus pane down (Vim-aware)", "keys": [["⌃J"]] },
+        { "label": "Focus pane up (Vim-aware)", "keys": [["⌃K"]] },
+        { "label": "Focus pane right (Vim-aware)", "keys": [["⌃L"]] },
+        { "label": "Next pane", "keys": [["⌃⇧L"]] },
+        { "label": "Previous pane", "keys": [["⌃⇧H"]] },
+        { "label": "Zoom pane", "keys": [["⌃⌥⌘O"]] },
+        { "label": "Close pane", "keys": [["⌥⌘W"]] },
+        { "label": "Move divider left", "keys": [["⌃⌥⌘H"]] },
+        { "label": "Move divider down", "keys": [["⌃⌥⌘J"]] },
+        { "label": "Move divider up", "keys": [["⌃⌥⌘K"]] },
+        { "label": "Move divider right", "keys": [["⌃⌥⌘L"]] }
+      ]
+    },
+    {
+      "title": "Resize mode (⌘R)",
+      "rows": [
+        { "label": "Enter resize mode", "keys": [["⌘R"]] },
+        { "label": "Move divider left", "keys": [["h"], ["←"]] },
+        { "label": "Move divider down", "keys": [["j"], ["↓"]] },
+        { "label": "Move divider up", "keys": [["k"], ["↑"]] },
+        { "label": "Move divider right", "keys": [["l"], ["→"]] },
+        { "label": "Big step left", "keys": [["⇧H"], ["⇧←"]] },
+        { "label": "Big step down", "keys": [["⇧J"], ["⇧↓"]] },
+        { "label": "Big step up", "keys": [["⇧K"], ["⇧↑"]] },
+        { "label": "Big step right", "keys": [["⇧L"], ["⇧→"]] },
+        { "label": "Balance splits", "keys": [["="]] },
+        { "label": "Exit resize mode", "keys": [["↩"], ["Esc"]] }
+      ]
+    },
+    {
+      "title": "Sessions (⌃B leader)",
+      "rows": [
+        { "label": "Switch session", "keys": [["⌃B", "S"]] },
+        { "label": "Previous session", "keys": [["⌃B", "L"]] },
+        { "label": "Session file picker", "keys": [["⌃B", "N"]] },
+        { "label": "Zoxide / SSH session picker", "keys": [["⌃B", "Z"]] },
+        { "label": "Daily note session", "keys": [["⌃B", "I"]] },
+        { "label": "Save session to file", "keys": [["⌃⇧S"]] },
+        { "label": "Send ⌃B to terminal", "keys": [["⌃B", "⌃B"]] }
+      ]
+    },
+    {
+      "title": "Named sessions (⌃B leader)",
+      "rows": [
+        { "label": "Dotfiles", "keys": [["⌃B", "D"]] },
+        { "label": "Dotfiles private", "keys": [["⌃B", "P"]] },
+        { "label": "Obsidian", "keys": [["⌃B", "O"]] },
+        { "label": "Home", "keys": [["⌃B", "H"]] },
+        { "label": "Scripts", "keys": [["⌃B", ";"]] },
+        { "label": "Skitty", "keys": [["⌃B", "K"]] },
+        { "label": "Yazi", "keys": [["⌃B", "F"]] },
+        { "label": "Work", "keys": [["⌃B", "W"]] },
+        { "label": "Networking", "keys": [["⌃B", "1"]] },
+        { "label": "Blogpost", "keys": [["⌃B", "B"]] },
+        { "label": "Lua", "keys": [["⌃B", "A"]] }
+      ]
+    },
+    {
+      "title": "Quick access (⌥⌘A leader)",
+      "rows": [
+        { "label": "Shell panel", "keys": [["⌥⌘A", "D"]] },
+        { "label": "Daily note", "keys": [["⌥⌘A", "N"]] },
+        { "label": "Skitty notes", "keys": [["⌥⌘A", "S"]] },
+        { "label": "Bookmarks", "keys": [["⌥⌘A", "Q"]] },
+        { "label": "System tasks", "keys": [["⌥⌘A", "T"]] },
+        { "label": "Colorscheme selector", "keys": [["⌥⌘A", "C"]] }
+      ]
+    },
+    {
+      "title": "Scrollback",
+      "rows": [
+        { "label": "Scrollback in Neovim", "keys": [["⌥⌘Z"]] },
+        { "label": "Scrollback in Neobean", "keys": [["⌥⌘I"]] },
+        { "label": "Quit scrollback pager", "keys": [["q"]] }
+      ]
+    },
+    {
+      "title": "Config",
+      "rows": [
+        { "label": "Reload config", "keys": [["⌃⌘,"]] },
+        { "label": "Settings", "keys": [["⌘,"]] },
+        { "label": "Command palette", "keys": [["⇧⌘P"]] }
+      ]
+    },
+    {
+      "title": "App defaults",
+      "rows": [
+        { "label": "New tab", "keys": [["⌘T"]] },
+        { "label": "Go to tab 1–9", "keys": [["⌘1–9"]] },
+        { "label": "Previous / next tab", "keys": [["⇧⌘["], ["⇧⌘]"]] },
+        { "label": "Split right / down", "keys": [["⌘D"], ["⇧⌘D"]] },
+        { "label": "Close pane or tab", "keys": [["⌘W"]] },
+        { "label": "Float pane", "keys": [["⌥⌘↩"]] },
+        { "label": "Minimize floating panes", "keys": [["⌥⌘M"]] },
+        { "label": "Go to anything", "keys": [["⌘P"]] }
+      ]
+    }
+  ]
+}

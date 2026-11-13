@@ -15,12 +15,12 @@ final class AppModel: ObservableObject {
     let tasks: TaskStore
     let calendar: CalendarService
     let reminders: RemindersService
-    let chat: ChatService
     let luuna: LuunaStore
+    let luunaWork: LuunaWorkStore
     let openLoops: OpenLoopsStore
     let projects: ProjectsStore
     let assistant: AssistantSession
-    /// Whether an Anthropic key is saved, for Settings and the Assistant screen.
+    /// Whether the selected provider's key is saved, for Settings and the Assistant screen.
     let assistantKey: AssistantKey
     let restarts: RestartRecords
     let assistantContext: WorkspaceAssistantContext
@@ -37,8 +37,14 @@ final class AppModel: ObservableObject {
     private var observers: [(NotificationCenter, NSObjectProtocol)] = []
     /// Where the Luuna origin and token are saved (`AppModel+Sources.swift`).
     let luunaSettings: LuunaSettings
+    /// Saved token for the native read-only work projections; never exposed to views.
+    var luunaWorkToken: String?
+    /// A pending off-main Keychain read must not be reported as an unauthorized runtime.
+    var luunaCredentialLoading = false
+    var luunaCredentialGeneration = 0
     /// Follows `vaultSession` for Open Loops and Projects (`AppModel+Sources.swift`).
     var vaultSubscription: AnyCancellable?
+    var luunaWorkSubscription: AnyCancellable?
     /// The vault and `AGENTS.md` hash the Assistant's conversation started with (`AppModel+Assistant.swift`).
     var assistantAgentsFingerprint: String?
     var assistantSubscriptions: Set<AnyCancellable> = []
@@ -53,25 +59,32 @@ final class AppModel: ObservableObject {
         vaultSession = VaultSession(preferences: preferences)
         document = NoteDocument(recovery: dependencies.recovery, autosaveDelay: dependencies.autosaveDelay)
         tasks = TaskStore(makePersistence: dependencies.makeTaskPersistence)
-        chat = ChatService(keyStore: dependencies.keyStore, transport: dependencies.chatTransport)
         calendar = CalendarService(store: dependencies.calendarStore)
         reminders = RemindersService(store: dependencies.reminderStore)
         luunaSettings = LuunaSettings(directory: dependencies.directory, keys: dependencies.luunaKeyStore)
-        let saved = luunaSettings.load()
+        let saved = dependencies.observesSystem ? luunaSettings.loadHost() : luunaSettings.load()
         luuna = LuunaStore(reader: dependencies.luunaReader, origin: saved.origin, token: saved.token)
+        luunaWork = LuunaWorkStore(reader: dependencies.luunaWorkReader)
+        luunaWorkToken = saved.token
+        luunaWork.connect(origin: saved.origin, token: saved.token, projectID: nil)
         luunaSettingsNotice = saved.notice
+        luunaCredentialLoading = dependencies.observesSystem
         openLoops = OpenLoopsStore(tasks: tasks, reminders: reminders)
         projects = ProjectsStore(registry: AssociationRegistry(directory: dependencies.directory), luuna: luuna)
         let session = vaultSession
         let vaultRoot = { session.vault?.root }
         let ledger = RestartLedger(url: dependencies.directory.restartLedgerURL)
         assistantContext = WorkspaceAssistantContext(
-            vaultRoot: vaultRoot, openLoops: openLoops, projects: projects, calendarStore: dependencies.calendarStore,
-            ledger: ledger)
-        assistantKey = AssistantKey(store: dependencies.assistantKeyStore)
+            vaultRoot: vaultRoot, openLoops: openLoops, projects: projects, luunaWork: luunaWork,
+            calendarStore: dependencies.calendarStore, ledger: ledger)
+        assistantKey = AssistantKey(
+            store: dependencies.assistantKeyStore, backgroundReads: dependencies.observesSystem,
+            openRouterStore: dependencies.openRouterKeyStore)
         assistant = AssistantSession(
             transport: dependencies.agentTransport, keyStore: dependencies.assistantKeyStore,
-            context: assistantContext, isEnabled: preferences.assistantEnabled)
+            context: assistantContext, isEnabled: preferences.assistantEnabled,
+            openRouterTransport: dependencies.openRouterTransport,
+            openRouterKeyStore: dependencies.openRouterKeyStore)
         restarts = RestartRecords(ledger: ledger, vaultRoot: vaultRoot)
 
         vaultSession.resolve()
@@ -79,7 +92,10 @@ final class AppModel: ObservableObject {
         if vaultSession.vault != nil { openToday(create: false) }
         observeAssistant()
         observeVault(refreshNow: dependencies.observesSystem)
-        if dependencies.observesSystem { startObserving() }
+        if dependencies.observesSystem {
+            startObserving()
+            loadLuunaCredentialsInBackground()
+        }
     }
 
     deinit {
@@ -157,6 +173,10 @@ final class AppModel: ObservableObject {
 
     /// Open a vault-relative note in the editor.
     func openNote(_ path: String, navigate: Bool = true) {
+        guard (path as NSString).pathExtension.lowercased() == "md" else {
+            document.post("Only visible Markdown notes open in Daily Workspace.")
+            return
+        }
         if navigate { navigation.section = .notes }
         guard vaultSession.vault != nil, document.flushBeforeSwitching() else { return }
         do {
@@ -189,6 +209,8 @@ final class AppModel: ObservableObject {
                 ? .captured : .rejected(tasks.message ?? "The task could not be saved.")
         case .note:
             return appendToTodayNote("- \(text)\n")
+        case .quickNotes, .inbox:
+            return .rejected("Review the exact vault path and note text in Quick Capture before saving.")
         }
     }
 
@@ -239,7 +261,7 @@ final class AppModel: ObservableObject {
         observe(.default, NSApplication.didBecomeActiveNotification) { model in
             model.document.checkExternalChange()
             model.calendar.reload()
-            // Open Loops re-reads Reminders (when allowed) along with the vault's Org, Seeds and Plot files.
+            // Refresh Reminders, opted-in Mail and native Luuna observations on activation.
             model.refreshSources()
             model.assistantContext.invalidateNotes()
             model.syncAssistantVaultAgents()
@@ -310,8 +332,8 @@ extension View {
             .environmentObject(model.tasks)
             .environmentObject(model.calendar)
             .environmentObject(model.reminders)
-            .environmentObject(model.chat)
             .environmentObject(model.luuna)
+            .environmentObject(model.luunaWork)
             .environmentObject(model.openLoops)
             .environmentObject(model.projects)
             .environmentObject(model.assistant)

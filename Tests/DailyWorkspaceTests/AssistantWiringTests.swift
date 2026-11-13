@@ -13,7 +13,7 @@ final class AssistantWiringTests: XCTestCase {
         root = try makeTemporaryVault(self)
     }
 
-    private func makeModel(
+    func makeModel(
         transport: FakeAgentTransport = FakeAgentTransport(), keys: FakeKeyStore = FakeKeyStore(),
         enabled: Bool = false
     ) -> AppModel {
@@ -86,6 +86,17 @@ final class AssistantWiringTests: XCTestCase {
         XCTAssertTrue(cut.truncated)
     }
 
+    func testOrgFilesAreNeitherReadableNorSearchableNotes() async throws {
+        try write("UNIQUE_ORG_SECRET", to: root.appendingPathComponent("org/inbox.org"))
+        let context = try vaultContext(makeModel())
+        let refusal = await refusal { _ = try await context.readNote(path: "org/inbox.org", maxBytes: 1_000) }
+        XCTAssertTrue(refusal?.contains("not a Markdown note") == true)
+        XCTAssertFalse(refusal?.contains("UNIQUE_ORG_SECRET") == true)
+        let hits = try await context.searchNotes(query: "UNIQUE_ORG_SECRET", limit: 10)
+        XCTAssertTrue(hits.isEmpty)
+        XCTAssertFalse(CitationRow.opensInNotes("org/inbox.org"))
+    }
+
     // MARK: search_notes
 
     func testSearchNotesSkipsExcludedFolders() async throws {
@@ -111,38 +122,45 @@ final class AssistantWiringTests: XCTestCase {
 
     // MARK: list_open_loops
 
-    func testOpenLoopsKeepTheNativeStatusVerbatimWithIDsAndPaths() async throws {
-        try LoopVaultFixture.populate(root)
+    func testOpenLoopsKeepLocalNativeStatusAndExcludeMailFromAssistant() async throws {
         let model = makeModel()
+        model.tasks.add(title: "Draft the proposal", due: nil)
+        model.tasks.add(title: "Request review", due: nil)
+        // The selected vault is unrelated to local task availability.
         let context = try vaultContext(model)
-        // The vault change starts its own refresh, which supersedes an explicit one; wait for the files.
+        XCTAssertEqual(model.openLoops.vaultRoot?.standardizedFileURL, root.standardizedFileURL)
         await model.openLoops.refresh()
-        for _ in 0..<200 where model.openLoops.observations[.org] == nil {
-            try await Task.sleep(for: .milliseconds(10))
-        }
+        XCTAssertEqual(model.openLoops.observations[.local]?.state, .populated)
+        XCTAssertEqual(model.openLoops.observations[.mail]?.state, .unauthorized)
+        let unavailable = await context.unreadableLoopSources()
+        XCTAssertNil(unavailable["local"])
+        XCTAssertNil(unavailable["mail"])
 
-        let org = try await context.openLoops(source: "org", project: nil, status: nil)
-        XCTAssertEqual(org.map(\.status), ["TODO", "NEXT", "DONE"])
-        XCTAssertTrue(org.allSatisfy { $0.id.hasPrefix("org:") && $0.path == "org/inbox.org" })
-
-        let seeds = try await context.openLoops(source: "seeds", project: "x", status: nil)
-        XCTAssertEqual(seeds.map(\.status), ["in_progress"])
-        XCTAssertEqual(seeds.first?.id, "seeds:brain-a1")
-        XCTAssertEqual(seeds.first?.path, ".seeds/issues.jsonl")
-
-        let next = try await context.openLoops(source: nil, project: nil, status: "next")
-        XCTAssertEqual(next.map(\.title), ["Draft the proposal"])
-        XCTAssertEqual(next.first?.status, "NEXT")
+        let local = try await context.openLoops(source: "local", project: nil, status: nil)
+        XCTAssertEqual(local.map(\.status), ["open", "open"])
+        XCTAssertTrue(local.allSatisfy { $0.id.hasPrefix("local:") && $0.path == nil })
+        let open = try await context.openLoops(source: nil, project: nil, status: "open")
+        XCTAssertEqual(Set(open.map(\.title)), ["Draft the proposal", "Request review"])
+        let mail = await refusal { _ = try await context.openLoops(source: "mail", project: nil, status: nil) }
+        XCTAssertTrue(mail?.contains("not available to the Assistant") == true)
     }
 
-    func testAnUnreadableSourceIsReportedNotEmpty() async throws {
+    func testUnreadableSourcesAreUnknownButRetiredSourcesAreNotOffered() async throws {
         let model = makeModel()
         let context = try vaultContext(model)
-        // An empty vault has no `.seeds/`: unread or uninitialized, never "nothing to do".
-        let seeds = await context.unreadableLoopSources()["seeds"]
-        XCTAssertNotNil(seeds)
-        let message = await refusal { _ = try await context.openLoops(source: "plot", project: nil, status: nil) }
-        XCTAssertTrue(message?.contains("unknown, not empty") == true, message ?? "")
+        await model.openLoops.refresh()
+        let sources = await context.unreadableLoopSources()
+        XCTAssertNil(sources["org"])
+        XCTAssertNil(sources["mail"], "Mail metadata is not accessible to the Assistant")
+        for retired in ["org", "seeds", "plot"] {
+            XCTAssertNil(sources[retired])
+            let message = await refusal {
+                _ = try await context.openLoops(source: retired, project: nil, status: nil)
+            }
+            XCTAssertTrue(message?.contains("There is no source") == true, message ?? "")
+        }
+        let message = await refusal { _ = try await context.openLoops(source: "org", project: nil, status: nil) }
+        XCTAssertTrue(message?.contains("There is no source") == true, message ?? "")
     }
 
     // MARK: Gating
@@ -255,57 +273,4 @@ final class AssistantWiringTests: XCTestCase {
         XCTAssertEqual(read.first?.sources.map(\.sha256), record.sources.map(\.sha256))
     }
 
-    // MARK: Settings
-
-    func testAssistantSettingsRoundTrip() throws {
-        let legacy = try JSONDecoder().decode(WorkspaceSettings.self, from: Data(#"{"dailyFolder":"Daily"}"#.utf8))
-        XCTAssertFalse(legacy.assistantEnabled)
-        XCTAssertEqual(legacy.assistantModel, "claude-opus-5-5")
-        let wrongType = try JSONDecoder().decode(
-            WorkspaceSettings.self, from: Data(#"{"assistantEnabled":"yes","assistantModel":7}"#.utf8))
-        XCTAssertFalse(wrongType.assistantEnabled)
-        XCTAssertEqual(wrongType.assistantModel, "claude-opus-5-5")
-
-        let store = InMemorySettings()
-        let preferences = Preferences(store: store)
-        XCTAssertFalse(preferences.assistantEnabled)
-        preferences.assistantEnabled = true
-        preferences.assistantModel = "claude-sonnet-5"
-        let encoded = try JSONEncoder().encode(try XCTUnwrap(store.stored))
-        let decoded = try JSONDecoder().decode(WorkspaceSettings.self, from: encoded)
-        XCTAssertTrue(decoded.assistantEnabled)
-        XCTAssertEqual(decoded.assistantModel, "claude-sonnet-5")
-
-        let reloaded = Preferences(store: store)
-        XCTAssertTrue(reloaded.assistantEnabled)
-        XCTAssertEqual(reloaded.assistantModel, "claude-sonnet-5")
-    }
-
-    func testChangingTheModelStartsANewConversation() async {
-        let transport = FakeAgentTransport()
-        transport.whenScriptEnds = { _ in .success(agentResponse([.text("Ok.")], stop: "end_turn")) }
-        let keys = FakeKeyStore()
-        keys.key = "sk-ant-test"
-        let model = makeModel(transport: transport, keys: keys, enabled: true)
-        model.assistant.send("Hello")
-        await model.assistant.waitForCompletion()
-        XCTAssertEqual(model.assistant.turns.count, 1)
-
-        model.assistant.setModel("claude-sonnet-5")
-        XCTAssertTrue(model.assistant.turns.isEmpty)
-        model.assistant.send("Hello again")
-        await model.assistant.waitForCompletion()
-        XCTAssertEqual(transport.bodies.last?["model"] as? String, "claude-sonnet-5")
-        model.assistant.setModel("  ")
-        XCTAssertEqual(model.assistant.configuration.model, AssistantSession.defaultModel)
-    }
-
-    func testAnswersThatMentionAStatusWithoutARecordIDAreUnverified() {
-        let record = [ToolCitation(kind: .record, value: "org:abc")]
-        let path = [ToolCitation(kind: .path, value: "01-projects/alpha/hub.md")]
-        XCTAssertTrue(AnswerClaims.isUnverified(answer: "The proposal is NEXT.", citations: []))
-        XCTAssertTrue(AnswerClaims.isUnverified(answer: "That task is done.", citations: path))
-        XCTAssertFalse(AnswerClaims.isUnverified(answer: "The proposal is NEXT (org:abc).", citations: record))
-        XCTAssertFalse(AnswerClaims.isUnverified(answer: "The hub describes the index.", citations: []))
-    }
 }

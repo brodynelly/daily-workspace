@@ -1,0 +1,41 @@
+{
+  "sections": [
+    {
+      "title": "Insert mode",
+      "rows": [
+        { "label": "Exit to Normal mode", "keys": [["k", "j"]] }
+      ]
+    },
+    {
+      "title": "Normal mode (␣ leader)",
+      "rows": [
+        { "label": "Find files (Quick Open)", "keys": [["␣", "f", "f"]] },
+        { "label": "Search in files", "keys": [["␣", "s", "g"]] },
+        { "label": "Toggle sidebar", "keys": [["␣", "e"]] },
+        { "label": "Close editor", "keys": [["␣", "b", "d"]] },
+        { "label": "Split vertically", "keys": [["␣", "|"]] },
+        { "label": "Split horizontally", "keys": [["␣", "-"]] },
+        { "label": "Markdown preview to side", "keys": [["␣", "m", "p"]] }
+      ]
+    },
+    {
+      "title": "Normal mode",
+      "rows": [
+        { "label": "Toggle fold", "keys": [["↩"]] },
+        { "label": "Line start", "keys": [["g", "h"]] },
+        { "label": "Line end", "keys": [["g", "l"]] }
+      ]
+    },
+    {
+      "title": "Visual mode",
+      "rows": [
+        { "label": "Move lines down", "keys": [["J"]] },
+        { "label": "Move lines up", "keys": [["K"]] },
+        { "label": "Indent", "keys": [[">"]] },
+        { "label": "Outdent", "keys": [["<"]] },
+        { "label": "Select to line start", "keys": [["g", "h"]] },
+        { "label": "Select to line end", "keys": [["g", "l"]] }
+      ]
+    }
+  ]
+}

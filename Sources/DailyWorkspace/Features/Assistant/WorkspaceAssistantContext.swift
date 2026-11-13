@@ -12,6 +12,7 @@ final class WorkspaceAssistantContext: AssistantContext {
     private let vaultRoot: () -> URL?
     private let openLoopsStore: OpenLoopsStore
     private let projectsStore: ProjectsStore
+    private let luunaWorkStore: LuunaWorkStore
     private let calendarStore: CalendarStore
     private let ledger: RestartLedger
     private let scope: VaultScope
@@ -21,12 +22,13 @@ final class WorkspaceAssistantContext: AssistantContext {
 
     init(
         vaultRoot: @escaping () -> URL?, openLoops: OpenLoopsStore, projects: ProjectsStore,
-        calendarStore: CalendarStore, ledger: RestartLedger, scope: VaultScope = .standard,
-        calendar: Calendar = .current
+        luunaWork: LuunaWorkStore, calendarStore: CalendarStore, ledger: RestartLedger,
+        scope: VaultScope = .standard, calendar: Calendar = .current
     ) {
         self.vaultRoot = vaultRoot
         self.openLoopsStore = openLoops
         self.projectsStore = projects
+        self.luunaWorkStore = luunaWork
         self.calendarStore = calendarStore
         self.ledger = ledger
         self.scope = scope
@@ -68,7 +70,7 @@ final class WorkspaceAssistantContext: AssistantContext {
     /// At most `maxBytes` of the note, without reading the rest of the file.
     nonisolated static func read(_ allowed: VaultReadPolicy.Allowed, maxBytes: Int) throws -> ToolNote {
         guard VaultReadPolicy.noteExtensions.contains(allowed.url.pathExtension.lowercased()) else {
-            throw ToolFailure("\(allowed.path) is not a Markdown or Org note, so it was not read.")
+            throw ToolFailure("\(allowed.path) is not a Markdown note, so it was not read.")
         }
         guard FileManager.default.fileExists(atPath: allowed.url.path) else {
             throw ToolFailure("There is no note at \(allowed.path).")
@@ -103,19 +105,25 @@ final class WorkspaceAssistantContext: AssistantContext {
             guard let match = LoopAuthority(rawValue: source) else {
                 throw ToolFailure("There is no source \(source).")
             }
+            // Open Loops consent does not grant the Assistant access to Mail metadata.
+            guard match != .mail else { throw ToolFailure("Mail is not available to the Assistant.") }
             if let reason = Self.unreadableReason(openLoopsStore.observations[match]) {
                 throw ToolFailure("\(source) \(reason), so its items are unknown, not empty.")
             }
             authority = match
         }
         let loops = openLoopsStore.loops(authority: authority, project: project, includeDone: true)
-            .filter { loop in status.map { loop.nativeStatus.caseInsensitiveCompare($0) == .orderedSame } ?? true }
+            .filter { loop in
+                loop.authority != .mail
+                    && (status.map { loop.nativeStatus.caseInsensitiveCompare($0) == .orderedSame } ?? true)
+            }
         return loops.prefix(Self.maxLoopRows).map(Self.row)
     }
 
     func unreadableLoopSources() async -> [String: String] {
         var reasons: [String: String] = [:]
         for authority in OpenLoopsStore.authorities {
+            guard authority != .mail else { continue }
             if let reason = Self.unreadableReason(openLoopsStore.observations[authority]) {
                 reasons[authority.rawValue] = reason
             }
@@ -147,22 +155,40 @@ final class WorkspaceAssistantContext: AssistantContext {
     // MARK: Projects
 
     func project(slug: String) async throws -> ToolProject {
+        guard let root = vaultRoot(), root.standardizedFileURL == projectsStore.vaultRoot?.standardizedFileURL else {
+            throw ToolFailure("Project hubs for the selected vault are unavailable, not empty.")
+        }
         guard let hubs = projectsStore.hubs else {
             throw ToolFailure("Project hubs have not been read yet. Try again in a moment.")
         }
+        guard hubs.state.isReadable else { throw ToolFailure("Project hubs are unavailable, not empty.") }
         guard let hub = hubs.value.first(where: { $0.slug == slug }) else {
-            if let reason = Self.unreadableReason(hubs) { throw ToolFailure("Project hubs \(reason).") }
-            let known = hubs.value.map(\.slug).sorted().joined(separator: ", ")
-            throw ToolFailure("There is no project hub with the slug \(slug). Known slugs: \(known).")
+            let qualifier = hubs.state.issues.isEmpty ? "" : " in this partial inventory"
+            throw ToolFailure(
+                "There is no project hub with the slug \(slug)\(qualifier). Use list_projects to find a slug.")
         }
-        let detail = ProjectsStore.detail(
-            for: hub, seeds: projectsStore.seeds?.value ?? SeedsSnapshot(), plots: projectsStore.plots?.value ?? [])
-        let seedsAt = projectsStore.seeds?.observedAt ?? Date()
-        let plotsAt = projectsStore.plots?.observedAt ?? Date()
-        let loops =
-            detail.issues.map { $0.openLoop(observedAt: seedsAt) }
-            + detail.plans.map { $0.openLoop(observedAt: seedsAt, project: hub.projectKey) }
-            + detail.plots.map { $0.openLoop(observedAt: plotsAt) }
+        guard let allowed = try? VaultReadPolicy.resolve(hub.path, root: root, scope: scope),
+            allowed.path == hub.path, FileManager.default.fileExists(atPath: allowed.url.path)
+        else {
+            throw ToolFailure("The project hub is excluded or unavailable, so it was not read.")
+        }
+        let association = projectsStore.association(forHubPath: hub.path)
+        let loops = openLoopsStore.loops(project: hub.projectKey, includeDone: true)
+            .filter { $0.authority != .mail && $0.authority != .luuna }
+        let nativeTickets: [ToolNativeTicket]
+        let nativeTicketsUnavailable: String?
+        if let binding = association?.luuna {
+            do {
+                nativeTickets = try tickets(for: binding)
+                nativeTicketsUnavailable = nil
+            } catch let failure as ToolFailure {
+                nativeTickets = []
+                nativeTicketsUnavailable = failure.message
+            }
+        } else {
+            nativeTickets = []
+            nativeTicketsUnavailable = nil
+        }
         let ledger = ledger
         let latest: RestartRecord?
         do {
@@ -172,13 +198,46 @@ final class WorkspaceAssistantContext: AssistantContext {
         } catch {
             throw ToolFailure("The restart ledger could not be read, so the latest restart record is unknown.")
         }
-        let association = projectsStore.association(forHubPath: hub.path)
+        // The association is the app's explicit binding; it supplies checkout paths, not ticket status.
         let checkouts = hub.repositories.map(\.path) + (association?.checkouts.map(\.path) ?? [])
         let notes = hub.notes.map(\.path) + (hub.state.map { [$0.path] } ?? [])
         return ToolProject(
             slug: hub.slug, title: hub.title, hubPath: hub.path, summary: hub.purpose, decisions: hub.decisions,
             checkouts: Self.unique(checkouts), openLoops: loops.prefix(Self.maxLoopRows).map(Self.row),
+            nativeTickets: nativeTickets, nativeTicketsUnavailable: nativeTicketsUnavailable,
             relatedNotes: Self.unique(notes), latestRestart: latest)
+    }
+
+    /// Only current reads for this exact origin and project may describe its native work.
+    private func tickets(for binding: LuunaProjectBinding) throws -> [ToolNativeTicket] {
+        guard luunaWorkStore.observedProjectBinding == binding else {
+            throw ToolFailure(
+                "Luuna tickets for project \(binding.projectID) are unavailable: this project's runtime and "
+                    + "project have not been selected and read. Items are unknown, not empty.")
+        }
+        let tickets = luunaWorkStore.tickets
+        let board = luunaWorkStore.board
+        guard tickets.state.isSuccess, tickets.state != .uninitialized,
+            let records = tickets.value, let observedAt = tickets.lastSuccessAt
+        else {
+            throw ToolFailure(
+                "Luuna tickets for project \(binding.projectID) are unavailable (\(tickets.state)). "
+                    + "Items are unknown, not empty.")
+        }
+        guard board.state.isSuccess, board.state != .uninitialized, let placement = board.value else {
+            throw ToolFailure(
+                "Luuna board for project \(binding.projectID) is unavailable (\(board.state)). "
+                    + "Ticket placement is unknown, not empty.")
+        }
+        var columns: [String: String] = [:]
+        for card in placement.cards(forProjectID: binding.projectID) where card.kind.rawValue == "ticket" {
+            if let id = card.ticketID { columns[id] = card.column.rawValue }
+        }
+        return records.filter { $0.projectID == binding.projectID }.map { ticket in
+            ToolNativeTicket(
+                id: ticket.id, source: "luuna", title: ticket.title, status: ticket.status?.rawValue,
+                boardColumn: columns[ticket.id], observedAt: observedAt)
+        }
     }
 
     private static func unique(_ values: [String]) -> [String] {
@@ -210,6 +269,62 @@ final class WorkspaceAssistantContext: AssistantContext {
     private func requireVault() throws -> URL {
         guard let root = vaultRoot() else { throw ToolFailure("No vault is chosen, so notes can't be read.") }
         return root
+    }
+}
+
+extension WorkspaceAssistantContext {
+    func listProjects() async -> ToolProjectInventory {
+        guard let root = vaultRoot(), root.standardizedFileURL == projectsStore.vaultRoot?.standardizedFileURL
+        else {
+            return ToolProjectInventory(
+                state: "unavailable", projects: [], truncated: false,
+                reason: "No selected vault has current project hubs.")
+        }
+        guard let hubs = projectsStore.hubs else {
+            return ToolProjectInventory(
+                state: "not_read", projects: [], truncated: false, reason: "Project hubs have not been read yet.")
+        }
+        let (state, reason) = Self.sourceDescription(for: hubs.state)
+        // Failed refreshes retain the previous value as stale. Never expose it as a current inventory.
+        guard hubs.state.isReadable else {
+            return ToolProjectInventory(state: state, projects: [], truncated: false, reason: reason)
+        }
+        let candidates = hubs.value
+        let scope = scope
+        return await Task.detached(priority: .userInitiated) {
+            var projects: [ToolProjectListing] = []
+            var skipped = false
+            for hub in candidates {
+                guard let allowed = try? VaultReadPolicy.resolve(hub.path, root: root, scope: scope),
+                    allowed.path == hub.path, FileManager.default.fileExists(atPath: allowed.url.path)
+                else {
+                    skipped = true
+                    continue
+                }
+                if projects.count == AssistantTool.projectLimit {
+                    return ToolProjectInventory(
+                        state: skipped ? "partial" : state, projects: projects, truncated: true,
+                        reason: skipped ? "Some registered hubs are now excluded or unavailable." : reason)
+                }
+                projects.append(ToolProjectListing(slug: hub.slug, title: hub.title, path: hub.path))
+            }
+            return ToolProjectInventory(
+                state: skipped ? "partial" : state, projects: projects, truncated: false,
+                reason: skipped ? "Some registered hubs are now excluded or unavailable." : reason)
+        }.value
+    }
+
+    private static func sourceDescription(for state: SourceState) -> (state: String, reason: String?) {
+        switch state {
+        case .populated: ("populated", nil)
+        case .empty: ("empty", nil)
+        case .partial: ("partial", "Some project hubs could not be read; the inventory may be incomplete.")
+        case .unsupported: ("unsupported", "Project hubs are not supported.")
+        case .unauthorized: ("unauthorized", "Project hubs could not be accessed.")
+        case .unavailable: ("unavailable", "Project hubs are unavailable.")
+        case .uninitialized: ("uninitialized", "Project hubs have not been set up.")
+        case .refused: ("refused", "Project hub access was refused.")
+        }
     }
 }
 

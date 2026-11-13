@@ -1,3 +1,4 @@
+import DailyCore
 import Foundation
 
 extension AssistantSession {
@@ -43,12 +44,13 @@ extension AssistantSession {
                 model: configuration.model, maxTokens: configuration.maxTokens, effort: options.effort, system: system,
                 tools: tools, messages: base + outcome.appended, outputSchema: options.schema)
             let generation = options.showsProgress ? options.generation : nil
-            let response = try await transport.send(request, apiKey: apiKey) { [weak self] update in
+            let selectedTransport = configuration.provider == .anthropic ? transport : openRouterTransport
+            let response = try await selectedTransport.send(request, apiKey: apiKey) { [weak self] update in
                 guard let generation else { return }
                 await self?.receive(update, generation: generation)
             }
             try Task.checkCancellation()
-            try Self.checkStop(response)
+            try Self.checkStop(response, provider: configuration.provider)
             outcome.appended.append(AgentMessage(role: .assistant, content: response.replayableContent.map(\.raw)))
             outcome.texts.append(response.text)
             outcome.finalText = response.text
@@ -82,12 +84,14 @@ extension AssistantSession {
     }
 
     /// Refusals and truncated responses end the turn before any tool runs.
-    static func checkStop(_ response: AgentResponse) throws {
+    static func checkStop(_ response: AgentResponse, provider: AssistantProvider) throws {
         switch response.stopReason {
         case "refusal":
             let category = response.stopDetails?.category ?? "none given"
             throw AgentError(
-                .refused, "Claude declined this request (category: \(category)). Nothing from it was kept.")
+                .refused,
+                "\(provider == .anthropic ? "Claude" : "The model") declined this request "
+                    + "(category: \(category)). Nothing from it was kept.")
         case "max_tokens":
             throw AgentError(
                 .truncated,

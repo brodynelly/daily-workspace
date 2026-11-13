@@ -71,8 +71,8 @@ public struct ProjectHub: Identifiable, Hashable, Sendable {
 
     public var latestNoteModified: Date? { notes.compactMap(\.modified).max() }
 
-    /// The key to match Seeds `project:<slug>` labels: the frontmatter `project:` when present, else the slug.
-    /// Several hubs can share one (`pi-harness.md` and `brodynelly-brain-project.md` both say `brodynelly-brain`).
+    /// An optional project key from frontmatter, otherwise the hub slug; retained for searching and display.
+    /// This metadata does not bind a Luuna project. Only an explicit association does.
     public var projectKey: String { frontmatter.scalars["project"].flatMap { $0.isEmpty ? nil : $0 } ?? slug }
 
     /// Vault-relative folder that holds the hub file.

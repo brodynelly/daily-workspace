@@ -1,3 +1,4 @@
+import DailyCore
 import SwiftUI
 import XCTest
 
@@ -13,11 +14,14 @@ final class DesignSystemTests: XCTestCase {
             AppSection.allCases.map(\.title), ["Today", "Projects", "Open Loops", "Notes", "Calendar", "Assistant"])
     }
 
-    func testSectionShortcutsAreCommandOneToSix() {
+    @MainActor
+    func testDefaultSectionShortcutsAreCommandOneToSix() throws {
+        let preferences = Preferences(store: InMemorySettings())
         for (index, section) in AppSection.allCases.enumerated() {
-            XCTAssertEqual(section.shortcut.key.character, Character(String(index + 1)), section.title)
-            XCTAssertEqual(section.shortcut.modifiers, .command, section.title)
-            XCTAssertEqual(AppCommand.go(section).shortcutLabel, "⌘\(index + 1)")
+            let command = AppCommand.go(section)
+            let binding = try XCTUnwrap(KeyboardShortcutCatalog.binding(for: command.id, preferences: preferences))
+            XCTAssertEqual(KeyboardShortcutCatalog.label(for: binding), "⌘\(index + 1)")
+            XCTAssertEqual(command.configuredShortcut(using: preferences)?.key.character, Character(String(index + 1)))
         }
     }
 
@@ -30,12 +34,26 @@ final class DesignSystemTests: XCTestCase {
         }
     }
 
+    @MainActor
+    func testRebindingUpdatesMenuShortcutAndDisplayedKeycap() {
+        let preferences = Preferences(store: InMemorySettings())
+        let command = AppCommand.go(.today)
+        let custom = ShortcutBinding(ShortcutStroke("7", modifiers: .command))
+        if case .failure(let error) = KeyboardShortcutCatalog.set(custom, for: command.id, preferences: preferences) {
+            XCTFail("Unexpected shortcut conflict: \(error)")
+        }
+        XCTAssertEqual(command.configuredShortcut(using: preferences)?.key.character, "7")
+        XCTAssertEqual(command.configuredLabel(using: preferences), "⌘7")
+    }
+
+    @MainActor
     func testPaletteListsTheSixScreensThenSearch() {
         let screens = AppCommand.paletteCommands.prefix(AppSection.allCases.count)
         XCTAssertEqual(Array(screens), AppSection.allCases.map(AppCommand.go))
         XCTAssertTrue(AppCommand.paletteCommands.contains(.searchNotes))
-        XCTAssertEqual(AppCommand.searchNotes.shortcutLabel, "⇧⌘F")
-        let shortcuts = AppCommand.paletteCommands.map(\.shortcutLabel).filter { !$0.isEmpty }
+        let preferences = Preferences(store: InMemorySettings())
+        XCTAssertEqual(AppCommand.searchNotes.configuredLabel(using: preferences), "⇧⌘F")
+        let shortcuts = AppCommand.paletteCommands.map { $0.configuredLabel(using: preferences) }.filter { !$0.isEmpty }
         XCTAssertEqual(Set(shortcuts).count, shortcuts.count, "no two commands share a shortcut")
     }
 

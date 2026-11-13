@@ -36,7 +36,7 @@ struct VaultSettingsView: View {
                     "To sync, choose a vault inside iCloud Drive, Dropbox, OneDrive, or another synced folder. That service transfers the Markdown files; keep them downloaded on each Mac. External changes are checked every two seconds and when you return to the app, and conflicting edits pause saving and keep recovery copies."
                 )
                 SettingsNote(
-                    "Local tasks and settings stay on this Mac, in the app data folder above. Apple Reminders and Calendar use their Apple accounts. Chat history stays in memory."
+                    "Local tasks and settings stay on this Mac, in the app data folder above. Apple Reminders and Calendar use their Apple accounts. Assistant conversations stay in memory and are cleared when you quit the app."
                 )
             }
         }

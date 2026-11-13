@@ -1,0 +1,33 @@
+{
+  "sections": [
+    {"title": "Insert mode", "rows": [
+      {"label": "Back to normal mode", "keys": [["k", "j"]]}
+    ]},
+    {"title": "Normal mode", "rows": [
+      {"label": "Half-page down and center", "keys": [["⌃D"]]},
+      {"label": "Half-page up and center", "keys": [["⌃U"]]},
+      {"label": "Next match, centered", "keys": [["n"]]},
+      {"label": "Previous match, centered", "keys": [["N"]]},
+      {"label": "Start of line (first non-blank)", "keys": [["g", "h"]]},
+      {"label": "End of line", "keys": [["g", "l"]]},
+      {"label": "Down / up by display line", "keys": [["j"], ["k"]]},
+      {"label": "Toggle line numbers", "keys": [["m", "n"]]},
+      {"label": "Ex mode disabled", "keys": [["Q"]]}
+    ]},
+    {"title": "Leader (␣)", "rows": [
+      {"label": "Save file", "keys": [["␣", "w", "w"]]},
+      {"label": "Yank to clipboard (+ motion)", "keys": [["␣", "y"]]},
+      {"label": "Yank line to clipboard", "keys": [["␣", "Y"]]},
+      {"label": "Insert Markdown task", "keys": [["␣", "m", "l"]]}
+    ]},
+    {"title": "Visual mode", "rows": [
+      {"label": "Move selection down", "keys": [["J"]]},
+      {"label": "Move selection up", "keys": [["K"]]},
+      {"label": "Yank to clipboard", "keys": [["y"], ["␣", "y"]]},
+      {"label": "Down / up by display line", "keys": [["j"], ["k"]]}
+    ]},
+    {"title": "Clipboard", "rows": [
+      {"label": "Yank always uses system clipboard", "keys": [["y"]]}
+    ]}
+  ]
+}

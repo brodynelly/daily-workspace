@@ -22,7 +22,15 @@ final class ProjectsStoreTests: XCTestCase {
         ProjectsStore(registry: registry, luuna: luuna, vaultRoot: root)
     }
 
-    func testHubsAreSortedByTitleAndSeedsAreFilteredByProjectKey() async throws {
+    func testHubsAreSortedByTitleAndSelectionDoesNotInferALuunaBinding() async throws {
+        let native: [LuunaProjectRecord] = try JSONDecoder().decode(
+            [LuunaProjectRecord].self,
+            from: Data(#"[{"id":"alpha","name":"Alpha","revision":1}]"#.utf8))
+        let reader = FakeLuunaReader()
+        reader.set("projects", .success(native))
+        luuna = LuunaStore(reader: reader, token: "tok")
+        await luuna.refresh()
+        XCTAssertEqual(luuna.projects.value?.map(\.name), ["Alpha"])
         let store = makeStore()
         await store.refresh()
 
@@ -31,18 +39,13 @@ final class ProjectsStoreTests: XCTestCase {
 
         store.select("alpha-hub")
         let alpha = try XCTUnwrap(store.detail)
-        XCTAssertEqual(alpha.hub.projectKey, "alpha", "The frontmatter project wins over the slug")
-        XCTAssertEqual(alpha.issues.map(\.id), ["brain-b2"])
-        XCTAssertEqual(alpha.plans.map(\.id), ["plan-1"], "A plan takes its seed issue's project")
-        XCTAssertEqual(alpha.plots.map(\.id), ["plot-5678efgh"], "A file in the hub's folder")
-        XCTAssertEqual(alpha.issues.first?.status, "open")
+        XCTAssertEqual(alpha.hub.projectKey, "alpha")
+        XCTAssertNil(alpha.association)
+        XCTAssertNil(luuna.selectedProject, "A hub name or project key cannot establish a native binding")
 
         store.select("x")
-        let x = try XCTUnwrap(store.detail)
-        XCTAssertEqual(x.issues.map(\.id), ["brain-a1"])
-        XCTAssertEqual(x.plans, [])
-        XCTAssertEqual(x.plots.map(\.id), ["plot-1234abcd"], "Attaches the project's Seeds issue")
-        XCTAssertEqual(x.seedsState, .populated)
+        XCTAssertEqual(store.detail?.hub.title, "Project X")
+        XCTAssertNil(luuna.selectedProject)
     }
 
     func testAssociationEditsRoundTripThroughTheRegistry() async throws {
@@ -114,7 +117,7 @@ final class ProjectsStoreTests: XCTestCase {
         XCTAssertEqual(store.associations, [])
     }
 
-    func testCorruptRegistryIsMovedAsideAndReported() throws {
+    func testCorruptRegistryCannotBindAProjectAndIsMovedAside() async throws {
         try write("not json", to: registry.url)
 
         let store = makeStore()
@@ -124,6 +127,12 @@ final class ProjectsStoreTests: XCTestCase {
         }
         XCTAssertEqual(try contents(of: aside), "not json")
         XCTAssertTrue(store.canEditAssociations)
+        XCTAssertTrue(store.associations.isEmpty)
+        XCTAssertNil(store.association(forHubPath: "01-projects/x/x.md"))
+        await store.refresh()
+        store.select("x")
+        XCTAssertNil(store.detail?.association)
+        XCTAssertNil(luuna.selectedProject)
     }
 
     func testVaultChangeClearsHubsAndSelection() async throws {
@@ -149,15 +158,31 @@ final class AppModelLuunaTests: XCTestCase {
     private var directory: WorkspaceDirectory!
     private var keys: FakeKeyStore!
     private var reader: FakeLuunaReader!
+    private var workReader: FakeLuunaWorkReader!
 
     override func setUp() async throws {
         directory = WorkspaceDirectory(url: try makeTemporaryVault(self))
         keys = FakeKeyStore()
         reader = FakeLuunaReader()
+        workReader = FakeLuunaWorkReader()
     }
 
-    private func makeModel() -> AppModel {
-        AppModel(dependencies: .test(directory: directory, luunaReader: reader, luunaKeys: keys))
+    private func makeModel(tasks: InMemoryTaskPersistence = InMemoryTaskPersistence()) -> AppModel {
+        AppModel(
+            dependencies: .test(
+                tasks: tasks, directory: directory, luunaReader: reader, luunaWorkReader: workReader, luunaKeys: keys))
+    }
+
+    private func waitUntil(_ condition: @escaping @MainActor () -> Bool) async throws {
+        for _ in 0..<400 {
+            if condition() { return }
+            try await Task.sleep(nanoseconds: 5_000_000)
+        }
+        XCTFail("Timed out waiting for native Luuna read")
+    }
+
+    private func fixture<Value: Decodable>(_ json: String) throws -> Value {
+        try JSONDecoder().decode(Value.self, from: Data(json.utf8))
     }
 
     func testLaunchConnectsWithTheSavedOriginAndToken() throws {
@@ -227,7 +252,104 @@ final class AppModelLuunaTests: XCTestCase {
         XCTAssertEqual(model.openLoops.vaultRoot, model.projects.vaultRoot)
         await model.openLoops.refresh()
         await model.projects.refresh()
-        XCTAssertEqual(model.openLoops.observations[.org]?.state, .populated)
+        XCTAssertEqual(model.openLoops.observations[.local]?.state, .empty)
         XCTAssertEqual(model.projects.hubs?.value.count, 2)
+    }
+
+    func testGlobalHomeRefreshesWithoutVaultOrSelectedHub() async throws {
+        keys.key = "saved-token"
+        let home: LuunaHome = try fixture(
+            #"{"projects":[{"id":"p","name":"Native project","repositories":[]}],"blockers":[]}"#)
+        workReader.set("homeAll", .success(home))
+        let model = makeModel()
+
+        model.refreshSources()
+        try await waitUntil { model.luunaWork.globalHome.value == home }
+
+        XCTAssertNil(model.projects.selectedSlug)
+        XCTAssertEqual(model.luunaWork.globalHome.state, .populated)
+        XCTAssertEqual(workReader.calls.filter { $0.name == "homeAll" }.map(\.connection.token), ["saved-token"])
+        XCTAssertFalse(workReader.calls.contains { $0.name == "board" || $0.name == "tickets" })
+    }
+
+    func testBindingTracksProjectSelectionAndVaultSwitchWithoutTouchingLocalTasks() async throws {
+        keys.key = "saved-token"
+        let tasks = InMemoryTaskPersistence()
+        let model = makeModel(tasks: tasks)
+        let first = try makeTemporaryVault(self)
+        let second = try makeTemporaryVault(self)
+        try LoopVaultFixture.populate(first)
+        try LoopVaultFixture.populate(second)
+        model.useVault(at: first)
+        await model.projects.refresh()
+        try await waitUntil { model.projects.hubs?.value.contains(where: { $0.slug == "x" }) == true }
+        model.projects.select("x")
+        XCTAssertEqual(model.projects.detail?.hub.path, "01-projects/x/x.md")
+        XCTAssertNil(model.projects.bindLuuna(origin: .standard, projectID: "first"))
+        try await waitUntil { model.luunaWork.board.state == .empty }
+        XCTAssertEqual(workReader.calls.filter { $0.name == "board" }.map(\.projectID), ["first"])
+
+        model.projects.select("alpha-hub")
+        XCTAssertNil(model.luunaWork.board.value)
+        XCTAssertNil(model.luunaWork.tickets.value)
+        model.projects.select("x")
+        XCTAssertNil(model.projects.bindLuuna(origin: .standard, projectID: "second"))
+        try await waitUntil { self.workReader.calls.contains { $0.name == "board" && $0.projectID == "second" } }
+
+        model.useVault(at: second)
+        XCTAssertNil(model.projects.detail)
+        XCTAssertNil(model.luunaWork.board.value, "An earlier vault's project cannot survive a switch")
+        await model.projects.refresh()
+        await model.projects.refresh()
+        try await waitUntil { model.projects.hubs?.value.contains(where: { $0.slug == "alpha-hub" }) == true }
+        model.projects.select("alpha-hub")
+        XCTAssertNil(model.luunaWork.home.value)
+        XCTAssertTrue(tasks.stored.items.isEmpty)
+        XCTAssertEqual(tasks.saveCount, 0)
+    }
+
+    func testForeignBindingAndSettingsChangesClearAuthorityScopedWork() async throws {
+        keys.key = "first-token"
+        let root = try makeTemporaryVault(self)
+        try LoopVaultFixture.populate(root)
+        let model = makeModel()
+        model.useVault(at: root)
+        await model.projects.refresh()
+        try await waitUntil { model.projects.hubs?.value.contains(where: { $0.slug == "x" }) == true }
+        model.projects.select("x")
+        XCTAssertEqual(model.projects.detail?.hub.path, "01-projects/x/x.md")
+        XCTAssertNil(model.projects.bindLuuna(origin: .standard, projectID: "first"))
+        try await waitUntil { model.luunaWork.board.state == .empty }
+        await model.luunaWork.refreshGlobalHome()
+        XCTAssertNotNil(model.luunaWork.globalHome.value)
+
+        let foreign = try LuunaOrigin(validating: "http://localhost:5050")
+        XCTAssertNil(model.projects.bindLuuna(origin: foreign, projectID: "foreign"))
+        XCTAssertNil(model.luunaWork.board.value)
+        let callCount = workReader.calls.count
+        await model.luunaWork.refresh()
+        XCTAssertEqual(workReader.calls.count, callCount, "A foreign binding must never be queried")
+
+        XCTAssertNil(model.connectLuuna(origin: "http://localhost:5050", token: "second-token"))
+        XCTAssertNil(model.luunaWork.globalHome.value, "The prior origin's Home must be discarded")
+        try await waitUntil {
+            self.workReader.calls.contains {
+                $0.name == "board" && $0.projectID == "foreign" && $0.connection.token == "second-token"
+            }
+        }
+        try await waitUntil { model.luunaWork.globalHome.state == .empty }
+        let gate = workReader.hold("homeAll")
+        let staleRead = Task { await model.luunaWork.refreshGlobalHome() }
+        try await gate.waitForArrival()
+        XCTAssertNil(model.connectLuuna(origin: "http://localhost:5050", token: ""))
+        XCTAssertNil(model.luunaWork.board.value)
+        XCTAssertNil(model.luunaWork.globalHome.value)
+        gate.open()
+        await staleRead.value
+        XCTAssertNil(model.luunaWork.globalHome.value, "An in-flight read from the old token must be discarded")
+        let noTokenCallCount = workReader.calls.count
+        await model.luunaWork.refresh()
+        await model.luunaWork.refreshGlobalHome()
+        XCTAssertEqual(workReader.calls.count, noTokenCallCount, "No native read without an authenticated connection")
     }
 }

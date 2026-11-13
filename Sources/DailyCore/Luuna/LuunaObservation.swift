@@ -1,28 +1,28 @@
 import Foundation
 
-/// Why the runtime could not be read. The app supplies the wording.
+/// Why the Luuna CLI could not read the selected runtime. The app supplies the wording.
 public enum LuunaUnavailableReason: Equatable, Sendable {
     /// No read has completed in this connection session yet.
     case notChecked
     /// Nothing answered at the origin: refused, unreachable, or the connection dropped.
     case cannotConnect
     case timedOut
-    /// The origin answered with a redirect, which is never followed (another service may hold the port).
+    /// A runtime redirect is never followed.
     case redirectRefused
-    /// HTTP 429: the runtime is at its limit of active runs or streams.
+    /// The runtime is at its limit of active runs or streams.
     case busy
     /// HTTP 503 carrying the runtime's own short reason, such as `runtime is shutting down`.
     case shuttingDown(String)
-    /// Any other 5xx. The body is never kept.
+    /// A runtime 5xx response.
     case serverError(status: Int)
-    /// A transport failure not listed above, as its `URLError` code.
+    /// A transport failure not listed above, as its error code.
     case transport(code: Int)
     /// The project is bound to a different runtime origin than the one this session reads.
     case otherAuthority
 }
 
-/// The runtime declined a request with a 4xx. `reason` is the runtime's own short sentence from a JSON `{error}`
-/// body, kept only when it passes the TypeScript client's checks; nothing else from the body is ever kept.
+/// The runtime declined a request. `reason` is present only when the CLI supplies a bounded,
+/// validated reason; credentials and untrusted response bodies are never surfaced.
 public struct LuunaRefusal: Equatable, Sendable {
     public let status: Int
     public let reason: String?
@@ -118,48 +118,4 @@ public enum LuunaReadFailure: Error, Equatable, Sendable {
         }
     }
 
-    /// Classifies a non-2xx response; nil for a 2xx. Only a validated refusal reason is read from `body`.
-    public static func classify(status: Int, body: Data) -> LuunaReadFailure? {
-        switch status {
-        case 200..<300: return nil
-        case 300..<400: return .unavailable(.redirectRefused)
-        case 401, 403: return .unauthorized
-        case 404: return notFound(body)
-        case 405, 501: return .unsupported
-        case 429: return .unavailable(.busy)
-        case 503:
-            return runtimeReason(body).map { .unavailable(.shuttingDown($0)) }
-                ?? .unavailable(.serverError(status: 503))
-        case 500..<600: return .unavailable(.serverError(status: status))
-        default:
-            return .refused(
-                LuunaRefusal(status: status, reason: refusalStatuses.contains(status) ? runtimeReason(body) : nil))
-        }
-    }
-
-    /// Statuses whose JSON `{error}` body is the runtime's deterministic reason (the TypeScript `failureOf`).
-    static let refusalStatuses: Set<Int> = [400, 409, 413, 415, 422]
-
-    /// The runtime answers an unknown route with `{"error":"not found"}`; a missing record names itself
-    /// (`project not found`), which is a refusal about that record rather than a missing endpoint.
-    private static func notFound(_ body: Data) -> LuunaReadFailure {
-        guard let reason = runtimeReason(body), reason.lowercased() != "not found" else { return .unsupported }
-        return .refused(LuunaRefusal(status: 404, reason: reason))
-    }
-
-    /// The longest runtime reason the TypeScript client surfaces (`MAX_REASON_LENGTH`, in UTF-16 units).
-    public static let maxReasonLength = 1000
-
-    /// The trimmed `error` string of a JSON object body, only when it is 1 to 1000 UTF-16 units long and has no
-    /// control characters. Any other body yields nil and is never surfaced.
-    public static func runtimeReason(_ body: Data) -> String? {
-        guard let object = try? JSONSerialization.jsonObject(with: body) as? [String: Any],
-            let error = object["error"] as? String
-        else { return nil }
-        let reason = error.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !reason.isEmpty, reason.utf16.count <= maxReasonLength,
-            !reason.unicodeScalars.contains(where: { $0.value < 0x20 })
-        else { return nil }
-        return reason
-    }
 }

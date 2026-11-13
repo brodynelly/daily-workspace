@@ -1,26 +1,15 @@
 import DailyCore
 import Foundation
 
-/// One project hub with what other owners say about it. Every part keeps its owner: Seeds records carry their own
-/// status, Plot records their own, and the association is the app's own record of what belongs together.
+/// One project hub and the app-owned association of other owners' identities to it.
 struct ProjectDetail: Equatable {
     let hub: ProjectHub
-    /// Seeds issues labelled `project:<hub.projectKey>`, in Seeds order.
-    let issues: [SeedsRecord]
-    /// Seeds plans for the project: their own `project:` label, else their seed issue's.
-    let plans: [SeedsRecord]
-    /// Plots that attach one of `issues`, a file in the hub's folder, or `project:<hub.projectKey>`.
-    let plots: [PlotRecord]
-    /// The state of the Seeds and Plot reads these rows came from (nil before the first read).
-    let seedsState: SourceState?
-    let plotState: SourceState?
-    /// The app-owned association for this hub, if one was saved.
     let association: ProjectAssociation?
 }
 
-/// Project hubs from `01-projects/`, the selected hub's Seeds and Plot rows, and the app-owned association
-/// registry. Vault files are read off the main actor and never written; the only file this store writes is
-/// `associations.json` in the app folder, through `AssociationRegistry`'s atomic save.
+/// Project hubs from `01-projects/` and the app-owned association registry. Vault files are read off the
+/// main actor and never written; the only file this store writes is `associations.json` in the app folder,
+/// through `AssociationRegistry`'s atomic save.
 @MainActor
 final class ProjectsStore: ObservableObject {
     /// What loading `associations.json` found.
@@ -37,10 +26,8 @@ final class ProjectsStore: ObservableObject {
 
     /// Hubs sorted by title; nil until the first read finishes.
     @Published private(set) var hubs: SourceObservation<[ProjectHub]>?
-    @Published private(set) var seeds: SourceObservation<SeedsSnapshot>?
-    @Published private(set) var plots: SourceObservation<[PlotRecord]>?
     @Published private(set) var selectedSlug: String?
-    /// The selected hub and its derived rows; nil without a selection or when the hub is not (or no longer) found.
+    /// The selected hub and its association; nil without a selection or when the hub is no longer found.
     @Published private(set) var detail: ProjectDetail?
     @Published private(set) var associations: [ProjectAssociation] = []
     @Published private(set) var associationsStatus: AssociationsStatus = .notLoaded
@@ -84,21 +71,19 @@ final class ProjectsStore: ObservableObject {
 
     // MARK: Vault and refresh
 
-    /// Read another vault (or none). Its hubs, Seeds and Plot reads are dropped, the selection is cleared and
-    /// any read in flight is discarded. Call `refresh()` afterwards.
+    /// Read another vault (or none). Its hubs are dropped, the selection is cleared and any read in flight
+    /// is discarded. Call `refresh()` afterwards.
     func setVaultRoot(_ root: URL?) {
         guard root?.standardizedFileURL != vaultRoot?.standardizedFileURL else { return }
         vaultRoot = root
         generation += 1
         isRefreshing = false
         hubs = nil
-        seeds = nil
-        plots = nil
         select(nil)
     }
 
-    /// Re-reads hubs, Seeds and Plot off the main actor and reloads the association registry. Only the newest
-    /// refresh for the current vault publishes; a failed read keeps the previous value as stale.
+    /// Re-read hubs off the main actor and reload the association registry. Only the newest refresh for
+    /// the current vault publishes; a failed read keeps the previous value as stale.
     func refresh() async {
         generation += 1
         let generation = generation
@@ -107,13 +92,10 @@ final class ProjectsStore: ObservableObject {
         let root = vaultRoot
         let scope = scope
         let date = now()
-        let read = await Task.detached(priority: .userInitiated) { () -> VaultRead? in
+        let read = await Task.detached(priority: .userInitiated) { () -> SourceObservation<[ProjectHub]>? in
             guard let root else { return nil }
-            let hubs = ProjectHubReader(root: root, scope: scope).read(now: date)
-            return VaultRead(
-                hubs: hubs.map { $0.sorted(by: Self.titleOrder) },
-                seeds: SeedsReader(root: root).readSnapshot(now: date),
-                plots: PlotReader(root: root).readPlots(now: date))
+            return ProjectHubReader(root: root, scope: scope).read(now: date)
+                .map { $0.sorted(by: Self.titleOrder) }
         }.value
         guard generation == self.generation else {
             Log.app.info("Discarded a projects read for an earlier vault or refresh")
@@ -123,14 +105,10 @@ final class ProjectsStore: ObservableObject {
         guard let read else {
             let state = SourceState.unavailable(reason: "No vault is chosen.")
             hubs = SourceObservation(state: state, value: [], observedAt: date)
-            seeds = SourceObservation(state: state, value: SeedsSnapshot(), observedAt: date)
-            plots = SourceObservation(state: state, value: [], observedAt: date)
             rederive()
             return
         }
-        hubs = read.hubs.following(hubs)
-        seeds = read.seeds.following(seeds)
-        plots = read.plots.following(plots)
+        hubs = read.following(hubs)
         rederive()
     }
 
@@ -149,9 +127,7 @@ final class ProjectsStore: ObservableObject {
             return
         }
         let association = association(forHubPath: hub.path)
-        detail = Self.detail(
-            for: hub, seeds: seeds?.value ?? SeedsSnapshot(), plots: plots?.value ?? [], seedsState: seeds?.state,
-            plotState: plots?.state, association: association)
+        detail = Self.detail(for: hub, association: association)
         bindSelectedLuunaProject(association?.luuna)
     }
 
@@ -161,29 +137,8 @@ final class ProjectsStore: ObservableObject {
         if binding != nil { Task { await luuna.refresh() } }
     }
 
-    /// The hub's Seeds issues and plans (matched on `projectKey`) and the Plots that refer to them or the project.
-    static func detail(
-        for hub: ProjectHub, seeds: SeedsSnapshot, plots: [PlotRecord], seedsState: SourceState? = nil,
-        plotState: SourceState? = nil, association: ProjectAssociation? = nil
-    ) -> ProjectDetail {
-        let key = hub.projectKey
-        let issues = seeds.issues.filter { $0.project == key }
-        let issueProjects = Dictionary(seeds.issues.map { ($0.id, $0.project) }, uniquingKeysWith: { _, last in last })
-        let plans = seeds.plans.filter { plan in
-            (plan.project ?? plan.extra["seed"]?.stringValue.flatMap { issueProjects[$0] ?? nil }) == key
-        }
-        let issueIDs = Set(issues.map(\.id))
-        let folder = hub.folder + "/"
-        let relatedPlots = plots.filter { plot in
-            plot.references.contains { reference in
-                (reference.isSeedsIssue && issueIDs.contains(reference.ref))
-                    || (reference.isFile && (reference.ref == hub.path || reference.ref.hasPrefix(folder)))
-                    || reference.ref == "project:\(key)"
-            }
-        }
-        return ProjectDetail(
-            hub: hub, issues: issues, plans: plans, plots: relatedPlots, seedsState: seedsState, plotState: plotState,
-            association: association)
+    static func detail(for hub: ProjectHub, association: ProjectAssociation? = nil) -> ProjectDetail {
+        ProjectDetail(hub: hub, association: association)
     }
 
     private nonisolated static func titleOrder(_ lhs: ProjectHub, _ rhs: ProjectHub) -> Bool {
@@ -309,9 +264,4 @@ final class ProjectsStore: ObservableObject {
         }
     }
 
-    private struct VaultRead: Sendable {
-        let hubs: SourceObservation<[ProjectHub]>
-        let seeds: SourceObservation<SeedsSnapshot>
-        let plots: SourceObservation<[PlotRecord]>
-    }
 }

@@ -1,10 +1,7 @@
 import DailyCore
 import SwiftUI
 
-/// Open Loops: one list across the owners (local tasks, Org, Seeds, Plot and Reminders). Each row shows its source
-/// and the owner's own status verbatim, and every action goes back to that owner: local tasks through `TaskStore`,
-/// reminders through `RemindersService`, and Org, Seeds and Plot only by opening their source. Each source's state
-/// is spelled out, so a source that could not be read never looks like "nothing open".
+/// Open Loops: local tasks, Reminders and opted-in Mail, with native statuses and source states.
 struct OpenLoopsView: View {
     @EnvironmentObject private var loops: OpenLoopsStore
     @EnvironmentObject private var tasks: TaskStore
@@ -29,7 +26,7 @@ struct OpenLoopsView: View {
         }
         .navigationTitle(AppSection.openLoops.title)
         .task {
-            if OpenLoopsStore.vaultAuthorities.allSatisfy({ loops.observations[$0] == nil }) { await loops.refresh() }
+            if loops.observations[.reminders] == nil { await loops.refresh() }
         }
     }
 
@@ -43,7 +40,7 @@ struct OpenLoopsView: View {
         }
         .buttonStyle(.workspace(.secondary, size: .large))
         .disabled(loops.isRefreshing)
-        .help("Read Org, Seeds and Plot again, and fetch changes made in Apple Reminders")
+        .help("Refresh Reminders and Mail when opted in")
         Button {
             composer = .reminder
         } label: {
@@ -83,19 +80,25 @@ struct OpenLoopsView: View {
         .accessibilityLabel("Source status")
     }
 
-    /// The source's state in words. Reminders reports its permission in its own words before any read.
+    /// Spell out Mail consent separately from Mail's Automation permission and read state.
     private func status(of authority: LoopAuthority) -> ObservedSource {
         if authority == .reminders, reminders.status != .authorized {
             return ObservedSource(tone: .attention, text: "Reminders: \(reminders.status.label)")
         }
+        if authority == .mail {
+            if !loops.mailEnabled {
+                return ObservedSource(tone: .neutral, text: "Mail: off — enable read-only access in Settings")
+            }
+            if loops.observations[.mail]?.state == .unauthorized {
+                return ObservedSource(
+                    tone: .attention, text: "Mail: permission denied — allow Automation access in System Settings")
+            }
+        }
         let observation = loops.observations[authority]
         let open = observation?.value.filter { !$0.isDoneInSource }.count ?? 0
         return ObservedSource(
-            authority.ownerName, observation: observation, summary: open == 0 ? "nothing open" : "\(open) open",
-            notSetUp: Self.notSetUp[authority])
+            authority.ownerName, observation: observation, summary: open == 0 ? "nothing open" : "\(open) open")
     }
-
-    private static let notSetUp: [LoopAuthority: String] = [.seeds: "no .seeds/ folder", .plot: "no .plot/ folder"]
 
     // MARK: Filters
 

@@ -13,9 +13,9 @@ struct ObservedSource: Equatable {
     var lastRead: Date?
 
     /// - Parameters:
-    ///   - name: the source as the UI names it (`Org`, `Seeds`, `Hubs`).
+    ///   - name: the source as the UI names it (`Local`, `Hubs`).
     ///   - summary: what a readable read holds (`3 open`, `nothing open`, `12 hubs`).
-    ///   - notSetUp: what `uninitialized` means for this source (`no .seeds/ folder`).
+    ///   - notSetUp: what `uninitialized` means for this source.
     init<Value>(_ name: String, observation: SourceObservation<Value>?, summary: String, notSetUp: String? = nil) {
         guard let observation else {
             self.init(tone: .neutral, text: "\(name): not read yet")

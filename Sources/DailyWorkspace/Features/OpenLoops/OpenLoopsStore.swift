@@ -2,26 +2,18 @@ import Combine
 import DailyCore
 import Foundation
 
-/// Builds the read-only vault readers for one vault root. Injected so tests can hold a read in flight.
-typealias OpenLoopSourceFactory = @Sendable (URL) -> [any OpenLoopSource]
+/// Mail is separate from the vault reader: it can only be constructed with the current opt-in.
+typealias MailOpenLoopFactory = @Sendable (Bool) -> MailOpenLoopReader
 
-/// Open loops from every owner, in one read-only list.
+/// Open loops from local tasks, reminders and opted-in Mail, in one read-only list.
 ///
-/// Org, Seeds and Plot are read from the vault's files off the main actor. Local tasks and reminders are reflected
-/// from `TaskStore` and `RemindersService`, which keep their own actions; this store re-derives whenever either
-/// publishes. Nothing here ever writes to a source. A key missing from `observations` means that source has not
-/// been read yet (before the first refresh of a vault, or Reminders allowed but not loaded); every other condition,
-/// including "no vault chosen", is a `SourceState`.
+/// Mail is read only after explicit opt-in and never retains subjects when disabled or inaccessible.
+/// Local tasks and reminders are reflected from their own stores independently of vault selection.
+/// A missing observation means the source has not been read yet.
 @MainActor
 final class OpenLoopsStore: ObservableObject {
-    /// The sources this store reflects, in the order the UI lists them. Luuna is not an open-loop source yet.
-    static let authorities: [LoopAuthority] = [.local, .org, .seeds, .plot, .reminders]
-    /// The sources whose files live in the vault.
-    static let vaultAuthorities: [LoopAuthority] = [.org, .seeds, .plot]
-
-    nonisolated static let liveSources: OpenLoopSourceFactory = { root in
-        [OrgReader(root: root), SeedsReader(root: root), PlotReader(root: root)]
-    }
+    /// The sources this store reflects, in the order the UI lists them.
+    static let authorities: [LoopAuthority] = [.local, .reminders, .mail]
 
     /// The latest observation of each source, with its real state.
     @Published private(set) var observations: [LoopAuthority: SourceObservation<[OpenLoop]>] = [:]
@@ -34,25 +26,38 @@ final class OpenLoopsStore: ObservableObject {
 
     /// Bumped by every refresh and every vault change. A file read started under an older value is discarded.
     private(set) var generation = 0
+    /// Also invalidated by consent changes, without discarding unrelated file and Reminders reads.
+    private var mailGeneration = 0
+    /// Synchronously revoked on opt-out, even if the detached read has not started yet.
+    private var mailAuthorization: MailReadAuthorization?
+    private(set) var mailEnabled: Bool
 
     private let tasks: TaskStore
     private let reminders: RemindersService
-    private let makeSources: OpenLoopSourceFactory
+    private let makeMail: MailOpenLoopFactory
+    private let beforeMailRead: (@Sendable () -> Void)?
     private let now: () -> Date
     private let calendar: Calendar
     private var subscriptions: Set<AnyCancellable> = []
 
     init(
         tasks: TaskStore, reminders: RemindersService, vaultRoot: URL? = nil,
-        makeSources: @escaping OpenLoopSourceFactory = OpenLoopsStore.liveSources,
+        mailEnabled: Bool = false,
+        makeMail: @escaping MailOpenLoopFactory = { MailOpenLoopReader(enabled: $0) },
+        beforeMailRead: (@Sendable () -> Void)? = nil,
         calendar: Calendar = .current, now: @escaping () -> Date = Date.init
     ) {
         self.tasks = tasks
         self.reminders = reminders
         self.vaultRoot = vaultRoot
-        self.makeSources = makeSources
+        self.mailEnabled = mailEnabled
+        self.makeMail = makeMail
+        self.beforeMailRead = beforeMailRead
         self.calendar = calendar
         self.now = now
+        if !mailEnabled {
+            observations[.mail] = SourceObservation(state: .unauthorized, value: [], observedAt: now())
+        }
         // `@Published` emits before the property changes, so each sink uses the emitted values.
         tasks.$tasks.combineLatest(tasks.$loadError)
             .sink { [weak self] list, loadError in self?.reflectTasks(list, loadError: loadError) }
@@ -66,53 +71,92 @@ final class OpenLoopsStore: ObservableObject {
 
     // MARK: Vault and refresh
 
-    /// Read another vault (or none). Observations of the old vault's files are dropped, and any read still in
-    /// flight for it is discarded. Call `refresh()` afterwards.
+    /// Remove private metadata immediately on opt-out. Any in-flight Mail read is discarded even if it finishes
+    /// after consent changes again; an opt-in starts a fresh read on the next refresh.
+    func setMailEnabled(_ enabled: Bool) {
+        guard enabled != mailEnabled else { return }
+        mailAuthorization?.revoke()
+        mailAuthorization = nil
+        mailEnabled = enabled
+        mailGeneration += 1
+        observations[.mail] =
+            enabled
+            ? nil : SourceObservation(state: .unauthorized, value: [], observedAt: now())
+        rebuild()
+    }
+
+    /// Mail is independent of the vault and other sources; a consent change can refresh only this observation.
+    /// Discard previous subjects before the asynchronous permission/read boundary, even while rechecking.
+    func refreshMail(expectedVaultGeneration: Int? = nil) async {
+        guard expectedVaultGeneration.map({ $0 == self.generation }) ?? true else { return }
+        mailAuthorization?.revoke()
+        mailAuthorization = nil
+        mailGeneration += 1
+        let generation = mailGeneration
+        clearMailForRecheck()
+        guard mailEnabled else { return }
+        let authorization = MailReadAuthorization()
+        mailAuthorization = authorization
+        let reader = makeMail(true)
+        let beforeMailRead = beforeMailRead
+        let observation = await Task.detached(priority: .userInitiated) {
+            beforeMailRead?()
+            return reader.readLoops(now: Date(), authorization: authorization)
+        }.value
+        guard generation == mailGeneration,
+            expectedVaultGeneration.map({ $0 == self.generation }) ?? true
+        else { return }
+        mailAuthorization = nil
+        // Never use following(previous): denied or failed reads must discard subjects and success time.
+        observations[.mail] = observation
+        rebuild()
+    }
+
+    private func clearMailForRecheck() {
+        guard mailEnabled, observations[.mail] != nil else { return }
+        observations[.mail] = nil
+        rebuild()
+    }
+
+    /// Update the selected vault without changing local tasks or Reminders observations.
     func setVaultRoot(_ root: URL?) {
         guard root?.standardizedFileURL != vaultRoot?.standardizedFileURL else { return }
         vaultRoot = root
         generation += 1
+        mailAuthorization?.revoke()
+        mailAuthorization = nil
+        mailGeneration += 1
         isRefreshing = false
-        for authority in Self.vaultAuthorities { observations[authority] = nil }
+        observations[.mail] =
+            mailEnabled
+            ? nil : SourceObservation(state: .unauthorized, value: [], observedAt: now())
         rebuild()
     }
 
-    /// Re-reads Org, Seeds and Plot off the main actor and refreshes Reminders (a read; it never asks for access).
-    /// Only the newest refresh for the current vault publishes; a failed read keeps the previous value as stale.
+    /// Refresh Reminders without requesting access; read Mail only when opted in.
+    /// A newer refresh or vault change supersedes any earlier result.
     func refresh() async {
         generation += 1
         let generation = generation
+        mailAuthorization?.revoke()
+        mailAuthorization = nil
+        mailGeneration += 1
+        // The task may not start until later: hide old Mail subjects synchronously with the recheck.
+        clearMailForRecheck()
+        let mailRead = Task { await refreshMail(expectedVaultGeneration: generation) }
         isRefreshing = true
-        let root = vaultRoot
-        let makeSources = makeSources
-        let date = now()
-        let files = Task.detached(priority: .userInitiated) { () -> [LoopAuthority: SourceObservation<[OpenLoop]>] in
-            guard let root else { return [:] }
-            var read: [LoopAuthority: SourceObservation<[OpenLoop]>] = [:]
-            for source in makeSources(root) { read[source.authority] = source.readLoops(now: date) }
-            return read
-        }
         reminders.updateStatus()
         if reminders.status == .authorized { await reminders.refresh() }
-        let read = await files.value
-        guard generation == self.generation else {
-            Log.app.info("Discarded open loops read for an earlier vault or refresh")
-            return
-        }
-        defer { isRefreshing = false }
-        guard root != nil else {
-            for authority in Self.vaultAuthorities {
-                observations[authority] = SourceObservation(
-                    state: .unavailable(reason: "No vault is chosen."), value: [], observedAt: date)
-            }
+        if generation == self.generation {
             rebuild()
-            return
+            isRefreshing = false
         }
-        for (authority, observation) in read {
-            observations[authority] = observation.following(observations[authority])
-        }
-        rebuild()
+        // A slow Mail response does not delay publishing unrelated owners.
+        await mailRead.value
     }
+}
+
+extension OpenLoopsStore {
 
     // MARK: Queries
 
@@ -124,9 +168,7 @@ final class OpenLoopsStore: ObservableObject {
         }
     }
 
-    /// Items whose own date is `day`: Org headings scheduled or due that day (active timestamps), local tasks due
-    /// that day and reminders due that day. Never Seeds or Plot, which have no dates of their own to schedule by
-    /// (SYSTEM-INVENTORY §3), and never an undated item.
+    /// Local tasks and reminders due on this day. Undated items are excluded.
     func dueOn(_ day: LocalDay, includeDone: Bool = false) -> [OpenLoop] {
         loops.filter { loop in
             Self.datedAuthorities.contains(loop.authority) && (includeDone || !loop.isDoneInSource)
@@ -134,8 +176,7 @@ final class OpenLoopsStore: ObservableObject {
         }
     }
 
-    /// Not-done items whose own date is before `day` and that have no date on or after it: overdue Org deadlines
-    /// and schedules, local tasks and reminders. Same sources as `dueOn(_:)`.
+    /// Not-done local tasks and reminders due before this day.
     func overdue(before day: LocalDay) -> [OpenLoop] {
         loops.filter { loop in
             let days = Self.ownDays(of: loop)
@@ -173,7 +214,7 @@ final class OpenLoopsStore: ObservableObject {
     /// `RemindersService` lists incomplete reminders only.
     static let reminderOpenStatus = "incomplete"
 
-    private static let datedAuthorities: Set<LoopAuthority> = [.org, .local, .reminders]
+    private static let datedAuthorities: Set<LoopAuthority> = [.local, .reminders]
 
     private func reflectTasks(_ list: TaskList, loadError: String?) {
         let date = now()

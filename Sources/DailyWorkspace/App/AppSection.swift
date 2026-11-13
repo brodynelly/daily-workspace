@@ -47,11 +47,6 @@ enum AppSection: String, CaseIterable, Identifiable {
         }
     }
 
-    /// ⌘ plus the 1-based sidebar position.
-    var shortcut: KeyboardShortcut {
-        let position = Self.allCases.firstIndex(of: self)! + 1
-        return KeyboardShortcut(KeyEquivalent(Character(String(position))), modifiers: .command)
-    }
 }
 
 /// Window identifiers shared by scenes and the commands that open them.
@@ -72,11 +67,24 @@ enum NotesMode: String, CaseIterable {
     }
 }
 
-/// Which screen and which modal surfaces are showing.
+/// The active screen stays selected while Settings is open so Back returns to it.
 @MainActor
 final class AppNavigation: ObservableObject {
-    @Published var section: AppSection = .today
+    @Published var section: AppSection = .today {
+        didSet { showingSettings = false }
+    }
+    @Published var showingSettings = false
+    @Published var settingsTab: SettingsTab = .vault
+    @Published var showingAssistantPanel = false
+    @Published var assistantDraft = ""
     @Published var notesMode: NotesMode = .editor
     @Published var showQuickCapture = false
     @Published var showCommandPalette = false
+
+    func showSettings(tab: SettingsTab? = nil) {
+        if let tab { settingsTab = tab }
+        showingSettings = true
+    }
+
+    func closeSettings() { showingSettings = false }
 }

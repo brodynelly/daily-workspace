@@ -1,9 +1,8 @@
 import DailyCore
 import SwiftUI
 
-/// "Due today": overdue items first, then items whose own date is today, as compact record rows. Each row shows
-/// the owner's status verbatim and its source. Local tasks complete through `TaskStore`; Org rows only open their
-/// file. Nothing here writes to Org, Seeds or Plot.
+/// "Due today": overdue items first, then items whose own date is today, as compact record rows.
+/// Local tasks complete through `TaskStore`; project issues and plans belong to Luuna/Missions.
 struct TodayDueSection: View {
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var openLoops: OpenLoopsStore
@@ -66,8 +65,7 @@ private struct DueRow: View {
     }
 
     private var meta: String? {
-        let parts = [TodayDue.when(item, on: day), loop.authority == .org ? loop.sourcePath : nil].compactMap { $0 }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+        TodayDue.when(item, on: day)
     }
 
     @ViewBuilder private var action: some View {
@@ -78,13 +76,7 @@ private struct DueRow: View {
                     .buttonStyle(.text)
                     .accessibilityLabel(task.isCompleted ? "Reopen \(loop.title)" : "Complete \(loop.title)")
             }
-        case .org:
-            if loop.sourceLink != nil {
-                Button("Open source") { model.openSource(of: loop) }
-                    .buttonStyle(.text)
-                    .accessibilityLabel("Open \(loop.title) in \(loop.sourcePath ?? "its Org file")")
-            }
-        case .seeds, .plot, .reminders, .luuna:
+        case .reminders, .luuna, .mail:
             EmptyView()
         }
     }

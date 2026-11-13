@@ -142,60 +142,6 @@ final class FakeLuunaReader: LuunaRuntimeReading, @unchecked Sendable {
     }
 }
 
-/// A `URLProtocol` that answers every request from `handler` and records it. No request leaves the process.
-final class LuunaStubProtocol: URLProtocol {
-    enum Reply {
-        case http(status: Int, body: Data, headers: [String: String] = [:])
-        case redirect(status: Int, to: URL)
-        case failure(URLError.Code)
-    }
-
-    private static let lock = NSLock()
-    private static var handler: (URLRequest) -> Reply = { _ in .failure(.cannotConnectToHost) }
-    private static var recorded: [URLRequest] = []
-
-    static var requests: [URLRequest] { lock.withLock { recorded } }
-
-    static func reset(_ handler: @escaping (URLRequest) -> Reply) {
-        lock.withLock {
-            self.handler = handler
-            recorded = []
-        }
-    }
-
-    override static func canInit(with request: URLRequest) -> Bool { true }
-    override static func canonicalRequest(for request: URLRequest) -> URLRequest { request }
-
-    override func startLoading() {
-        let reply = Self.lock.withLock {
-            Self.recorded.append(request)
-            return Self.handler(request)
-        }
-        guard let url = request.url else { return }
-        switch reply {
-        case .http(let status, let body, let headers):
-            let response = HTTPURLResponse(
-                url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: headers)!
-            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-            client?.urlProtocol(self, didLoad: body)
-            client?.urlProtocolDidFinishLoading(self)
-        case .redirect(let status, let target):
-            let response = HTTPURLResponse(
-                url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: ["Location": target.absoluteString]
-            )!
-            var next = request
-            next.url = target
-            client?.urlProtocol(self, wasRedirectedTo: next, redirectResponse: response)
-            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-            client?.urlProtocolDidFinishLoading(self)
-        case .failure(let code):
-            client?.urlProtocol(self, didFailWithError: URLError(code))
-        }
-    }
-
-    override func stopLoading() {}
-}
-
 extension LuunaConnection {
     static let fixture = LuunaConnection(origin: .standard, token: "test-token-not-a-secret")
 }

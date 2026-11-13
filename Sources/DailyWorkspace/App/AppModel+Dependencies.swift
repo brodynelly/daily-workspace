@@ -11,18 +11,21 @@ extension AppModel {
         var legacyDefaults: UserDefaults?
         var makeTaskPersistence: () throws -> TaskPersisting
         var recovery: RecoveryStoring
-        var keyStore: APIKeyStore
-        var chatTransport: ChatTransport
         var calendarStore: CalendarStore
         var reminderStore: ReminderStore
-        /// Read-only GETs against an already running Luuna runtime.
+        /// Read-only fixed-argv Luuna CLI reads against the current Keychain connection.
         var luunaReader: LuunaRuntimeReading
+        /// Read-only native Luuna board, tickets and Home CLI projections.
+        var luunaWorkReader: any LuunaWorkReading
         /// The Luuna bearer token (Keychain service `app.dailyworkspace.luuna`).
         var luunaKeyStore: APIKeyStore
-        /// The Anthropic Messages API, for the Assistant. Nothing is sent while the Assistant is disabled.
+        /// Anthropic Messages transport and credential. Nothing is sent while the Assistant is disabled.
         var agentTransport: AgentTransport
-        /// The Anthropic API key (Keychain service `AssistantSession.keyService`).
         var assistantKeyStore: APIKeyStore
+        /// Separate OpenRouter Messages transport and Keychain entry; fakes may override both.
+        var openRouterTransport: AgentTransport = OpenRouterClient()
+        var openRouterKeyStore: APIKeyStore = KeychainAPIKeyStore(
+            service: AssistantSession.openRouterKeyService)
         var autosaveDelay: Duration
         /// System notifications and the external-change poll. Off in tests.
         var observesSystem: Bool
@@ -49,11 +52,10 @@ extension AppModel {
                     return TaskPersistence(url: directory.tasksURL)
                 },
                 recovery: RecoveryStore(folder: directory.recoveryFolder),
-                keyStore: KeychainAPIKeyStore(),
-                chatTransport: OpenRouterClient(),
                 calendarStore: EventKitCalendarStore(),
                 reminderStore: EventKitReminderStore(),
-                luunaReader: LuunaRuntimeClient(),
+                luunaReader: LuunaCLIReader(),
+                luunaWorkReader: LuunaCLIReader(),
                 luunaKeyStore: KeychainAPIKeyStore.luuna,
                 agentTransport: AnthropicClient(),
                 assistantKeyStore: KeychainAPIKeyStore(service: AssistantSession.keyService),
@@ -64,7 +66,7 @@ extension AppModel {
     }
 
     enum CaptureDestination: String, CaseIterable, Identifiable {
-        case task, note
+        case task, note, quickNotes, inbox
 
         var id: String { rawValue }
 
@@ -72,6 +74,8 @@ extension AppModel {
             switch self {
             case .task: return "Task for Today"
             case .note: return "Today's Note"
+            case .quickNotes: return "Quick Notes"
+            case .inbox: return "Inbox Note"
             }
         }
     }

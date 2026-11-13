@@ -1,0 +1,77 @@
+{
+  "sections": [
+    {
+      "title": "Apple menu",
+      "rows": [
+        { "label": "Toggle Apple menu", "keys": [["Click"]] },
+        { "label": "Preferences (System Settings)", "keys": [["Click"]] },
+        { "label": "Activity Monitor", "keys": [["Click"]] },
+        { "label": "Lock screen (sleep displays)", "keys": [["Click"]] },
+        { "label": "Restart Bluetooth", "keys": [["Click"]] },
+        { "label": "Restart (with confirmation)", "keys": [["Click"]] },
+        { "label": "Close menu (click outside)", "keys": [["Click"], ["Right-click"]] }
+      ]
+    },
+    {
+      "title": "Front app, clock and Wi-Fi",
+      "rows": [
+        { "label": "Front app: Mission Control", "keys": [["Click"]] },
+        { "label": "Date/time: toggle zen mode", "keys": [["Click"]] },
+        { "label": "Wi-Fi: show/hide network and IP", "keys": [["Click"]] }
+      ]
+    },
+    {
+      "title": "Microphone",
+      "rows": [
+        { "label": "Mute / raise input level", "keys": [["Click"], ["⇧Click"]] },
+        { "label": "Input device menu", "keys": [["Right-click"]] },
+        { "label": "Select input device (menu row)", "keys": [["Click"]] },
+        { "label": "Mic mute (all inputs, via skhd)", "keys": [["⌥⌘F2"]] }
+      ]
+    },
+    {
+      "title": "Volume",
+      "rows": [
+        { "label": "Show/hide volume slider", "keys": [["Click"]] },
+        { "label": "Output device menu", "keys": [["Right-click"], ["⇧Click"]] },
+        { "label": "Select output device (menu row)", "keys": [["Click"]] },
+        { "label": "Set volume (slider)", "keys": [["Click"]] }
+      ]
+    },
+    {
+      "title": "CPU, RAM and GPU",
+      "rows": [
+        { "label": "Open Activity Monitor", "keys": [["Click"]] },
+        { "label": "Top processes popup", "keys": [["Right-click"]] },
+        { "label": "Popup row: open Activity Monitor", "keys": [["Click"]] }
+      ]
+    },
+    {
+      "title": "Timer",
+      "rows": [
+        { "label": "Toggle timer menu", "keys": [["Click"]] },
+        { "label": "Start preset (1–120 min)", "keys": [["Click"]] },
+        { "label": "Custom minutes", "keys": [["Click"]] },
+        { "label": "Sit/stand cycle (30/10 or 10/30)", "keys": [["Click"]] },
+        { "label": "Stopwatch mode", "keys": [["Click"]] },
+        { "label": "Stop timer", "keys": [["Click"]] }
+      ]
+    },
+    {
+      "title": "Agent tabs",
+      "rows": [
+        { "label": "Agent panel: agent tabs", "keys": [["Click"]] },
+        { "label": "Agent panel / phone mode", "keys": [["Right-click"]] }
+      ]
+    },
+    {
+      "title": "Host hand (meetings)",
+      "rows": [
+        { "label": "Toggle host raised hand", "keys": [["Click"]] },
+        { "label": "Mute/unmute guests menu", "keys": [["Right-click"]] },
+        { "label": "Mute all guests", "keys": [["Click"]] },
+        { "label": "Unmute all guests", "keys": [["Click"]] }
+      ]
+    }
+  ]
+}

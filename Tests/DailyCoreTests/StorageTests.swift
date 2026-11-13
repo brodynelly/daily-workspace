@@ -90,7 +90,8 @@ final class SettingsPersistenceTests: XCTestCase {
         let settings = WorkspaceSettings(
             vaultBookmark: Data([1, 2, 3]), vaultPath: "/Users/me/vault", dailyFolder: "250-daily",
             dailyFilename: "YYYY-MM-DD", caretPreset: .comet, showNotePreview: true,
-            openRouterModel: "some/model", recentNotes: ["a.md", "b.md"])
+            recentNotes: ["a.md", "b.md"], mailEnabled: true, quickPanelClipboardEnabled: true,
+            quickPanelTerminalBorderEnabled: true)
 
         try persistence.save(settings)
 
@@ -99,7 +100,10 @@ final class SettingsPersistenceTests: XCTestCase {
 
     func testHandEditedFileKeepsDefaultsForMissingKeysAndIgnoresUnknownOnes() throws {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        let json = #"{"dailyFolder": "250-daily", "caretPreset": "warp", "fromTheFuture": 1}"#
+        let retiredKey = "legacyChatModel"
+        let json = """
+            {"dailyFolder": "250-daily", "caretPreset": "warp", "\(retiredKey)": "old/model", "fromTheFuture": 1}
+            """
         try Data(json.utf8).write(to: persistence.url)
 
         let loaded = try XCTUnwrap(try persistence.load())
@@ -108,6 +112,32 @@ final class SettingsPersistenceTests: XCTestCase {
         XCTAssertEqual(loaded.caretPreset, .glide)
         XCTAssertEqual(loaded.dailyFilename, "YYYY-MM-DD")
         XCTAssertNil(loaded.vaultBookmark)
+        XCTAssertEqual(loaded.assistantModel, WorkspaceSettings.defaultAssistantModel)
+        XCTAssertEqual(loaded.assistantProvider, .anthropic)
+        XCTAssertEqual(loaded.openRouterModel, WorkspaceSettings.defaultOpenRouterModel)
+        XCTAssertFalse(loaded.mailEnabled)
+        XCTAssertFalse(loaded.quickPanelClipboardEnabled)
+        XCTAssertFalse(loaded.quickPanelTerminalBorderEnabled)
+        try persistence.save(loaded)
+        let saved = try String(contentsOf: persistence.url, encoding: .utf8)
+        XCTAssertFalse(saved.contains(retiredKey))
+    }
+
+    func testMalformedConsentValuesStayDisabledWithoutDiscardingOtherSettings() throws {
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let json = """
+            {"dailyFolder": "250-daily", "mailEnabled": "true",
+             "quickPanelClipboardEnabled": 1, "quickPanelTerminalBorderEnabled": {"enabled": true}}
+            """
+        try Data(json.utf8).write(to: persistence.url)
+
+        let loaded = try XCTUnwrap(try persistence.load())
+        XCTAssertEqual(loaded.dailyFolder, "250-daily")
+        XCTAssertFalse(loaded.mailEnabled)
+        XCTAssertFalse(loaded.quickPanelClipboardEnabled)
+        XCTAssertFalse(loaded.quickPanelTerminalBorderEnabled)
+        try persistence.save(loaded)
+        XCTAssertEqual(try persistence.load(), loaded)
     }
 
     func testCorruptFileIsMovedAsideNotOverwritten() throws {

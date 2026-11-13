@@ -1,0 +1,20 @@
+{
+  "sections": [
+    {
+      "title": "AI prompt commands",
+      "rows": [
+        { "label": "Run a library catalog entry", "keys": [["library run <name>"]], "kind": "command" },
+        { "label": "Review vault inbox (read-only)", "keys": [["library run vault-inbox-review"]], "kind": "command" },
+        { "label": "Capture a note to Brain", "keys": [["library run vault-capture"]], "kind": "command" },
+        { "label": "Add verified wikilinks", "keys": [["library run obsidian-linker"]], "kind": "command" },
+        { "label": "Get oriented in current repo", "keys": [["library run prime"]], "kind": "command" }
+      ]
+    },
+    {
+      "title": "Verification",
+      "rows": [
+        { "label": "Check vault after a write", "keys": [["just vault-check"]], "kind": "command" }
+      ]
+    }
+  ]
+}

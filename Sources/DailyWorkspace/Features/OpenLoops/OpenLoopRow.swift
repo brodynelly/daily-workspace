@@ -1,10 +1,7 @@
 import DailyCore
 import SwiftUI
 
-/// One open loop: its title, the owner's status verbatim, the source and project, the owner's dates and, for
-/// generated ids, a `ShortId`. Its actions are exactly `loop.ownerActions`: local tasks are completed, edited and
-/// deleted through `TaskStore` (with `TaskEditSheet` and undo), reminders are completed through
-/// `RemindersService`, and Org, Seeds and Plot rows can only be opened at their source.
+/// One open loop with its native status, source and dates. Only local tasks and reminders accept writes.
 struct OpenLoopRow: View {
     let loop: OpenLoop
 
@@ -77,30 +74,23 @@ struct OpenLoopRow: View {
                 StatusBadge(loop.nativeStatus, tone: LoopTone.tone(for: loop))
             }
             Tag(loop.authority.ownerName)
-            if loop.authority == .seeds { Tag(loop.kind) }
             if let project = loop.project { Tag("project:\(project)") }
-            if let id = loop.displayedID { ShortId(id, kind: "\(loop.authority.ownerName) id") }
         }
     }
 
-    /// The owner's dates, then where it lives: the vault file and line, a local task's linked note, a reminder's list.
+    /// The owner's dates, a local task's linked note, or a reminder's list.
     private var meta: [String] {
         var parts = loop.dateLines
         switch loop.authority {
         case .reminders: parts += loop.labels.prefix(1).map { "\($0) list" }
         case .local: parts += loop.sourcePath.map { ["Linked to \($0)"] } ?? []
-        case .org, .seeds, .plot, .luuna: parts += loop.sourceLocation.map { [$0] } ?? []
+        case .luuna, .mail: break
         }
         return parts
     }
 
     @ViewBuilder private var trailing: some View {
         HStack(spacing: Space.s1) {
-            if actions.contains(.openSource) {
-                Button("Open source") { model.openSource(of: loop) }
-                    .buttonStyle(.workspace(.secondary, size: .small))
-                    .help(openSourceHelp)
-            }
             if let note = loop.authority == .local ? loop.sourcePath : nil {
                 RowIconButton(symbol: "doc.text", label: "Open linked note \(note)") { model.openNote(note) }
             }
@@ -113,16 +103,7 @@ struct OpenLoopRow: View {
         }
     }
 
-    private var openSourceHelp: String {
-        switch loop.sourceLink {
-        case .note(let path, _): return "Open \(path) in Notes"
-        case .vaultFile(let path, _): return "Reveal \(path) in Finder"
-        case .localTask, .reminder, nil: return "Open the source"
-        }
-    }
-
     @ViewBuilder private var menu: some View {
-        if actions.contains(.openSource) { Button("Open Source") { model.openSource(of: loop) } }
         if actions.contains(.edit) { Button("Edit…") { editing = loops.task(for: loop) } }
         if actions.contains(.delete) {
             Divider()

@@ -1,0 +1,37 @@
+{
+  "groups": [
+    {
+      "title": "Global",
+      "tools": [
+        { "id": "skhd", "title": "skhd", "subtitle": "Launchers, apps and desktops" },
+        { "id": "yabai", "title": "yabai", "subtitle": "Windows and desktop switching" },
+        { "id": "sketchybar", "title": "SketchyBar", "subtitle": "Menu bar items" },
+        { "id": "raycast", "title": "Raycast", "subtitle": "Launcher and AI commands" },
+        { "id": "scripts", "title": "Scripts", "subtitle": "Pickers and helpers" }
+      ]
+    },
+    {
+      "title": "Terminals",
+      "tools": [
+        { "id": "kitty", "title": "Kitty", "subtitle": "Tabs, panes and sessions" },
+        { "id": "rex", "title": "Rex", "subtitle": "Panes, key tables and sessions" },
+        { "id": "zshrc", "title": "zsh", "subtitle": "Line editing and aliases" }
+      ]
+    },
+    {
+      "title": "Editors",
+      "tools": [
+        { "id": "neovim", "title": "Neovim", "subtitle": "Neobean editing and plugins" },
+        { "id": "vimrc", "title": "Vim", "subtitle": "Plain vimrc mappings" },
+        { "id": "vscode", "title": "VS Code", "subtitle": "Vim-mode mappings" }
+      ]
+    },
+    {
+      "title": "Terminal apps",
+      "tools": [
+        { "id": "lazygit", "title": "LazyGit", "subtitle": "Git UI" },
+        { "id": "yazi", "title": "Yazi", "subtitle": "File manager" }
+      ]
+    }
+  ]
+}

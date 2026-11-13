@@ -74,6 +74,22 @@ final class AppModelTests: XCTestCase {
         model.openNote("gone.md")
         XCTAssertEqual(model.document.message, "“gone.md” is no longer in the vault.")
     }
+    func testMailPreferenceOptOutClearsStoreConsentWithoutReadingMail() async {
+        XCTAssertFalse(model.preferences.mailEnabled)
+        XCTAssertFalse(model.openLoops.mailEnabled)
+        XCTAssertEqual(model.openLoops.observations[.mail]?.state, .unauthorized)
+
+        // The consent publisher changes the store synchronously. Do not yield between these changes:
+        // an opted-in refresh must never access the real Apple Mail app in a unit test.
+        model.preferences.mailEnabled = true
+        XCTAssertTrue(model.openLoops.mailEnabled)
+        model.preferences.mailEnabled = false
+        XCTAssertFalse(model.openLoops.mailEnabled)
+        XCTAssertTrue(model.openLoops.loops(authority: .mail).isEmpty)
+        XCTAssertNil(model.openLoops.observations[.mail]?.lastSuccessAt)
+        await Task.yield()
+        XCTAssertEqual(model.openLoops.observations[.mail]?.state, .unauthorized)
+    }
 }
 
 @MainActor

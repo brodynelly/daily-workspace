@@ -105,6 +105,8 @@ enum Metrics {
     static let controlPadXLg: CGFloat = 22
 
     static let sidebarWidth: CGFloat = 240
+    static let assistantInspectorWidth: CGFloat = 380
+    static let assistantSplitWidth: CGFloat = 1180
     static let topBarHeight: CGFloat = 56
     static let contentMaxWidth: CGFloat = 1200
     /// The page's padding inside the content column: 20 on top, 32 at the sides and bottom.

@@ -1,8 +1,8 @@
 import AppKit
 import SwiftUI
 
-/// Every app command, in one registry. The menu bar and the command palette are built from it,
-/// so titles, symbols and shortcuts cannot drift apart.
+/// Every app command in one registry. The menu bar and command palette share these IDs with
+/// KeyboardShortcutCatalog so user bindings and displayed keys stay in sync.
 enum AppCommand: Hashable, Identifiable {
     case quickCapture
     case captureWindow
@@ -56,31 +56,13 @@ enum AppCommand: Hashable, Identifiable {
         }
     }
 
-    var shortcut: KeyboardShortcut? {
-        switch self {
-        case .quickCapture: return KeyboardShortcut("n", modifiers: .command)
-        case .captureWindow: return KeyboardShortcut("n", modifiers: [.command, .option])
-        case .openTodayNote: return KeyboardShortcut("t", modifiers: [.command, .shift])
-        case .saveNote: return KeyboardShortcut("s", modifiers: .command)
-        case .revealNote: return KeyboardShortcut("r", modifiers: [.command, .shift])
-        case .commandPalette: return KeyboardShortcut("k", modifiers: .command)
-        case .searchNotes: return KeyboardShortcut("f", modifiers: [.command, .shift])
-        case .settings: return KeyboardShortcut(",", modifiers: .command)
-        case .chooseVault: return nil
-        case .go(let section): return section.shortcut
-        }
+    @MainActor func configuredShortcut(using preferences: Preferences) -> KeyboardShortcut? {
+        KeyboardShortcutCatalog.binding(for: id, preferences: preferences)?.menuShortcut
     }
 
-    /// Shortcut in macOS menu notation, e.g. "⇧⌘T".
-    var shortcutLabel: String {
-        guard let shortcut else { return "" }
-        let modifiers = shortcut.modifiers
-        var label = ""
-        if modifiers.contains(.control) { label += "⌃" }
-        if modifiers.contains(.option) { label += "⌥" }
-        if modifiers.contains(.shift) { label += "⇧" }
-        if modifiers.contains(.command) { label += "⌘" }
-        return label + String(shortcut.key.character).uppercased()
+    @MainActor func configuredLabel(using preferences: Preferences) -> String {
+        guard let binding = KeyboardShortcutCatalog.binding(for: id, preferences: preferences) else { return "" }
+        return KeyboardShortcutCatalog.label(for: binding)
     }
 
     /// What the palette offers: every screen, then every action except the palette itself. Vault search
@@ -92,35 +74,45 @@ enum AppCommand: Hashable, Identifiable {
         ]
 }
 
-/// Performs commands. Needs the SwiftUI window actions, so it is created inside views and commands.
+/// Performs commands and brings the single workspace window forward for navigation.
 @MainActor
 struct CommandRunner {
     let model: AppModel
     let openWindow: OpenWindowAction
-    var openSettings: (() -> Void)?
 
     func isEnabled(_ command: AppCommand) -> Bool {
         switch command {
         case .saveNote: return model.document.canSave
         case .revealNote: return model.document.url != nil
-        case .settings: return openSettings != nil
         default: return true
         }
     }
 
     func run(_ command: AppCommand) {
         switch command {
-        case .quickCapture, .commandPalette, .searchNotes, .go: navigate(command)
+        case .quickCapture, .commandPalette, .searchNotes, .go:
+            navigate(command)
+            focusWorkspace()
         case .captureWindow:
             openWindow(id: WindowID.capture)
             NSApp.activate(ignoringOtherApps: true)
-        case .openTodayNote: model.openToday(navigate: true)
+        case .openTodayNote:
+            model.openToday(navigate: true)
+            focusWorkspace()
         case .saveNote: model.document.saveNow()
         case .revealNote:
             if let url = model.document.url { NSWorkspace.shared.activateFileViewerSelecting([url]) }
         case .chooseVault: model.chooseVault()
-        case .settings: openSettings?()
+        case .settings:
+            model.navigation.showSettings()
+            focusWorkspace()
         }
+    }
+
+    private func focusWorkspace() {
+        guard let app = NSApp, app.isRunning else { return }
+        openWindow(id: WindowID.workspace)
+        app.activate(ignoringOtherApps: true)
     }
 
     /// Commands that only change what the window shows.
@@ -138,15 +130,19 @@ struct CommandRunner {
     }
 }
 
-/// Menu-bar commands built from the registry. Settings (⌘,) is supplied by the system menu.
+/// Menu-bar commands built from the registry, including the standard ⌘, Settings item.
 struct WorkspaceCommands: Commands {
     let model: AppModel
     @ObservedObject var document: NoteDocument
     @Environment(\.openWindow) private var openWindow
+    @ObservedObject var preferences: Preferences
 
     private var runner: CommandRunner { CommandRunner(model: model, openWindow: openWindow) }
 
     var body: some Commands {
+        CommandGroup(replacing: .appSettings) {
+            item(.settings)
+        }
         CommandGroup(replacing: .newItem) {
             item(.quickCapture)
             item(.captureWindow)
@@ -170,7 +166,7 @@ struct WorkspaceCommands: Commands {
 
     private func item(_ command: AppCommand) -> some View {
         Button(command.title) { runner.run(command) }
-            .keyboardShortcut(command.shortcut)
-            .disabled(!runner.isEnabled(command))
+            .keyboardShortcut(command.configuredShortcut(using: preferences))
+            .disabled(preferences.isRecordingShortcut || !runner.isEnabled(command))
     }
 }

@@ -127,6 +127,22 @@ final class NoteDocument: ObservableObject {
         return true
     }
 
+    /// Apply a reviewed full-note preview through the open editor instead of writing behind it.
+    /// The preview's snapshot must still be the editor's and the disk's version.
+    func applyReviewed(_ reviewedText: String, expecting expected: FileSnapshot) throws {
+        guard saveState == .clean, snapshot == expected else { throw VaultError.conflict }
+        checkExternalChange()
+        guard saveState == .clean, snapshot == expected else { throw VaultError.conflict }
+        userEdited(reviewedText)
+        saveNow()
+        switch saveState {
+        case .clean: return
+        case .conflict: throw VaultError.conflict
+        case .failed(let reason): throw VaultError.io(reason)
+        default: throw VaultError.io("The note was not saved.")
+        }
+    }
+
     func saveNow() {
         saveTask?.cancel()
         guard let vault, let url, let snap = snapshot else { return }

@@ -2,25 +2,22 @@ import Foundation
 
 /// The system that owns an item. The app shows the owner and never derives one owner's status from another's.
 public enum LoopAuthority: String, Codable, CaseIterable, Hashable, Sendable {
-    case org
-    case seeds
-    case plot
     case local
     case reminders
     case luuna
+    case mail
 }
 
-/// A date as the owning source wrote it. Org timestamps are wall-clock days with an optional time;
-/// Seeds and Plot record exact instants, which are also kept in `instant`.
+/// A date as the owning source wrote it; exact instants, when available, are also kept in `instant`.
 public struct LoopDate: Hashable, Sendable, CustomStringConvertible {
     public let year: Int
     public let month: Int
     public let day: Int
     public let hour: Int?
     public let minute: Int?
-    /// The exact moment, when the source recorded one (ISO 8601 in Seeds and Plot).
+    /// The exact moment, when the source recorded one.
     public let instant: Date?
-    /// Org distinguishes active `<…>` from inactive `[…]` timestamps; other sources are always active.
+    /// Whether this date applies to the item's schedule.
     public let isActive: Bool
     /// The source text, verbatim.
     public let raw: String
@@ -55,17 +52,16 @@ public struct LoopDate: Hashable, Sendable, CustomStringConvertible {
 /// One item from one owner, with the owner's status verbatim. Built only by that owner's reader.
 public struct OpenLoop: Identifiable, Hashable, Sendable {
     public let authority: LoopAuthority
-    /// Authority-qualified and opaque, for example `org:<:ID:>` or `seeds:brodynelly-brain-b35c17`.
+    /// Authority-qualified and opaque.
     public let id: String
     public let title: String
-    /// The owner's own kind: `heading` for Org, the Seeds `type` (or `plan`), `plot` for Plot.
+    /// The owner's own kind, for example `task` for local actions.
     public let kind: String
-    /// A project slug, only when the owner states one (the Seeds `project:<slug>` label).
+    /// A project slug only when the owner states one.
     public let project: String?
-    /// Exactly as written by the owner (`NEXT`, `in_progress`, `drafting`…). Never normalized.
+    /// Exactly as written by the owner (`NEXT`, `in_progress`…). Never normalized.
     public let nativeStatus: String
-    /// True only when the owner's own vocabulary marks the item finished (an Org done keyword,
-    /// Seeds `closed`/`done`, Plot `done`/`archived`).
+    /// True only when the owning source marks the item finished.
     public let isDoneInSource: Bool
     public let scheduled: LoopDate?
     public let deadline: LoopDate?
@@ -75,7 +71,7 @@ public struct OpenLoop: Identifiable, Hashable, Sendable {
     public let sourcePath: String?
     /// 1-based line in `sourcePath`.
     public let line: Int?
-    /// Seeds/Plot `updatedAt`, or a content hash for Org headings.
+    /// The owner's revision, when available.
     public let revision: String?
     public let observedAt: Date
 
@@ -136,7 +132,7 @@ public enum SourceState: Hashable, Sendable {
     case unauthorized
     /// The source should exist but could not be read (missing folder or file, I/O error).
     case unavailable(reason: String)
-    /// The owner's store has not been set up (for example no `.seeds/`).
+    /// The owner's store has not been set up.
     case uninitialized
     /// The app declined to read it (outside the vault, excluded by policy).
     case refused(reason: String)
@@ -207,51 +203,7 @@ public protocol OpenLoopSource: Sendable {
     func readLoops(now: Date) -> SourceObservation<[OpenLoop]>
 }
 
-/// Maps file-system errors to source states.
-enum SourceFailure {
-    static func state(for error: Error, missing: SourceState) -> SourceState {
-        let ns = error as NSError
-        if ns.domain == NSCocoaErrorDomain {
-            switch ns.code {
-            case NSFileReadNoPermissionError: return .unauthorized
-            case NSFileReadNoSuchFileError, NSFileNoSuchFileError: return missing
-            default: break
-            }
-        }
-        if ns.domain == NSPOSIXErrorDomain, ns.code == Int(EACCES) || ns.code == Int(EPERM) { return .unauthorized }
-        if ns.domain == NSPOSIXErrorDomain, ns.code == Int(ENOENT) { return missing }
-        return .unavailable(reason: ns.localizedDescription)
-    }
-
-    /// Hex FNV-1a of `data`, used as a content revision.
-    static func hash(_ data: Data) -> String {
-        String(FileSnapshot(data: data, modified: nil).fingerprint, radix: 16)
-    }
-}
-
-/// Reads one vault-relative file for an external-source reader. Rejects anything that resolves outside the
-/// vault, symlinks included, before touching the file.
 enum SourceFile {
-    enum Outcome {
-        case data(Data)
-        case failed(SourceState)
-    }
-
-    static func read(_ relativePath: String, in vault: NoteVault) -> Outcome {
-        let url: URL
-        do { url = try vault.resolve(relativePath: relativePath) } catch {
-            return .failed(.refused(reason: "\(relativePath) resolves outside the vault"))
-        }
-        var isDirectory: ObjCBool = false
-        guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) else {
-            return .failed(.unavailable(reason: "\(relativePath) was not found"))
-        }
-        guard !isDirectory.boolValue else { return .failed(.unavailable(reason: "\(relativePath) is a folder")) }
-        do { return .data(try Data(contentsOf: url)) } catch {
-            return .failed(
-                SourceFailure.state(for: error, missing: .unavailable(reason: "\(relativePath) was not found")))
-        }
-    }
 
     /// Splits text into lines, dropping a trailing `\r` from each.
     static func lines(_ text: String) -> [Substring] {

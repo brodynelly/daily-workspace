@@ -8,25 +8,7 @@ import XCTest
 final class TodayScreenTests: XCTestCase {
     private let today = LoopVaultFixture.today
 
-    private static let inbox = """
-        * Tasks
-        ** TODO Call the bank
-        SCHEDULED: <2026-11-12 Thu 09:30>
-        ** NEXT Send the report
-        DEADLINE: <2026-11-10 Tue>
-        ** DONE Renew the passport
-        SCHEDULED: <2026-11-12 Thu>
-        ** TODO Plan the trip
-        DEADLINE: <2026-11-20 Fri>
-        ** TODO Only noted
-        SCHEDULED: [2026-11-12 Thu]
-        ** TODO Undated heading
-        """
-
     private func makeStore() async throws -> OpenLoopsStore {
-        let root = try makeTemporaryVault(self)
-        try LoopVaultFixture.populate(root)
-        try write(Self.inbox, to: root.appendingPathComponent("org/inbox.org"))
         let persistence = InMemoryTaskPersistence()
         persistence.stored.add(title: "Pay rent", due: today)
         persistence.stored.add(title: "Return books", due: LocalDay(year: 2026, month: 11, day: 9))
@@ -35,38 +17,38 @@ final class TodayScreenTests: XCTestCase {
         persistence.stored.complete(id: done.id)
         let tasks = TaskStore(makePersistence: { persistence })
         let reminders = RemindersService(store: FakeReminderStore())
-        let store = OpenLoopsStore(tasks: tasks, reminders: reminders, vaultRoot: root)
+        let store = OpenLoopsStore(tasks: tasks, reminders: reminders, vaultRoot: nil)
         await store.refresh()
         return store
     }
 
-    func testDueTodayListsOverdueFirstThenOwnDatedOrgAndLocalItemsAndNeverSeedsOrPlot() async throws {
+    func testDueTodayListsOverdueFirstThenLocalItems() async throws {
         let store = try await makeStore()
 
         let items = TodayDue.items(from: store, on: today)
 
         XCTAssertEqual(
             items.map(\.loop.title),
-            ["Return books", "Send the report", "Pay rent", "Call the bank", "Filed taxes", "Renew the passport"])
-        XCTAssertEqual(items.filter(\.isOverdue).map(\.loop.title), ["Return books", "Send the report"])
-        XCTAssertFalse(items.contains { [.seeds, .plot].contains($0.loop.authority) })
-        XCTAssertFalse(
-            items.contains { ["Someday", "Undated heading", "Only noted", "Plan the trip"].contains($0.loop.title) })
-        XCTAssertFalse(store.loops(authority: .seeds).isEmpty, "Seeds were read, and still not listed")
-        XCTAssertEqual(items.first { $0.loop.title == "Call the bank" }?.loop.nativeStatus, "TODO")
+            ["Return books", "Pay rent", "Filed taxes"])
+        XCTAssertEqual(items.filter(\.isOverdue).map(\.loop.title), ["Return books"])
+        XCTAssertFalse(items.contains { $0.loop.title == "Someday" })
+        XCTAssertTrue(items.allSatisfy { $0.loop.authority == .local })
     }
 
-    func testDueTodayDropsUndatedAndSeedsItemsEvenWhenHandedThem() {
-        let now = Date()
-        let seeds = OpenLoop(
-            authority: .seeds, nativeID: "brain-a1", title: "Seed", kind: "task", nativeStatus: "open",
-            isDoneInSource: false, scheduled: LoopDate(year: 2026, month: 11, day: 12, raw: "2026-11-12"),
-            observedAt: now)
+    func testDueTodayDropsUndatedAndLuunaAndMailEvenWhenHandedThem() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let date = LoopDate(year: 2026, month: 11, day: 12, raw: "2026-11-12")
+        let run = OpenLoop(
+            authority: .luuna, nativeID: "run-1", title: "Completed run", kind: "run",
+            nativeStatus: "completed", isDoneInSource: true, scheduled: date, observedAt: now)
+        let mail = OpenLoop(
+            authority: .mail, nativeID: "message-1", title: "Unread message", kind: "message",
+            nativeStatus: "unread", isDoneInSource: false, deadline: date, observedAt: now)
         let undated = OpenLoop(
-            authority: .org, nativeID: "x", title: "Undated", kind: "heading", nativeStatus: "TODO",
+            authority: .local, nativeID: "x", title: "Undated", kind: "task", nativeStatus: "open",
             isDoneInSource: false, observedAt: now)
 
-        XCTAssertTrue(TodayDue.items(dueToday: [seeds, undated], overdue: [seeds], on: today).isEmpty)
+        XCTAssertTrue(TodayDue.items(dueToday: [run, mail, undated], overdue: [run, mail], on: today).isEmpty)
     }
 
     func testRowsUseAttentionWhileOpenAndNeutralWhenDoneNeverSuccess() async throws {
@@ -78,7 +60,6 @@ final class TodayScreenTests: XCTestCase {
 
         XCTAssertEqual(tones["Pay rent"], .attention)
         XCTAssertEqual(tones["Filed taxes"], .neutral)
-        XCTAssertEqual(tones["Renew the passport"], .neutral)
         XCTAssertFalse(tones.values.contains(.success))
     }
 
@@ -97,20 +78,6 @@ final class TodayScreenTests: XCTestCase {
         let unreadable = TodayDue.stats(counts: counts, events: nil)[0]
         XCTAssertEqual(unreadable.value, "—", "No calendar access is not an empty day")
         XCTAssertNotNil(unreadable.comparison)
-    }
-
-    func testAnUnreadableOrgIsNotedSoNothingDueNeverHidesIt() async throws {
-        let root = try makeTemporaryVault(self)
-        let tasks = TaskStore(makePersistence: { InMemoryTaskPersistence() })
-        let store = OpenLoopsStore(
-            tasks: tasks, reminders: RemindersService(store: FakeReminderStore()), vaultRoot: root)
-        await store.refresh()
-
-        let notices = TodayDue.notices(from: store)
-
-        XCTAssertTrue(TodayDue.items(from: store, on: today).isEmpty)
-        XCTAssertEqual(notices.count, 1)
-        XCTAssertTrue(notices[0].hasPrefix("Org could not be read"), notices[0])
     }
 
     func testTodayNoteLocationRefusesWithoutAFolderAndReportsExistence() throws {

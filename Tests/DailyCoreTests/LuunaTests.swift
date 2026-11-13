@@ -189,42 +189,6 @@ final class LuunaDecodingTests: XCTestCase {
 }
 
 final class LuunaFailureTests: XCTestCase {
-    private func classify(_ status: Int, _ body: String = "") -> LuunaReadFailure? {
-        LuunaReadFailure.classify(status: status, body: Data(body.utf8))
-    }
-
-    func testStatusClassification() {
-        XCTAssertNil(classify(200))
-        XCTAssertEqual(classify(302), .unavailable(.redirectRefused))
-        XCTAssertEqual(classify(401, #"{"error":"authentication required"}"#), .unauthorized)
-        XCTAssertEqual(classify(403), .unauthorized)
-        XCTAssertEqual(classify(404, #"{"error":"not found"}"#), .unsupported, "An unknown route on this build")
-        XCTAssertEqual(classify(404), .unsupported)
-        XCTAssertEqual(
-            classify(404, #"{"error":"project not found"}"#),
-            .refused(LuunaRefusal(status: 404, reason: "project not found")),
-            "A missing record is not a missing endpoint")
-        XCTAssertEqual(classify(405), .unsupported)
-        XCTAssertEqual(classify(429), .unavailable(.busy))
-        XCTAssertEqual(classify(500, #"{"error":"x"}"#), .unavailable(.serverError(status: 500)))
-        XCTAssertEqual(
-            classify(503, #"{"error":"runtime is shutting down"}"#),
-            .unavailable(.shuttingDown("runtime is shutting down")))
-        XCTAssertEqual(classify(503, "<html>"), .unavailable(.serverError(status: 503)))
-    }
-
-    func testRefusalKeepsOnlyAValidatedRuntimeMessage() {
-        XCTAssertEqual(
-            classify(409, #"{"error":"  revision conflict  ","detail":"secret prompt text"}"#),
-            .refused(LuunaRefusal(status: 409, reason: "revision conflict")))
-        XCTAssertEqual(classify(422, "plain text body with a secret"), .refused(LuunaRefusal(status: 422, reason: nil)))
-        XCTAssertEqual(
-            classify(422, #"{"error":"line one\nline two"}"#), .refused(LuunaRefusal(status: 422, reason: nil)))
-        let long = String(repeating: "x", count: LuunaReadFailure.maxReasonLength + 1)
-        XCTAssertEqual(classify(400, #"{"error":"\#(long)"}"#), .refused(LuunaRefusal(status: 400, reason: nil)))
-        XCTAssertEqual(
-            classify(418, #"{"error":"not a refusal status"}"#), .refused(LuunaRefusal(status: 418, reason: nil)))
-    }
 
     func testEveryFailureHasOneState() {
         XCTAssertEqual(LuunaReadFailure.undecodable.state, .partial)

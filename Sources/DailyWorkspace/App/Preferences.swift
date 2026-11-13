@@ -21,11 +21,8 @@ final class Preferences: ObservableObject {
         static let caretPreset = "caretPreset"
         static let recentNotes = "recentNotes"
         static let showNotePreview = "notePreview"
-        static let openRouterModel = "openRouterModel"
 
-        static let all = [
-            vaultBookmark, dailyFolder, dailyFilename, caretPreset, recentNotes, showNotePreview, openRouterModel,
-        ]
+        static let all = [vaultBookmark, dailyFolder, dailyFilename, caretPreset, recentNotes, showNotePreview]
     }
 
     static let recentNotesLimit = 8
@@ -36,12 +33,18 @@ final class Preferences: ObservableObject {
     @Published var dailyFilename: String { didSet { persist() } }
     @Published var caretPreset: CaretPreset { didSet { persist() } }
     @Published var showNotePreview: Bool { didSet { persist() } }
-    /// Blank means the OpenRouter account default.
-    @Published var openRouterModel: String { didSet { persist() } }
-    /// Off by default: while off, the Assistant sends nothing to Anthropic.
+    /// Off by default: while off, the Assistant sends nothing to an AI provider.
     @Published var assistantEnabled: Bool { didSet { persist() } }
-    /// The Anthropic model ID; blank means `WorkspaceSettings.defaultAssistantModel`.
+    @Published var assistantProvider: AssistantProvider { didSet { persist() } }
+    /// Separate model choices prevent reusing a provider-specific model ID after switching.
     @Published var assistantModel: String { didSet { persist() } }
+    @Published var openRouterModel: String { didSet { persist() } }
+    @Published var mailEnabled: Bool { didSet { persist() } }
+    @Published var quickPanelClipboardEnabled: Bool { didSet { persist() } }
+    @Published var quickPanelTerminalBorderEnabled: Bool { didSet { persist() } }
+    @Published var shortcutOverrides: [String: ShortcutOverride] { didSet { persist() } }
+    /// Transient: suspends the registered global hotkey while Settings records a replacement.
+    @Published var isRecordingShortcut = false
     @Published private(set) var recentNotes: [String]
     /// Security-scoped bookmark of the chosen vault folder.
     private(set) var vaultBookmark: Data?
@@ -75,9 +78,14 @@ final class Preferences: ObservableObject {
         dailyFilename = settings.dailyFilename
         caretPreset = settings.caretPreset
         showNotePreview = settings.showNotePreview
-        openRouterModel = settings.openRouterModel
         assistantEnabled = settings.assistantEnabled
+        assistantProvider = settings.assistantProvider
         assistantModel = settings.assistantModel
+        openRouterModel = settings.openRouterModel
+        mailEnabled = settings.mailEnabled
+        quickPanelClipboardEnabled = settings.quickPanelClipboardEnabled
+        quickPanelTerminalBorderEnabled = settings.quickPanelTerminalBorderEnabled
+        shortcutOverrides = KeyboardShortcutCatalog.sanitized(settings.shortcutOverrides)
         recentNotes = settings.recentNotes
         vaultBookmark = settings.vaultBookmark
         vaultPath = settings.vaultPath
@@ -85,6 +93,10 @@ final class Preferences: ObservableObject {
             Log.app.info("Imported settings from UserDefaults")
             persist()
         }
+    }
+
+    var selectedAssistantModel: String {
+        assistantProvider == .anthropic ? assistantModel : openRouterModel
     }
 
     var dailyNoteTemplate: DailyNoteTemplate { DailyNoteTemplate(folder: dailyFolder, filename: dailyFilename) }
@@ -122,10 +134,15 @@ final class Preferences: ObservableObject {
             dailyFilename: dailyFilename,
             caretPreset: caretPreset,
             showNotePreview: showNotePreview,
-            openRouterModel: openRouterModel,
             recentNotes: recentNotes,
             assistantEnabled: assistantEnabled,
-            assistantModel: assistantModel
+            assistantProvider: assistantProvider,
+            assistantModel: assistantModel,
+            openRouterModel: openRouterModel,
+            mailEnabled: mailEnabled,
+            quickPanelClipboardEnabled: quickPanelClipboardEnabled,
+            quickPanelTerminalBorderEnabled: quickPanelTerminalBorderEnabled,
+            shortcutOverrides: shortcutOverrides
         )
     }
 
@@ -151,7 +168,6 @@ final class Preferences: ObservableObject {
             settings.caretPreset = preset
         }
         settings.showNotePreview = defaults.bool(forKey: LegacyKey.showNotePreview)
-        if let value = defaults.string(forKey: LegacyKey.openRouterModel) { settings.openRouterModel = value }
         settings.recentNotes = defaults.stringArray(forKey: LegacyKey.recentNotes) ?? []
         return settings
     }

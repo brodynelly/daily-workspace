@@ -6,6 +6,8 @@ struct AssistantTurn: Identifiable, Equatable, Sendable {
     let id: UUID
     let question: String
     let answer: String
+    /// Final model reply only; excludes intermediate tool-use rounds, for opt-in spoken playback.
+    let finalAnswer: String
     /// Every tool call of the turn, in order, with the paths and record IDs each returned.
     let toolCalls: [AssistantToolCall]
     let askedAt: Date
@@ -25,6 +27,7 @@ struct AssistantTurn: Identifiable, Equatable, Sendable {
 @MainActor
 final class AssistantSession: ObservableObject {
     struct Configuration: Sendable {
+        var provider: AssistantProvider = .anthropic
         var model = "claude-opus-5-5"
         var maxTokens = 16_000
         var maxToolRounds = 8
@@ -56,23 +59,30 @@ final class AssistantSession: ObservableObject {
     private(set) var configuration: Configuration
 
     let transport: AgentTransport
+    let openRouterTransport: AgentTransport
     let runner: AssistantToolRunner
     private let keyStore: APIKeyStore
+    private let openRouterKeyStore: APIKeyStore
     private var requestTask: Task<Void, Never>?
     private var draftTask: Task<RestartDraft, Error>?
     /// Bumped by `clear()` so a superseded request cannot touch state.
     private(set) var generation = 0
 
     static let keyService = "app.dailyworkspace.anthropic"
+    nonisolated static let openRouterKeyService = "app.dailyworkspace.openrouter"
     static let defaultModel = Configuration().model
     static let disabledMessage = "The Assistant is off. Turn it on in Settings → AI."
 
     init(
         transport: AgentTransport, keyStore: APIKeyStore, context: AssistantContext, vaultAgents: String? = nil,
-        configuration: Configuration = Configuration(), isEnabled: Bool = true
+        configuration: Configuration = Configuration(), isEnabled: Bool = true,
+        openRouterTransport: AgentTransport = OpenRouterClient(),
+        openRouterKeyStore: APIKeyStore = KeychainAPIKeyStore(service: openRouterKeyService)
     ) {
         self.transport = transport
+        self.openRouterTransport = openRouterTransport
         self.keyStore = keyStore
+        self.openRouterKeyStore = openRouterKeyStore
         self.runner = AssistantToolRunner(context: context)
         self.configuration = configuration
         self.isEnabled = isEnabled
@@ -87,18 +97,25 @@ final class AssistantSession: ObservableObject {
         error = nil
     }
 
-    /// Use `model` (blank means the default) from the next request on. A conversation already under way is
-    /// started over, because its thinking blocks belong to the model that wrote them.
-    func setModel(_ model: String) {
+    /// Provider and model are changed atomically. A provider switch drops the old provider's private
+    /// reasoning blocks and tool-call transcript before either provider sees the next question.
+    func setProvider(_ provider: AssistantProvider, model: String) {
         let trimmed = model.trimmingCharacters(in: .whitespacesAndNewlines)
-        let next = trimmed.isEmpty ? Self.defaultModel : trimmed
-        guard next != configuration.model else { return }
+        let defaultModel = provider == .anthropic ? Self.defaultModel : WorkspaceSettings.defaultOpenRouterModel
+        let next = trimmed.isEmpty ? defaultModel : trimmed
+        guard provider != configuration.provider || next != configuration.model else { return }
+        configuration.provider = provider
         configuration.model = next
         if !transcript.isEmpty || isStreaming { clear() }
     }
 
-    /// Ask `text`. Ignored while a turn is running or when `text` is blank.
-    func send(_ text: String) {
+    func setModel(_ model: String) {
+        setProvider(configuration.provider, model: model)
+    }
+
+    /// Ask `text`, optionally attaching the current page's navigation metadata only to this request.
+    /// Ignored while a turn is running or when `text` is blank.
+    func send(_ text: String, pageFocus: AssistantPageFocus? = nil) {
         let question = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !isStreaming, !question.isEmpty else { return }
         guard isEnabled else {
@@ -111,7 +128,7 @@ final class AssistantSession: ObservableObject {
         let generation = generation
         let base = transcript
         let askedAt = configuration.now()
-        let opening = userMessage(question)
+        let opening = userMessage(question, pageFocus: pageFocus)
         requestTask = Task {
             defer { if self.generation == generation { self.finish() } }
             do {
@@ -123,8 +140,8 @@ final class AssistantSession: ObservableObject {
                 transcript = base + outcome.appended
                 turns.append(
                     AssistantTurn(
-                        id: UUID(), question: question, answer: outcome.text, toolCalls: outcome.toolCalls,
-                        askedAt: askedAt, fallbackModel: fallbackModel(outcome.model)))
+                        id: UUID(), question: question, answer: outcome.text, finalAnswer: outcome.finalText,
+                        toolCalls: outcome.toolCalls, askedAt: askedAt, fallbackModel: fallbackModel(outcome.model)))
             } catch {
                 guard self.generation == generation else { return }
                 report(error)
@@ -206,23 +223,33 @@ final class AssistantSession: ObservableObject {
         return draft
     }
 
-    func userMessage(_ question: String) -> AgentMessage {
-        AgentMessage(
+    func userMessage(_ question: String, pageFocus: AssistantPageFocus? = nil) -> AgentMessage {
+        guard let pageFocus else {
+            return AgentMessage(
+                role: .user,
+                content: [
+                    AssistantPrompt.contextBlock(now: configuration.now(), timeZone: configuration.timeZone()),
+                    AgentContentBlock.text(question).raw,
+                ])
+        }
+        return AgentMessage(
             role: .user,
             content: [
                 AssistantPrompt.contextBlock(now: configuration.now(), timeZone: configuration.timeZone()),
+                AgentContentBlock.text(pageFocus.contextText).raw,
                 AgentContentBlock.text(question).raw,
             ])
     }
 
     private func readKey() -> String? {
         do {
-            if let key = try keyStore.read()?.trimmingCharacters(in: .whitespacesAndNewlines), !key.isEmpty {
+            let store = configuration.provider == .anthropic ? keyStore : openRouterKeyStore
+            if let key = try store.read()?.trimmingCharacters(in: .whitespacesAndNewlines), !key.isEmpty {
                 return key
             }
-            error = "Add your Anthropic API key in Settings → AI."
+            error = "Add your \(configuration.provider.title) API key in Settings → AI."
         } catch {
-            Log.chat.error("Keychain read failed: \(Log.code(error), privacy: .public)")
+            Log.assistant.error("Keychain read failed: \(Log.code(error), privacy: .public)")
             self.error = "The Keychain could not be read: \(error.localizedDescription)"
         }
         return nil
@@ -247,10 +274,10 @@ final class AssistantSession: ObservableObject {
     private func report(_ error: Error) {
         if error is CancellationError || Task.isCancelled { return }
         if let agentError = error as? AgentError {
-            Log.chat.error("Assistant turn failed: \(String(describing: agentError.kind), privacy: .public)")
+            Log.assistant.error("Assistant turn failed: \(String(describing: agentError.kind), privacy: .public)")
             self.error = agentError.message
         } else {
-            Log.chat.error("Assistant turn failed: \(Log.code(error), privacy: .public)")
+            Log.assistant.error("Assistant turn failed: \(Log.code(error), privacy: .public)")
             self.error = "The Assistant couldn't answer. Try again."
         }
     }

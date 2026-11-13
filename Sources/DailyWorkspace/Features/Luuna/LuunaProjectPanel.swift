@@ -10,6 +10,7 @@ struct LuunaProjectPanel: View {
 
     @EnvironmentObject private var luuna: LuunaStore
     @EnvironmentObject private var projects: ProjectsStore
+    @EnvironmentObject private var luunaWork: LuunaWorkStore
     @State private var projectID = ""
     @State private var picked: String?
     @State private var message: String?
@@ -60,6 +61,7 @@ struct LuunaProjectPanel: View {
         }
         LuunaObservedNote(name: "Project", observation: luuna.project, origin: luuna.origin)
         components
+        work(binding)
     }
 
     @ViewBuilder private var components: some View {
@@ -83,6 +85,120 @@ struct LuunaProjectPanel: View {
             }
         }
         LuunaObservedNote(name: "Component status", observation: luuna.components, origin: luuna.origin)
+    }
+
+    @ViewBuilder private func work(_ binding: LuunaProjectBinding) -> some View {
+        if binding.origin != luuna.origin {
+            ReasonNote(
+                "Native work is unavailable: this project belongs to \(binding.origin), not \(luuna.origin).",
+                tone: .attention)
+        } else if !luuna.isConnected {
+            ReasonNote(
+                "Native work requires a connected Luuna runtime. No board or tickets are available for this connection.",
+                tone: .attention)
+        } else {
+            Panel("Native work", description: "Read-only board and tickets from Luuna.", variant: .subpanel) {
+                Button("Refresh work") { Task { await luunaWork.refresh() } }
+                    .buttonStyle(.workspace(.secondary, size: .small))
+                    .disabled(luunaWork.isRefreshing)
+            } content: {
+                board
+                tickets
+            }
+        }
+    }
+
+    @ViewBuilder private var board: some View {
+        Text("Board").textRole(.bodyStrong, lineBox: false)
+        if let board = luunaWork.board.value {
+            if let note = board.note { Text(verbatim: note).textRole(.bodySmall, lineBox: false) }
+            ForEach(Array(board.columns.enumerated()), id: \.offset) { _, lane in
+                VStack(alignment: .leading, spacing: Space.s2) {
+                    HStack {
+                        Text(verbatim: lane.column.title).textRole(.bodyStrong, lineBox: false)
+                        ShortId(lane.column.id, kind: "column id")
+                    }
+                    if let description = lane.column.description {
+                        Text(verbatim: description).textRole(.bodySmall, lineBox: false)
+                    }
+                    if lane.cards.isEmpty { Text("No cards in this lane").foregroundStyle(Theme.inkMuted) }
+                    ForEach(Array(lane.cards.enumerated()), id: \.offset) { _, card in
+                        VStack(alignment: .leading, spacing: Space.sHalf) {
+                            Text(verbatim: card.title)
+                            HStack(spacing: Space.s2) {
+                                Tag(card.kind.rawValue)
+                                if let state = card.state { StatusBadge("Run: \(state.rawValue)", tone: nil) }
+                                if let ticketID = card.ticketID { ShortId(ticketID, kind: "ticket id") }
+                                if let runID = card.runID { ShortId(runID, kind: "run id") }
+                            }
+                            if let ticketID = card.ticketID {
+                                Button("Show ticket \(ticketID)") { luunaWork.selectTicket(ticketID) }
+                                    .buttonStyle(.workspace(.secondary, size: .small))
+                            }
+                        }
+                    }
+                }
+            }
+        } else if luunaWork.board.state == .empty {
+            Text("The board has no cards.")
+        } else if luunaWork.board.state == .unavailable(.notChecked) {
+            Text("The board has not been read on this connection.")
+        }
+        LuunaObservedNote(name: "Board", observation: luunaWork.board, origin: luuna.origin)
+    }
+
+    @ViewBuilder private var tickets: some View {
+        Text("Tickets").textRole(.bodyStrong, lineBox: false)
+        if let tickets = luunaWork.tickets.value {
+            if tickets.isEmpty { Text("Luuna returned no tickets for this project.") }
+            ForEach(tickets) { ticket in
+                Button {
+                    luunaWork.selectTicket(ticket.id)
+                } label: {
+                    HStack(spacing: Space.s2) {
+                        Text(verbatim: ticket.title)
+                        ShortId(ticket.id, kind: "ticket id")
+                        if let status = ticket.status {
+                            StatusBadge(status.rawValue, tone: nil)
+                        } else {
+                            Tag("Status not supplied")
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+        } else if luunaWork.tickets.state == .empty {
+            Text("Luuna returned no tickets for this project.")
+        } else if luunaWork.tickets.state == .unavailable(.notChecked) {
+            Text("Tickets have not been read on this connection.")
+        }
+        LuunaObservedNote(name: "Tickets", observation: luunaWork.tickets, origin: luuna.origin)
+        if let selectedID = luunaWork.selectedTicketID {
+            Text("Ticket detail").textRole(.bodyStrong, lineBox: false)
+                .task(id: selectedID) { await luunaWork.refreshSelectedTicket() }
+            if let ticket = luunaWork.selectedTicket.value {
+                Facts {
+                    FactRow("Ticket ID") { Text(verbatim: ticket.id).font(TextRole.mono.font) }
+                    FactRow("Project ID") { Text(verbatim: ticket.projectID).font(TextRole.mono.font) }
+                    FactRow("Title") { Text(verbatim: ticket.title) }
+                    FactRow("Revision") { Text(verbatim: "\(ticket.revision)") }
+                    FactRow("Status") { Text(verbatim: ticket.status?.rawValue ?? "Not supplied by Luuna") }
+                    if let source = ticket.source { FactRow("Source") { Text(verbatim: source.rawValue) } }
+                    if let intent = ticket.intent { FactRow("Intent") { Text(verbatim: intent) } }
+                    if let created = ticket.createdAt { FactRow("Created") { Text(verbatim: created) } }
+                    if let updated = ticket.updatedAt { FactRow("Updated") { Text(verbatim: updated) } }
+                    ForEach(Array((ticket.repositoryIDs ?? []).enumerated()), id: \.offset) { _, id in
+                        FactRow("Repository ID") { Text(verbatim: id).font(TextRole.mono.font) }
+                    }
+                    ForEach(Array((ticket.acceptanceCriteria ?? []).enumerated()), id: \.offset) { _, criterion in
+                        FactRow("Acceptance criterion") { Text(verbatim: criterion) }
+                    }
+                }
+            } else if luunaWork.selectedTicket.state == .unavailable(.notChecked) {
+                Text("Reading ticket \(selectedID)…")
+            }
+            LuunaObservedNote(name: "Ticket detail", observation: luunaWork.selectedTicket, origin: luuna.origin)
+        }
     }
 
     // MARK: Link

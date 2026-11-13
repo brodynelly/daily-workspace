@@ -75,6 +75,29 @@ final class ProjectHubParsingTests: XCTestCase {
             ])
     }
 
+    func testHubKeepsMarkdownProseAndDecisionsForPresentationOnly() {
+        let text = """
+            ---
+            type: project
+            ---
+            # T
+
+            ## Purpose
+
+            **Keep** [the link](https://example.com/plan) in the hub.
+
+            ## Decisions and Unknowns
+
+            - Preserve `source` and [local](file:///tmp/private).
+            - [ ] Historical checkbox is context, not a task.
+            """
+        let parsed = ProjectHubParser.hub(text: text, path: "01-projects/t.md")
+        XCTAssertEqual(parsed.purpose, "**Keep** [the link](https://example.com/plan) in the hub.")
+        XCTAssertEqual(
+            parsed.decisions,
+            ["Preserve `source` and [local](file:///tmp/private).", "[ ] Historical checkbox is context, not a task."])
+    }
+
     func testPurposeIsBoundedAndFallsBackToPreamble() {
         let long = "# T\n\nIntro words " + String(repeating: "word ", count: 200) + "\n\n## Next\n\nOther."
         let parsed = ProjectHubParser.hub(text: long, path: "01-projects/t.md", maxPurposeLength: 40)
@@ -104,7 +127,7 @@ final class ProjectHubParsingTests: XCTestCase {
 
             ## Definition of done
 
-            The app reads Org.
+            The app reads Markdown.
 
             ## Current reality
 
@@ -116,7 +139,7 @@ final class ProjectHubParsingTests: XCTestCase {
 
             ## Exact restart
 
-            - **File:** Sources/DailyCore/Loops/OrgReader.swift
+            - **File:** Sources/DailyCore/Projects/ProjectHubReader.swift
             - **Symbol / line:**
             - **Command:** swift test
 
@@ -129,7 +152,7 @@ final class ProjectHubParsingTests: XCTestCase {
             - Read-only first.
             """
         let state = ProjectHubParser.state(text: text, path: "01-projects/p/notes/state.md")
-        XCTAssertEqual(state.definitionOfDone, "The app reads Org.")
+        XCTAssertEqual(state.definitionOfDone, "The app reads Markdown.")
         XCTAssertEqual(state.currentState, "Readers exist.")
         XCTAssertEqual(state.nextAction, "Wire the Open Loops screen.")
         XCTAssertEqual(state.restart.map(\.key), ["File", "Command"])
@@ -208,12 +231,9 @@ final class ProjectHubReaderTests: XCTestCase {
         XCTAssertEqual(hub.state?.nextAction, "Run the probe.")
     }
 
-    func testMarkdownCheckboxesNeverBecomeLoops() throws {
+    func testMarkdownCheckboxesDoNotBecomeProjectDecisions() throws {
         let vault = try FixtureVault()
-        try vault.write("org/inbox.org", "* Tasks\n- [ ] org checkbox\n")
-        try vault.write("org/projects.org", "* Projects\n")
         try vault.write("01-projects/p/p.md", "---\ntype: project\n---\n# P\n\n- [ ] historical\n- [x] done\n")
-        XCTAssertEqual(OrgReader(root: vault.root).readLoops(now: fixtureNow).state, .empty)
         let hub = ProjectHubReader(root: vault.root).read(now: fixtureNow).value.first
         XCTAssertEqual(hub?.decisions, [])
         XCTAssertNil(hub?.purpose)

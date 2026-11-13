@@ -1,9 +1,8 @@
 import DailyCore
 import SwiftUI
 
-/// The selected hub as one hairline card: `Projects / {title}`, the title with the hub's tags and project key, its
-/// facts, purpose and decisions, then one subpanel per owner (repositories, Seeds, Plot, the restart record and
-/// Luuna). Everything here is read from its owner; the only edits are to the app's own association.
+/// The selected vault hub retains its purpose, decisions, repositories and restart context alongside its
+/// read-only Luuna binding and native project work. Associations are the only edits available here.
 struct ProjectDetailCard: View {
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var projects: ProjectsStore
@@ -35,9 +34,10 @@ struct ProjectDetailCard: View {
                 FactRow("Latest note") { Text(latestNote(hub)) }
             }
             if let purpose = hub.purpose, !purpose.isEmpty {
-                Text(verbatim: purpose)
+                Text(Self.renderMarkdown(purpose))
                     .textRole(.body)
                     .foregroundStyle(Theme.inkBody)
+                    .tint(Theme.accentText)
                     .frame(maxWidth: Metrics.measure, alignment: .leading)
                     .fixedSize(horizontal: false, vertical: true)
                     .textSelection(.enabled)
@@ -53,14 +53,12 @@ struct ProjectDetailCard: View {
             }
             if !hub.decisions.isEmpty { decisions(hub.decisions) }
             ProjectRepositoriesPanel(detail: detail)
-            ProjectSeedsPanel(detail: detail)
-            ProjectPlotPanel(detail: detail)
             ProjectRestartSection(slug: hub.slug)
             LuunaProjectPanel(association: detail.association)
         }
     }
 
-    /// The title (the card's h3) with the hub's tags and its Seeds project key as chips.
+    /// The title (the card's h3) with the hub's tags and vault project key as chips.
     private func header(_ hub: ProjectHub) -> some View {
         ChipFlow {
             Text(verbatim: hub.title)
@@ -78,8 +76,9 @@ struct ProjectDetailCard: View {
                 ForEach(Array(items.enumerated()), id: \.offset) { _, item in
                     HStack(alignment: .firstTextBaseline, spacing: Space.s2) {
                         Text(verbatim: "•").foregroundStyle(Theme.inkMuted).accessibilityHidden(true)
-                        Text(verbatim: item)
+                        Text(Self.renderMarkdown(item))
                             .foregroundStyle(Theme.inkBody)
+                            .tint(Theme.accentText)
                             .fixedSize(horizontal: false, vertical: true)
                             .textSelection(.enabled)
                     }
@@ -88,6 +87,26 @@ struct ProjectDetailCard: View {
             .textRole(.body, lineBox: false)
             .frame(maxWidth: Metrics.measure, alignment: .leading)
         }
+    }
+
+    /// Format hub prose without changing its source text. Only web links remain actionable; vault-relative,
+    /// file and custom-scheme links are displayed as text rather than opening untrusted locations.
+    static func renderMarkdown(_ source: String) -> AttributedString {
+        let options = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+        var rendered = (try? AttributedString(markdown: source, options: options)) ?? AttributedString(source)
+        let links = rendered.runs.compactMap { run -> (Range<AttributedString.Index>, URL)? in
+            guard let url = run.link else { return nil }
+            return (run.range, url)
+        }
+        for (range, url) in links {
+            guard let scheme = url.scheme?.lowercased(),
+                ["http", "https"].contains(scheme), url.host?.isEmpty == false
+            else {
+                rendered[range].link = nil
+                continue
+            }
+        }
+        return rendered
     }
 
     private func latestNote(_ hub: ProjectHub) -> String {

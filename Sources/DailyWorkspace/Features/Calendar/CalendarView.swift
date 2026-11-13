@@ -1,63 +1,83 @@
 import SwiftUI
 
-/// Calendar: one day of events as record rows, quiet day navigation, and event editing.
+/// Seven-day time grid with a month navigator and selected-day detail rail.
 struct CalendarView: View {
     @EnvironmentObject private var calendar: CalendarService
+    @EnvironmentObject private var preferences: Preferences
     @State private var creating = false
 
     private var authorized: Bool { calendar.status == .authorized }
-    private var showingToday: Bool { Calendar.current.isDateInToday(calendar.selectedDay) }
+    private var week: DateInterval? { Calendar.current.dateInterval(of: .weekOfYear, for: calendar.selectedDay) }
 
     var body: some View {
-        Page {
-            PageHeader(title: AppSection.calendar.title, description: AppSection.calendar.description) {
-                Button("New Event", systemImage: "plus") { creating = true }
-                    .buttonStyle(WorkspaceButtonStyle(variant: authorized ? .primary : .secondary, size: .large))
-                    .disabled(!authorized)
-            }
-            VStack(alignment: .leading, spacing: Space.s4) {
-                dayNavigation
-                AgendaList()
+        VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                VStack(spacing: 0) {
+                    toolbar
+                    if authorized, let week {
+                        CalendarWeekView(week: week, events: calendar.weekEvents, selectedDay: calendar.selectedDay) {
+                            calendar.show(day: $0)
+                        }
+                    } else {
+                        PermissionEmptyState(kind: .calendar, status: calendar.status) {
+                            await calendar.requestAccess()
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                VerticalHairline()
+                CalendarMonthRail()
+                    .frame(width: Metrics.sidebarWidth)
             }
         }
         .navigationTitle(AppSection.calendar.title)
         .sheet(isPresented: $creating) { EventEditorView(event: nil) }
-        .onAppear { calendar.reload() }
+        .onAppear {
+            calendar.startWeekObservation()
+            calendar.reload()
+        }
+        .onDisappear { calendar.stopWeekObservation() }
     }
 
-    /// The day as a section title, with quiet previous, Today and next controls.
-    private var dayNavigation: some View {
-        HStack(alignment: .center, spacing: Space.s3) {
-            Text(calendar.selectedDay, format: .dateTime.weekday(.wide).month(.wide).day().year())
+    private var toolbar: some View {
+        HStack(spacing: Space.s3) {
+            Button("Today") { calendar.show(day: Date()) }
+                .disabled(Calendar.current.isDateInToday(calendar.selectedDay))
+            Button {
+                move(by: -7)
+            } label: {
+                Image(systemName: "chevron.left")
+            }
+            .accessibilityLabel("Previous week")
+            .help(shortcutHelp("Previous week", id: "calendar.previousWeek"))
+            .keyboardShortcut(
+                KeyboardShortcutCatalog.binding(for: "calendar.previousWeek", preferences: preferences)?.menuShortcut)
+            Button {
+                move(by: 7)
+            } label: {
+                Image(systemName: "chevron.right")
+            }
+            .accessibilityLabel("Next week")
+            .help(shortcutHelp("Next week", id: "calendar.nextWeek"))
+            .keyboardShortcut(
+                KeyboardShortcutCatalog.binding(for: "calendar.nextWeek", preferences: preferences)?.menuShortcut)
+            Text(calendar.selectedDay, format: .dateTime.month(.wide).year())
                 .textRole(.sectionTitle, lineBox: false)
                 .foregroundStyle(Theme.ink)
-                .accessibilityAddTraits(.isHeader)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            HStack(spacing: Space.s1) {
-                Button {
-                    move(by: -1)
-                } label: {
-                    Image(systemName: "chevron.left")
-                }
-                .accessibilityLabel("Previous day")
-                .help("Previous day (⌘←)")
-                .keyboardShortcut(.leftArrow, modifiers: .command)
-
-                Button("Today") { calendar.show(day: Date()) }
-                    .disabled(showingToday)
-                    .help("Go to today")
-
-                Button {
-                    move(by: 1)
-                } label: {
-                    Image(systemName: "chevron.right")
-                }
-                .accessibilityLabel("Next day")
-                .help("Next day (⌘→)")
-                .keyboardShortcut(.rightArrow, modifiers: .command)
-            }
-            .buttonStyle(.quiet)
+            Button("New Event", systemImage: "plus") { creating = true }
+                .buttonStyle(WorkspaceButtonStyle(variant: authorized ? .primary : .secondary, size: .large))
+                .disabled(!authorized)
         }
+        .buttonStyle(.quiet)
+        .padding(.horizontal, Space.s5)
+        .frame(height: Space.s12 + Space.s4)
+    }
+
+    private func shortcutHelp(_ title: String, id: String) -> String {
+        guard let binding = KeyboardShortcutCatalog.binding(for: id, preferences: preferences) else { return title }
+        return "\(title) (\(KeyboardShortcutCatalog.label(for: binding)))"
     }
 
     private func move(by days: Int) {

@@ -42,7 +42,8 @@ final class AssistantSessionTests: XCTestCase {
 
         let tools = try XCTUnwrap(body["tools"] as? [[String: Any]])
         let names = tools.compactMap { $0["name"] as? String }
-        XCTAssertEqual(names, ["get_agenda", "get_project", "list_open_loops", "read_note", "search_notes"])
+        XCTAssertEqual(
+            names, ["get_agenda", "get_project", "list_open_loops", "list_projects", "read_note", "search_notes"])
         for tool in tools {
             XCTAssertEqual(tool["strict"] as? Bool, true)
             let schema = try XCTUnwrap(tool["input_schema"] as? [String: Any])

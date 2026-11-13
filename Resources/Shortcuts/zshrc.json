@@ -1,0 +1,42 @@
+{
+  "sections": [
+    {
+      "title": "fzf",
+      "rows": [
+        { "label": "Fuzzy-find files", "keys": [["⌃T"]] },
+        { "label": "Search command history", "keys": [["⌃R"]] },
+        { "label": "Cycle preview (in ⌃T picker)", "keys": [["⌃/"]] },
+        { "label": "Fuzzy completion (e.g. ssh ::⇥)", "keys": [["::", "⇥"]] }
+      ]
+    },
+    {
+      "title": "Apps",
+      "rows": [
+        { "label": "Neovim", "keys": [["v"]], "kind": "command" },
+        { "label": "LazyGit", "keys": [["lg"]], "kind": "command" },
+        { "label": "Claude Code", "keys": [["c"]], "kind": "command" },
+        { "label": "OpenCode", "keys": [["o"]], "kind": "command" },
+        { "label": "Yazi (cd on exit)", "keys": [["y"]], "kind": "command" },
+        { "label": "Open in Finder", "keys": [["files"]], "kind": "command" },
+        { "label": "Fastfetch", "keys": [["ff"]], "kind": "command" }
+      ]
+    },
+    {
+      "title": "Navigation and files",
+      "rows": [
+        { "label": "Go to dotfiles", "keys": [["dots"]], "kind": "command" },
+        { "label": "Go to brain vault", "keys": [["brain"]], "kind": "command" },
+        { "label": "Long listing (eza)", "keys": [["ll"]], "kind": "command" }
+      ]
+    },
+    {
+      "title": "Helpers",
+      "rows": [
+        { "label": "Pick colorscheme", "keys": [["colors"]], "kind": "command" },
+        { "label": "Agents chooser", "keys": [["agents"]], "kind": "command" },
+        { "label": "Bookmarks picker", "keys": [["bookmarks"]], "kind": "command" },
+        { "label": "Tasks picker", "keys": [["tasks"]], "kind": "command" }
+      ]
+    }
+  ]
+}

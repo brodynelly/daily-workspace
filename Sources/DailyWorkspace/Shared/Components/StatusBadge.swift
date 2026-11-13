@@ -31,7 +31,7 @@ struct StatusBadge: View {
     }
 }
 
-/// A static descriptor chip ("project:alpha", "Org", "read-only"): outlined and untoned.
+/// A static descriptor chip ("project:alpha", "local", "read-only"): outlined and untoned.
 struct Tag: View {
     let text: String
 

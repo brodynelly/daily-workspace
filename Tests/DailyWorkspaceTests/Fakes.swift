@@ -50,7 +50,7 @@ final class FakeRecovery: RecoveryStoring {
     }
 }
 
-final class FakeKeyStore: APIKeyStore {
+final class FakeKeyStore: APIKeyStore, @unchecked Sendable {
     var key: String?
     var readError: Error?
 
@@ -62,19 +62,86 @@ final class FakeKeyStore: APIKeyStore {
     func save(_ key: String) throws { self.key = key.isEmpty ? nil : key }
 }
 
-final class FakeTransport: ChatTransport {
-    struct Request {
-        let messages: [ChatMessage]
-        let model: String?
-        let apiKey: String
+/// Native work reads are always injected in tests; this fake never launches `lu`.
+final class FakeLuunaWorkReader: LuunaWorkReading, @unchecked Sendable {
+    struct Call {
+        let name: String
+        let projectID: String?
+        let connection: LuunaConnection
     }
 
-    var reply: Result<String, Error> = .success("ok")
-    private(set) var requests: [Request] = []
+    private let lock = NSLock()
+    private var results: [String: Result<Any, LuunaReadFailure>] = [
+        "board": Result { try JSONDecoder().decode(LuunaBoard.self, from: Data(#"{"columns":[]}"#.utf8)) }
+            .map { $0 as Any }.mapError { _ in .undecodable },
+        "tickets": .success([LuunaTicketRecord]()),
+        "showTicket": .failure(.unavailable(.notChecked)),
+        "home": FakeLuunaWorkReader.emptyHome(),
+        "homeAll": FakeLuunaWorkReader.emptyHome(),
+        "runs": .success([LuunaRunRecord]()),
+        "run": .failure(.unavailable(.notChecked)),
+    ]
 
-    func complete(_ messages: [ChatMessage], model: String?, apiKey: String) async throws -> String {
-        requests.append(Request(messages: messages, model: model, apiKey: apiKey))
-        return try reply.get()
+    private static func emptyHome() -> Result<Any, LuunaReadFailure> {
+        Result { try JSONDecoder().decode(LuunaHome.self, from: Data(#"{"projects":[],"blockers":[]}"#.utf8)) }
+            .map { $0 as Any }.mapError { _ in .undecodable }
+    }
+
+    private var log: [Call] = []
+    private var gates: [String: LuunaGate] = [:]
+
+    var calls: [Call] { lock.withLock { log } }
+
+    func set<Value>(_ name: String, _ result: Result<Value, LuunaReadFailure>) {
+        lock.withLock { results[name] = result.map { $0 as Any } }
+    }
+
+    func hold(_ name: String) -> LuunaGate {
+        let gate = LuunaGate()
+        lock.withLock { gates[name] = gate }
+        return gate
+    }
+
+    func board(_ projectID: String, _ connection: LuunaConnection) async throws -> LuunaBoard {
+        try await answer("board", projectID, connection)
+    }
+
+    func tickets(_ projectID: String, _ connection: LuunaConnection) async throws -> [LuunaTicketRecord] {
+        try await answer("tickets", projectID, connection)
+    }
+
+    func showTicket(_ ticketID: String, _ connection: LuunaConnection) async throws -> LuunaTicketRecord {
+        try await answer("showTicket", ticketID, connection)
+    }
+
+    func home(_ projectID: String, _ connection: LuunaConnection) async throws -> LuunaHome {
+        try await answer("home", projectID, connection)
+    }
+
+    func homeAll(_ connection: LuunaConnection) async throws -> LuunaHome {
+        try await answer("homeAll", nil, connection)
+    }
+    func runs(_ projectID: String, _ connection: LuunaConnection) async throws -> [LuunaRunRecord] {
+        try await answer("runs", projectID, connection)
+    }
+
+    func run(_ runID: String, _ connection: LuunaConnection) async throws -> LuunaRunRecord {
+        try await answer("run", runID, connection)
+    }
+
+    private func answer<Value>(_ name: String, _ projectID: String?, _ connection: LuunaConnection) async throws
+        -> Value
+    {
+        let gate = lock.withLock {
+            log.append(Call(name: name, projectID: projectID, connection: connection))
+            return gates[name]
+        }
+        await gate?.wait()
+        switch lock.withLock({ results[name] }) {
+        case .success(let value as Value): return value
+        case .failure(let failure): throw failure
+        default: throw LuunaReadFailure.undecodable
+        }
     }
 }
 
@@ -111,7 +178,12 @@ final class FakeCalendarStore: CalendarStore {
 
     func events(from start: Date, to end: Date) -> [AgendaEvent] {
         fetchedRanges.append((start, end))
-        return eventsByDayStart[start] ?? []
+        if end.timeIntervalSince(start) <= 25 * 3600 {
+            return eventsByDayStart[start] ?? []
+        }
+        return eventsByDayStart.values.flatMap { $0 }
+            .filter { $0.start < end && $0.end > start }
+            .sorted { $0.start < $1.start }
     }
 
     func save(_ draft: EventDraft) throws {
@@ -155,6 +227,7 @@ extension AppModel.Dependencies {
         directory: WorkspaceDirectory? = nil,
         reminderStore: FakeReminderStore? = nil,
         luunaReader: FakeLuunaReader = FakeLuunaReader(),
+        luunaWorkReader: FakeLuunaWorkReader = FakeLuunaWorkReader(),
         luunaKeys: FakeKeyStore = FakeKeyStore(),
         agentTransport: FakeAgentTransport = FakeAgentTransport(),
         assistantKeys: FakeKeyStore = FakeKeyStore(),
@@ -173,11 +246,10 @@ extension AppModel.Dependencies {
             legacyDefaults: nil,
             makeTaskPersistence: { tasks },
             recovery: FakeRecovery(),
-            keyStore: FakeKeyStore(),
-            chatTransport: FakeTransport(),
             calendarStore: calendarStore ?? FakeCalendarStore(),
             reminderStore: reminderStore ?? FakeReminderStore(),
             luunaReader: luunaReader,
+            luunaWorkReader: luunaWorkReader,
             luunaKeyStore: luunaKeys,
             agentTransport: agentTransport,
             assistantKeyStore: assistantKeys,

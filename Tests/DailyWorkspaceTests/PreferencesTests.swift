@@ -36,6 +36,29 @@ final class PreferencesTests: XCTestCase {
         XCTAssertEqual(store.saveCount, 0)
     }
 
+    func testConsentFlagsDefaultOffAndEachOptInIsSavedAndLoaded() {
+        let store = InMemorySettings()
+        let preferences = Preferences(store: store)
+
+        XCTAssertFalse(preferences.mailEnabled)
+        XCTAssertFalse(preferences.quickPanelClipboardEnabled)
+        XCTAssertFalse(preferences.quickPanelTerminalBorderEnabled)
+
+        preferences.mailEnabled = true
+        XCTAssertTrue(store.stored?.mailEnabled == true)
+        XCTAssertFalse(store.stored?.quickPanelClipboardEnabled == true)
+        XCTAssertFalse(store.stored?.quickPanelTerminalBorderEnabled == true)
+        preferences.quickPanelClipboardEnabled = true
+        XCTAssertTrue(store.stored?.quickPanelClipboardEnabled == true)
+        preferences.quickPanelTerminalBorderEnabled = true
+        XCTAssertTrue(store.stored?.quickPanelTerminalBorderEnabled == true)
+
+        let reloaded = Preferences(store: store)
+        XCTAssertTrue(reloaded.mailEnabled)
+        XCTAssertTrue(reloaded.quickPanelClipboardEnabled)
+        XCTAssertTrue(reloaded.quickPanelTerminalBorderEnabled)
+    }
+
     func testLegacyDefaultsAreImportedAndSavedOnFirstLaunch() {
         let defaults = makeLegacyDefaults()
         defaults.set("Daily", forKey: Preferences.LegacyKey.dailyFolder)
@@ -49,6 +72,12 @@ final class PreferencesTests: XCTestCase {
         XCTAssertEqual(preferences.vaultBookmark, Data([7]))
         XCTAssertEqual(store.saveCount, 1)
         XCTAssertEqual(store.stored?.recentNotes, ["x.md"])
+        XCTAssertFalse(preferences.mailEnabled)
+        XCTAssertFalse(preferences.quickPanelClipboardEnabled)
+        XCTAssertFalse(preferences.quickPanelTerminalBorderEnabled)
+        XCTAssertFalse(store.stored?.mailEnabled == true)
+        XCTAssertFalse(store.stored?.quickPanelClipboardEnabled == true)
+        XCTAssertFalse(store.stored?.quickPanelTerminalBorderEnabled == true)
     }
 
     func testLegacyDefaultsAreIgnoredOnceASettingsFileExists() {

@@ -1,22 +1,75 @@
 import SwiftUI
 
-/// Settings window: Vault, Editor, AI, Luuna, Permissions, each tab on the Luuna surface.
-struct SettingsView: View {
-    var body: some View {
-        TabView {
-            VaultSettingsView().tabItem { Label("Vault", systemImage: "folder") }
-            EditorSettingsView().tabItem { Label("Editor", systemImage: "cursorarrow.motionlines") }
-            AISettingsView().tabItem { Label("AI", systemImage: "bubble.left") }
-            LuunaSettingsView().tabItem { Label("Luuna", systemImage: "point.3.connected.trianglepath.dotted") }
-            PermissionsSettingsView().tabItem { Label("Permissions", systemImage: "hand.raised") }
+enum SettingsTab: String, CaseIterable, Hashable {
+    case vault, editor, keyboard, ai, luuna, permissions
+
+    var title: String {
+        switch self {
+        case .vault: return "Vault"
+        case .editor: return "Editor"
+        case .keyboard: return "Keyboard"
+        case .ai: return "AI"
+        case .luuna: return "Luuna"
+        case .permissions: return "Permissions"
         }
-        .frame(width: 640, height: 560)
-        .background(Theme.surface)
-        .tint(Theme.accent)
+    }
+
+    var symbol: String {
+        switch self {
+        case .vault: return "folder"
+        case .editor: return "cursorarrow.motionlines"
+        case .keyboard: return "keyboard"
+        case .ai: return "bubble.left"
+        case .luuna: return "point.3.connected.trianglepath.dotted"
+        case .permissions: return "hand.raised"
+        }
     }
 }
 
-/// One Settings tab: a scrolling column of titled groups, 24 pt from the window edge, on the surface.
+/// Settings in the main workspace content column, with the existing settings pages as tabs.
+struct SettingsView: View {
+    @EnvironmentObject private var navigation: AppNavigation
+    var body: some View {
+        VStack(spacing: 0) {
+            ScrollView(.horizontal) {
+                HStack(spacing: Space.s3) {
+                    ForEach(SettingsTab.allCases, id: \.self) { tab in
+                        Button {
+                            navigation.settingsTab = tab
+                        } label: {
+                            Label(tab.title, systemImage: tab.symbol)
+                                .textRole(.label, lineBox: false)
+                                .foregroundStyle(navigation.settingsTab == tab ? Theme.accent : Theme.inkBody)
+                        }
+                        .buttonStyle(.quiet)
+                        .accessibilityAddTraits(navigation.settingsTab == tab ? .isSelected : [])
+                    }
+                }
+                .padding(.horizontal, Space.s6)
+                .padding(.vertical, Space.s2)
+            }
+            .scrollIndicators(.hidden)
+            Hairline()
+            page
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .background(Theme.surface)
+        .tint(Theme.accent)
+    }
+
+    @ViewBuilder private var page: some View {
+        switch navigation.settingsTab {
+        case .vault: VaultSettingsView()
+        case .editor: EditorSettingsView()
+        case .keyboard: KeyboardShortcutsSettingsView()
+        case .ai: AISettingsView()
+        case .luuna: LuunaSettingsView()
+        case .permissions: PermissionsSettingsView()
+        }
+    }
+}
+
+/// One Settings tab: a scrolling column of titled groups, padded on the workspace surface.
 struct SettingsPage<Content: View>: View {
     @ViewBuilder var content: Content
 

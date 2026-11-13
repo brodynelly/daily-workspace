@@ -12,7 +12,7 @@ enum VaultReadPolicy {
     }
 
     /// File types the Assistant reads as notes.
-    static let noteExtensions: Set<String> = ["md", "org"]
+    static let noteExtensions: Set<String> = ["md"]
 
     /// Resolve `raw` inside the vault at `root`, or throw a `ToolFailure` that says why it is refused. The
     /// message names the path, never its content.

@@ -37,8 +37,8 @@ jobs:
         run: swift test
       - name: Bundle app
         run: scripts/bundle.sh release
-      - name: Check Info.plist usage strings are embedded in the app bundle
+      - name: Check bundled Calendar, Reminders, microphone and Speech usage strings
         run: |
-          for key in NSCalendarsFullAccessUsageDescription NSRemindersFullAccessUsageDescription; do
+          for key in NSCalendarsFullAccessUsageDescription NSRemindersFullAccessUsageDescription NSMicrophoneUsageDescription NSSpeechRecognitionUsageDescription; do
             plutil -extract "$key" raw build/DailyWorkspace.app/Contents/Info.plist
           done

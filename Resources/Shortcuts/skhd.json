@@ -1,0 +1,61 @@
+{
+  "sections": [
+    {"title": "Quick Access Pascal", "rows": [
+      {"label": "Pascal: agent sessions", "keys": [["⌥⇧F12"]]},
+      {"label": "Pascal: keyboard shortcuts", "keys": [["⌥⇧F13"]]},
+      {"label": "Pascal: Turbo Music", "keys": [["⌥⇧F16"]]},
+      {"label": "Pascal: system actions", "keys": [["⌥⇧F17"]]}
+    ]},
+    {"title": "Launch apps", "rows": [
+      {"label": "Agents menu", "keys": [["⌃⌥⌘␣"], ["⌥⌘F1"], ["⌃⌘F13"]]},
+      {"label": "Open kitty", "keys": [["⌥⌘F8"], ["⌃⇧F18"]]},
+      {"label": "Open Finder", "keys": [["⌥⌘F9"], ["⌃⌥F17"]]},
+      {"label": "Open Obsidian brain vault", "keys": [["⌃⌘F19"]]},
+      {"label": "Open Claude", "keys": [["⌃⌥F12"]]},
+      {"label": "Kitty Claude session", "keys": [["⌃⌥⇧⌘Z"]]}
+    ]},
+    {"title": "Switch to app", "rows": [
+      {"label": "Google Chrome", "keys": [["⌃⇧F16"]]},
+      {"label": "Obsidian", "keys": [["⌥⇧⌘F12"]]},
+      {"label": "System Settings", "keys": [["⌃⌥F13"]]},
+      {"label": "Finder", "keys": [["⌃⇧F12"]]}
+    ]},
+    {"title": "Kitty sessions", "rows": [
+      {"label": "Home session", "keys": [["⌃⌘F2"]]},
+      {"label": "Dotfiles session", "keys": [["⌃⌘F3"]]},
+      {"label": "Obsidian session", "keys": [["⌃⌘F17"]]},
+      {"label": "Luuna session", "keys": [["⌃⌘F12"]]}
+    ]},
+    {"title": "Quick-access terminal", "rows": [
+      {"label": "Toggle quick-access terminal", "keys": [["⌥⌘F6"]]},
+      {"label": "Zoxide jump", "keys": [["⌃⌘F7"]]},
+      {"label": "Agent panel: agent tabs", "keys": [["⌃⌘F16"]]},
+      {"label": "Color picker", "keys": [["⌥⌘F4"]]},
+      {"label": "Running apps", "keys": [["⌥⌘F16"]]},
+      {"label": "Tasks", "keys": [["⌥⌘F3"]]},
+      {"label": "Bookmarks", "keys": [["⌥⌘F12"]]}
+    ]},
+    {"title": "Notes and utilities", "rows": [
+      {"label": "Daily note", "keys": [["⌥⌘F5"]]},
+      {"label": "Work daily note", "keys": [["⌥⇧⌘F5"]]},
+      {"label": "Toggle mic mute", "keys": [["⌥⌘F2"]]},
+      {"label": "Keyboard shortcuts sheet", "keys": [["⌃⌥⌘K"]]},
+      {"label": "Turbo Music (Apple Music picker)", "keys": [["⌃⌥⌘M"]]}
+    ]},
+    {"title": "Windows (yabai)", "rows": [
+      {"label": "Focus window left", "keys": [["⌃⌥H"]]},
+      {"label": "Focus window down", "keys": [["⌃⌥J"]]},
+      {"label": "Focus window up", "keys": [["⌃⌥K"]]},
+      {"label": "Focus window right", "keys": [["⌃⌥L"]]},
+      {"label": "Swap window left", "keys": [["⌃⌥⇧H"]]},
+      {"label": "Swap window down", "keys": [["⌃⌥⇧J"]]},
+      {"label": "Swap window up", "keys": [["⌃⌥⇧K"]]},
+      {"label": "Swap window right", "keys": [["⌃⌥⇧L"]]},
+      {"label": "Toggle zoom fullscreen", "keys": [["⌃⌥↩"]]}
+    ]},
+    {"title": "Desktops (yabai)", "rows": [
+      {"label": "Go to desktop 1–9", "keys": [["⌃⌥1–9"]]},
+      {"label": "Move window to desktop 1–9", "keys": [["⌃⌥⇧1–9"]]}
+    ]}
+  ]
+}

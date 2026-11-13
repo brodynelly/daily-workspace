@@ -50,8 +50,8 @@ final class FakeAssistantContext: AssistantContext, @unchecked Sendable {
     var note = ToolNote(path: "01-projects/alpha/hub.md", text: "# Alpha\nShip the beta.", truncated: false)
     var rows = [
         ToolLoopRow(
-            id: "seeds:alpha-12", source: "seeds", title: "Write the spec", status: "in_progress", project: "alpha",
-            path: ".seeds/issues.jsonl", observedAt: Date(timeIntervalSince1970: 1_800_000_000))
+            id: "local:alpha-12", source: "local", title: "Write the spec", status: "open", project: "alpha",
+            path: "01-projects/alpha/hub.md", observedAt: Date(timeIntervalSince1970: 1_800_000_000))
     ]
     var events = [
         ToolEvent(
@@ -82,11 +82,20 @@ final class FakeAssistantContext: AssistantContext, @unchecked Sendable {
         return rows
     }
 
+    func listProjects() async -> ToolProjectInventory {
+        lock.withLock { recorded.append("list_projects()") }
+        return ToolProjectInventory(
+            state: "populated",
+            projects: [ToolProjectListing(slug: "alpha", title: "Alpha", path: "01-projects/alpha/hub.md")],
+            truncated: false, reason: nil)
+    }
+
     func project(slug: String) async throws -> ToolProject {
         try record("get_project(\(slug))")
         return ToolProject(
             slug: slug, title: "Alpha", hubPath: "01-projects/alpha/hub.md", summary: nil, decisions: [],
-            checkouts: [], openLoops: rows, relatedNotes: [], latestRestart: nil)
+            checkouts: [], openLoops: rows, nativeTickets: [], nativeTicketsUnavailable: nil,
+            relatedNotes: [], latestRestart: nil)
     }
 
     func agenda(day: LocalDay) async throws -> [ToolEvent] {

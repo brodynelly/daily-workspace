@@ -14,7 +14,7 @@ enum Log {
     static let capture = Logger(subsystem: subsystem, category: "capture")
     static let calendar = Logger(subsystem: subsystem, category: "calendar")
     static let reminders = Logger(subsystem: subsystem, category: "reminders")
-    static let chat = Logger(subsystem: subsystem, category: "chat")
+    static let assistant = Logger(subsystem: subsystem, category: "assistant")
 
     /// Stable, path-free identity of an error, e.g. "NSCocoaErrorDomain#260".
     static func code(_ error: Error) -> String {

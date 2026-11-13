@@ -1,8 +1,8 @@
 import DailyCore
 import SwiftUI
 
-/// Adds one item to an explicit owner: a local task to `tasks.json`, or a reminder to Apple Reminders. Nothing is
-/// ever added to Org, Seeds or Plot from here. The form closes only after the owner accepted the item.
+/// Adds one item to an explicit owner: a local task to `tasks.json`, or a reminder to Apple Reminders. Project
+/// issues and plans belong to Luuna/Missions, not this form. The form closes only after the owner accepted the item.
 struct LoopComposer: View {
     enum Owner: Hashable {
         case task, reminder
@@ -111,10 +111,10 @@ struct RemindersAccessState: View {
         case .notRequested, .authorized: return kind.purpose
         case .denied:
             return
-                "Turn it on in System Settings › Privacy & Security › Reminders. Local tasks, Org, Seeds and Plot still work."
+                "Turn it on in System Settings › Privacy & Security › Reminders. Local tasks and Luuna/Missions still work."
         case .restricted:
-            return "Access to Reminders is restricted on this Mac. Local tasks, Org, Seeds and Plot still work."
-        case .unavailable: return "Reminders is unavailable right now. Local tasks, Org, Seeds and Plot still work."
+            return "Access to Reminders is restricted on this Mac. Local tasks and Luuna/Missions still work."
+        case .unavailable: return "Reminders is unavailable right now. Local tasks and Luuna/Missions still work."
         }
     }
 }

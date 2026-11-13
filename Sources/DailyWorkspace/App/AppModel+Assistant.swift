@@ -2,24 +2,47 @@ import Combine
 import DailyCore
 import Foundation
 
-// The Assistant's wiring: Settings → AI gates every request and picks the model, and the vault's root AGENTS.md
-// (read-only) is part of the system prompt, so a new vault or a changed AGENTS.md starts a new conversation.
+// The Assistant's wiring: Settings → AI gates every request and selects a provider/model; the vault's root
+// AGENTS.md (read-only) is part of the system prompt, so switching vaults starts a new conversation.
 extension AppModel {
-    /// Follow the enable switch, the model ID and the vault.
+    /// Follow the enable switch, provider, model ID and vault.
     func observeAssistant() {
         assistant.setEnabled(preferences.assistantEnabled)
-        assistant.setModel(preferences.assistantModel)
+        assistant.setProvider(preferences.assistantProvider, model: preferences.selectedAssistantModel)
+        assistantKey.setProvider(preferences.assistantProvider)
         preferences.$assistantEnabled
             .dropFirst()
             .removeDuplicates()
             .sink { [weak self] enabled in self?.assistant.setEnabled(enabled) }
+            .store(in: &assistantSubscriptions)
+        preferences.$assistantProvider
+            .dropFirst()
+            .removeDuplicates()
+            .sink { [weak self] provider in
+                guard let self else { return }
+                let model = provider == .anthropic ? self.preferences.assistantModel : self.preferences.openRouterModel
+                self.assistant.setProvider(provider, model: model)
+                self.assistantKey.setProvider(provider)
+            }
             .store(in: &assistantSubscriptions)
         // Typing a model ID changes it per keystroke; apply it once typing pauses.
         preferences.$assistantModel
             .dropFirst()
             .debounce(for: .milliseconds(600), scheduler: RunLoop.main)
             .removeDuplicates()
-            .sink { [weak self] model in self?.assistant.setModel(model) }
+            .sink { [weak self] model in
+                guard let self, self.preferences.assistantProvider == .anthropic else { return }
+                self.assistant.setModel(model)
+            }
+            .store(in: &assistantSubscriptions)
+        preferences.$openRouterModel
+            .dropFirst()
+            .debounce(for: .milliseconds(600), scheduler: RunLoop.main)
+            .removeDuplicates()
+            .sink { [weak self] model in
+                guard let self, self.preferences.assistantProvider == .openRouter else { return }
+                self.assistant.setModel(model)
+            }
             .store(in: &assistantSubscriptions)
         // `@Published` emits before the value changes, so the sink uses the emitted root.
         vaultSession.$state
@@ -61,7 +84,7 @@ extension AppModel {
             guard vault.exists(url) else { return nil }
             return try vault.load(url).text
         } catch {
-            Log.chat.error("The vault's AGENTS.md could not be read: \(Log.code(error), privacy: .public)")
+            Log.assistant.error("The vault's AGENTS.md could not be read: \(Log.code(error), privacy: .public)")
             return nil
         }
     }

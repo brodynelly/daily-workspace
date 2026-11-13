@@ -1,0 +1,446 @@
+{
+  "sections": [
+    {
+      "title": "Navigation",
+      "rows": [
+        {
+          "label": "Enter dir or open file",
+          "keys": [
+            [
+              "↩"
+            ],
+            [
+              "l"
+            ]
+          ]
+        },
+        {
+          "label": "Go home",
+          "keys": [
+            [
+              "~"
+            ],
+            [
+              "g",
+              "h"
+            ]
+          ]
+        },
+        {
+          "label": "Go to ~/github",
+          "keys": [
+            [
+              "g",
+              "g"
+            ]
+          ]
+        },
+        {
+          "label": "Go to Obsidian vault",
+          "keys": [
+            [
+              "g",
+              "o"
+            ]
+          ]
+        },
+        {
+          "label": "Go to Documents",
+          "keys": [
+            [
+              "g",
+              "d"
+            ]
+          ]
+        },
+        {
+          "label": "Go to Downloads",
+          "keys": [
+            [
+              "g",
+              "w"
+            ]
+          ]
+        },
+        {
+          "label": "Go to ~/.config",
+          "keys": [
+            [
+              "g",
+              "c"
+            ]
+          ]
+        },
+        {
+          "label": "Go to /tmp",
+          "keys": [
+            [
+              "g",
+              "t"
+            ]
+          ]
+        },
+        {
+          "label": "Quit",
+          "keys": [
+            [
+              "q"
+            ],
+            [
+              "Esc"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "title": "File operations",
+      "rows": [
+        {
+          "label": "Create file or directory",
+          "keys": [
+            [
+              "o"
+            ]
+          ]
+        },
+        {
+          "label": "Rename",
+          "keys": [
+            [
+              "r"
+            ]
+          ]
+        },
+        {
+          "label": "Yank (copy)",
+          "keys": [
+            [
+              "y",
+              "y"
+            ]
+          ]
+        },
+        {
+          "label": "Cut",
+          "keys": [
+            [
+              "x"
+            ]
+          ]
+        },
+        {
+          "label": "Paste",
+          "keys": [
+            [
+              "p"
+            ]
+          ]
+        },
+        {
+          "label": "Paste (overwrite)",
+          "keys": [
+            [
+              "P"
+            ]
+          ]
+        },
+        {
+          "label": "Cancel yank or cut",
+          "keys": [
+            [
+              "X"
+            ]
+          ]
+        },
+        {
+          "label": "Trash",
+          "keys": [
+            [
+              "d",
+              "d"
+            ]
+          ]
+        },
+        {
+          "label": "Delete permanently",
+          "keys": [
+            [
+              "d",
+              "D"
+            ]
+          ]
+        },
+        {
+          "label": "Copy file path",
+          "keys": [
+            [
+              "y",
+              "p"
+            ]
+          ]
+        },
+        {
+          "label": "Copy filename",
+          "keys": [
+            [
+              "y",
+              "n"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Selection",
+      "rows": [
+        {
+          "label": "Toggle select and move down",
+          "keys": [
+            [
+              "␣"
+            ]
+          ]
+        },
+        {
+          "label": "Visual select mode",
+          "keys": [
+            [
+              "v"
+            ]
+          ]
+        },
+        {
+          "label": "Visual deselect mode",
+          "keys": [
+            [
+              "V"
+            ]
+          ]
+        },
+        {
+          "label": "Select all",
+          "keys": [
+            [
+              "s",
+              "a"
+            ]
+          ]
+        },
+        {
+          "label": "Deselect all",
+          "keys": [
+            [
+              "s",
+              "n"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Search and filter",
+      "rows": [
+        {
+          "label": "Find in list",
+          "keys": [
+            [
+              "/"
+            ]
+          ]
+        },
+        {
+          "label": "Filter list",
+          "keys": [
+            [
+              "f"
+            ]
+          ]
+        },
+        {
+          "label": "Search names (fd)",
+          "keys": [
+            [
+              "F"
+            ]
+          ]
+        },
+        {
+          "label": "Search contents (ripgrep)",
+          "keys": [
+            [
+              "S"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Tabs",
+      "rows": [
+        {
+          "label": "New tab",
+          "keys": [
+            [
+              "t"
+            ]
+          ]
+        },
+        {
+          "label": "Close tab",
+          "keys": [
+            [
+              "w"
+            ]
+          ]
+        },
+        {
+          "label": "Previous tab",
+          "keys": [
+            [
+              "["
+            ]
+          ]
+        },
+        {
+          "label": "Next tab",
+          "keys": [
+            [
+              "]"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Open and shell",
+      "rows": [
+        {
+          "label": "Open (Neovim or default app)",
+          "keys": [
+            [
+              "e"
+            ]
+          ]
+        },
+        {
+          "label": "Open with…",
+          "keys": [
+            [
+              "O"
+            ]
+          ]
+        },
+        {
+          "label": "Run shell command",
+          "keys": [
+            [
+              "!"
+            ]
+          ]
+        },
+        {
+          "label": "Run shell command (background)",
+          "keys": [
+            [
+              ";"
+            ]
+          ]
+        },
+        {
+          "label": "Extract archives",
+          "keys": [
+            [
+              "⌃X"
+            ]
+          ]
+        },
+        {
+          "label": "Chmod selected",
+          "keys": [
+            [
+              "c",
+              "m"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "title": "macOS tags",
+      "rows": [
+        {
+          "label": "Add tag (opens color chooser)",
+          "keys": [
+            [
+              "b",
+              "a"
+            ]
+          ]
+        },
+        {
+          "label": "Remove tag (opens color chooser)",
+          "keys": [
+            [
+              "b",
+              "r"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Tag color chooser",
+      "rows": [
+        {
+          "label": "Red",
+          "keys": [
+            [
+              "r"
+            ]
+          ]
+        },
+        {
+          "label": "Orange",
+          "keys": [
+            [
+              "o"
+            ]
+          ]
+        },
+        {
+          "label": "Yellow",
+          "keys": [
+            [
+              "y"
+            ]
+          ]
+        },
+        {
+          "label": "Green",
+          "keys": [
+            [
+              "g"
+            ]
+          ]
+        },
+        {
+          "label": "Blue",
+          "keys": [
+            [
+              "b"
+            ]
+          ]
+        },
+        {
+          "label": "Purple",
+          "keys": [
+            [
+              "p"
+            ]
+          ]
+        }
+      ]
+    }
+  ]
+}

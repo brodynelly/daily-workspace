@@ -11,6 +11,8 @@ protocol AssistantContext: Sendable {
     func readNote(path: String, maxBytes: Int) async throws -> ToolNote
     /// Federated open-loop rows, filtered when a filter is given. Statuses are the owner's, verbatim.
     func openLoops(source: String?, project: String?, status: String?) async throws -> [ToolLoopRow]
+    /// Registered hubs in the selected vault, without reading any new vault content.
+    func listProjects() async -> ToolProjectInventory
     /// A project hub by slug, with its open loops and latest accepted restart record.
     func project(slug: String) async throws -> ToolProject
     /// Calendar events on `day`.
@@ -40,18 +42,44 @@ struct ToolNote: Codable, Equatable, Sendable {
 }
 
 struct ToolLoopRow: Codable, Equatable, Sendable {
-    /// The record ID in its owning source (for example an Org heading ID or a Seeds issue ID).
+    /// The record ID in its owning source (for example a local task ID).
     var id: String
-    /// The owner: `local`, `org`, `seeds`, `plot` or `reminders`.
+    /// The owner: `local` or `reminders`.
     var source: String
     var title: String
-    /// The owner's status, verbatim (an Org keyword, the Seeds status, the Plot state…).
+    /// The owner's status, verbatim (for example a reminder completion state).
     var status: String
     var project: String?
     var path: String?
     var scheduled: String?
     var deadline: String?
     var observedAt: Date
+}
+
+/// A Luuna/Missions project ticket. Board placement is not a ticket status.
+struct ToolNativeTicket: Codable, Equatable, Sendable {
+    var id: String
+    var source: String
+    var title: String
+    var status: String?
+    var boardColumn: String?
+    var observedAt: Date
+}
+
+/// Bounded, citeable project hubs, separate from the availability of their source.
+struct ToolProjectListing: Codable, Equatable, Sendable {
+    var slug: String
+    var title: String
+    var path: String
+}
+
+struct ToolProjectInventory: Codable, Equatable, Sendable {
+    /// `populated`, `empty`, `partial`, `unsupported`, `unavailable`, `unauthorized`, `uninitialized`,
+    /// `refused`, or `not_read`.
+    var state: String
+    var projects: [ToolProjectListing]
+    var truncated: Bool
+    var reason: String?
 }
 
 struct ToolProject: Codable, Equatable, Sendable {
@@ -62,6 +90,9 @@ struct ToolProject: Codable, Equatable, Sendable {
     var decisions: [String]
     var checkouts: [String]
     var openLoops: [ToolLoopRow]
+    var nativeTickets: [ToolNativeTicket]
+    /// Bound native work that could not be read; `nativeTickets == []` alone must not mean "no tickets".
+    var nativeTicketsUnavailable: String?
     var relatedNotes: [String]
     var latestRestart: RestartRecord?
 }
@@ -109,12 +140,14 @@ struct ToolParameter: Sendable {
 /// The Assistant's tools. All are read-only.
 enum AssistantTool: String, CaseIterable, Sendable {
     case getAgenda = "get_agenda"
+    case listProjects = "list_projects"
     case getProject = "get_project"
     case listOpenLoops = "list_open_loops"
     case readNote = "read_note"
     case searchNotes = "search_notes"
 
-    static let sources = ["local", "org", "plot", "reminders", "seeds"]
+    static let sources = ["local", "reminders"]
+    static let projectLimit = 100
     static let searchLimit = 1...25
     static let readLimit = 1...100_000
 
@@ -148,12 +181,17 @@ enum AssistantTool: String, CaseIterable, Sendable {
         case .readNote:
             return "Read one note by its vault-relative path (from search_notes, get_project or the user). Call this "
                 + "before quoting or summarizing a note. Excluded paths are refused."
+        case .listProjects:
+            return "List up to 100 registered project hubs in the selected vault, with slug, title and citeable "
+                + "vault-relative path. Returns a distinct source state when hubs are unavailable or the read "
+                + "was partial. Call before get_project when the project's slug is unknown."
         case .listOpenLoops:
-            return "List open loops (tasks, issues, reminders) across their owners, with each owner's status "
-                + "verbatim and a record ID to cite. Call this for any question about what is open, due or done."
+            return "List local tasks and reminders with each owner's status verbatim and a record ID "
+                + "to cite. Use get_project for Luuna/Missions tickets and plans. Call this for open or due items."
         case .getProject:
-            return "Get a project by slug: hub summary, decisions, checkouts, its open loops and the latest "
-                + "accepted restart record. Call this when the user asks to resume or review a project."
+            return "Get a project's visible notes for context, Luuna/Missions native tickets (status may be "
+                + "unknown; board column is separate), other owner open loops and the latest accepted restart "
+                + "record. Call this when the user asks to resume or review a project."
         case .getAgenda:
             return "Get the calendar events for one day. Call this for questions about meetings or the schedule."
         }
@@ -174,6 +212,8 @@ enum AssistantTool: String, CaseIterable, Sendable {
                     name: "max_bytes", type: .integer,
                     description: "Most bytes to return, 1 to 100000. Use 20000 if unsure."),
             ]
+        case .listProjects:
+            return []
         case .listOpenLoops:
             return [
                 ToolParameter(

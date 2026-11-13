@@ -9,34 +9,13 @@ final class LoopToneTests: XCTestCase {
         LoopTone.tone(authority: authority, nativeStatus: status)
     }
 
-    func testAttentionIsWaitingOnBrody() {
-        for status in ["TODO", "NEXT", "WAIT", "WAITING"] { XCTAssertEqual(tone(.org, status), .attention, status) }
-        XCTAssertEqual(tone(.seeds, "open"), .attention)
-        XCTAssertEqual(tone(.seeds, "ready"), .attention)
-        XCTAssertEqual(tone(.plot, "ready"), .attention)
+    func testNativeOwnerStatusesNeverTurnARunIntoATicket() {
         XCTAssertEqual(tone(.local, "open"), .attention)
         XCTAssertEqual(tone(.reminders, "incomplete"), .attention)
-    }
-
-    func testActiveIsBeingWorkedAndDangerIsBlocked() {
-        XCTAssertEqual(tone(.seeds, "in_progress"), .active)
-        XCTAssertEqual(tone(.seeds, "claimed"), .active)
-        XCTAssertEqual(tone(.plot, "drafting"), .active)
-        XCTAssertEqual(tone(.plot, "active"), .active)
-        XCTAssertEqual(tone(.seeds, "blocked"), .danger)
-    }
-
-    func testFinishedAndUnknownStatusesAreNeutral() {
-        let finished: [(LoopAuthority, String)] = [
-            (.org, "DONE"), (.org, "CANCELLED"), (.org, "CANCELED"), (.seeds, "closed"), (.seeds, "done"),
-            (.plot, "done"), (.plot, "archived"), (.local, "completed"), (.reminders, "completed"),
-        ]
-        for (authority, status) in finished { XCTAssertEqual(tone(authority, status), .neutral, status) }
-        for status in ["", "todo", "In Progress", "HOLD", "someday", "passed"] {
-            XCTAssertEqual(tone(.org, status), .neutral, "Org \(status)")
-            XCTAssertEqual(tone(.seeds, status), .neutral, "Seeds \(status)")
-        }
-        XCTAssertEqual(tone(.luuna, "completed"), .neutral, "A Luuna run completed is not a closed task")
+        XCTAssertEqual(tone(.mail, "unread"), .neutral, "Mail does not infer task status")
+        XCTAssertEqual(tone(.local, "completed"), .neutral)
+        XCTAssertEqual(tone(.reminders, "completed"), .neutral)
+        XCTAssertEqual(tone(.luuna, "completed"), .neutral, "A completed run is not a closed ticket")
     }
 
     func testGreenIsNeverGivenToAnyStatus() {
@@ -66,68 +45,74 @@ final class OpenLoopsFilterTests: XCTestCase {
 
     private var loops: [OpenLoop] {
         [
-            loop(.org, "o1", status: "TODO", path: "org/inbox.org"),
-            loop(.org, "o2", status: "DONE", done: true, path: "org/inbox.org"),
-            loop(.seeds, "s1", project: "alpha", path: ".seeds/issues.jsonl"),
-            loop(.seeds, "s2", project: "beta", status: "closed", done: true, path: ".seeds/issues.jsonl"),
-            loop(.plot, "p1", project: "alpha", status: "drafting", path: ".plot/p1.json"),
-            loop(.local, UUID().uuidString),
+            loop(.local, "local-1", project: "beta"),
+            loop(.local, "local-2", project: "beta", status: "completed", done: true),
             loop(.reminders, "r1", status: "incomplete"),
+            loop(.mail, "m1", status: "unread"),
+            loop(.luuna, "run-1", project: "alpha", status: "completed", done: true),
         ]
     }
 
     func testTheDefaultFilterHidesDoneItemsAndKeepsOrder() {
         let shown = OpenLoopsFilter().apply(to: loops)
-        XCTAssertEqual(shown.map(\.title).prefix(3), ["o1", "s1", "p1"])
+        XCTAssertEqual(shown.map(\.title), ["local-1", "r1", "m1"])
         XCTAssertFalse(shown.contains { $0.isDoneInSource })
-        XCTAssertEqual(shown.count, 5)
     }
 
     func testSourceProjectAndDoneFiltersCombine() {
-        var filter = OpenLoopsFilter(source: .seeds)
-        XCTAssertEqual(filter.apply(to: loops).map(\.title), ["s1"])
+        var filter = OpenLoopsFilter(source: .local)
+        XCTAssertEqual(filter.apply(to: loops).map(\.title), ["local-1"])
         filter.showDone = true
-        XCTAssertEqual(filter.apply(to: loops).map(\.title), ["s1", "s2"])
+        XCTAssertEqual(filter.apply(to: loops).map(\.title), ["local-1", "local-2"])
         filter.project = "beta"
-        XCTAssertEqual(filter.apply(to: loops).map(\.title), ["s2"])
-        filter = OpenLoopsFilter(source: .all, project: "alpha")
-        XCTAssertEqual(filter.apply(to: loops).map(\.title), ["s1", "p1"])
-        XCTAssertEqual(OpenLoopsFilter(source: .reminders).apply(to: loops).map(\.title), ["r1"])
-        XCTAssertEqual(OpenLoopsFilter(source: .org, showDone: true).apply(to: loops).map(\.title), ["o1", "o2"])
+        XCTAssertEqual(filter.apply(to: loops).map(\.title), ["local-1", "local-2"])
+        filter = OpenLoopsFilter(source: .all, project: "alpha", showDone: true)
+        XCTAssertEqual(filter.apply(to: loops).map(\.title), ["run-1"])
+        XCTAssertEqual(OpenLoopsFilter(source: .mail).apply(to: loops).map(\.title), ["m1"])
     }
 
-    func testProjectsAreTheSlugsOwnersState() {
+    func testProjectsAreOnlySlugsStatedByOwners() {
         XCTAssertEqual(OpenLoopsFilter.projects(in: loops), ["alpha", "beta"])
-        XCTAssertEqual(LoopSourceFilter.allCases.map(\.title), ["All", "Local", "Org", "Seeds", "Plot", "Reminders"])
+        XCTAssertEqual(LoopSourceFilter.allCases.map(\.title), ["All", "Local", "Reminders", "Luuna", "Mail"])
     }
 
-    func testExternalRowsOnlyOpenTheirSource() {
-        for loop in loops where [.org, .seeds, .plot].contains(loop.authority) {
-            XCTAssertEqual(loop.ownerActions, [.openSource], loop.id)
-            XCTAssertFalse(loop.ownerActions.contains { $0.writes }, "No write action on \(loop.id)")
-        }
-        let unlocated = loop(.seeds, "s9")
-        XCTAssertEqual(unlocated.ownerActions, [], "Nothing to open without a source path")
+    func testExternalRowsHaveNoActions() {
+        XCTAssertEqual(loop(.mail, "m1").ownerActions, [])
+        XCTAssertEqual(loop(.luuna, "run-1").ownerActions, [])
     }
 
     func testAppOwnedRowsKeepTheirOwnersActions() {
-        XCTAssertEqual(loop(.local, UUID().uuidString).ownerActions, [.complete, .edit, .delete])
+        XCTAssertEqual(loop(.local, "local-1").ownerActions, [.complete, .edit, .delete])
         XCTAssertEqual(
-            loop(.local, UUID().uuidString, status: "completed", done: true).ownerActions, [.reopen, .edit, .delete])
+            loop(.local, "local-2", status: "completed", done: true).ownerActions,
+            [.reopen, .edit, .delete])
         XCTAssertEqual(loop(.reminders, "r1", status: "incomplete").ownerActions, [.completeReminder])
-        XCTAssertEqual(loop(.luuna, "l1").ownerActions, [])
     }
 
-    func testRowsShowGeneratedIdsAndVerbatimDates() {
-        XCTAssertEqual(loop(.seeds, "brain-a1").displayedID, "brain-a1")
-        XCTAssertNil(loop(.org, "abc").displayedID)
-        let dated = OpenLoop(
-            authority: .org, nativeID: "x", title: "x", kind: "heading", nativeStatus: "TODO", isDoneInSource: false,
-            scheduled: LoopDate(year: 2026, month: 11, day: 12, raw: "<2026-11-12 Thu>"),
-            deadline: LoopDate(year: 2026, month: 11, day: 20, raw: "<2026-11-20 Fri>"), sourcePath: "org/inbox.org",
-            line: 4, observedAt: now)
-        XCTAssertEqual(dated.dateLines, ["Scheduled <2026-11-12 Thu>", "Deadline <2026-11-20 Fri>"])
-        XCTAssertEqual(dated.sourceLocation, "org/inbox.org:4")
+    func testDateLinesKeepTheOwningSourceText() {
+        let source = "2026-11-12T09:00:00Z"
+        let other = OpenLoop(
+            authority: .local, nativeID: "local-1", title: "Pay rent", kind: "task", nativeStatus: "open",
+            isDoneInSource: false, deadline: LoopDate(year: 2026, month: 11, day: 12, raw: source),
+            observedAt: now)
+        XCTAssertEqual(other.dateLines, ["Due \(source)"])
+        XCTAssertEqual(other.deadline?.raw, source)
+    }
+}
+
+final class ProjectDetailMarkdownTests: XCTestCase {
+    func testHubPurposeAndDecisionMarkdownRenderWithFormattingAndSafeWebLinks() {
+        let purpose = "**Important** [roadmap](https://example.com/plan) and [local](file:///tmp/private)"
+        let rendered = ProjectDetailCard.renderMarkdown(purpose)
+        XCTAssertEqual(String(rendered.characters), "Important roadmap and local")
+        XCTAssertTrue(rendered.runs.contains { $0.inlinePresentationIntent?.contains(.stronglyEmphasized) == true })
+        XCTAssertEqual(rendered.runs.compactMap { $0.link?.absoluteString }, ["https://example.com/plan"])
+
+        let decision = "Keep `source` and [bad](mailto:test@example.com) unchanged"
+        let shown = ProjectDetailCard.renderMarkdown(decision)
+        XCTAssertEqual(String(shown.characters), "Keep source and bad unchanged")
+        XCTAssertTrue(shown.runs.contains { $0.inlinePresentationIntent?.contains(.code) == true })
+        XCTAssertFalse(shown.runs.contains { $0.link != nil })
     }
 }
 
@@ -136,39 +121,41 @@ final class ObservedSourceTests: XCTestCase {
 
     func testAnUnreadableSourceIsNeverNothingOpen() {
         let missing = SourceObservation<[OpenLoop]>(
-            state: .unavailable(reason: "no org/ folder"), value: [], observedAt: now)
+            state: .unavailable(reason: "store inaccessible"), value: [], observedAt: now)
         let empty = SourceObservation<[OpenLoop]>(state: .empty, value: [], observedAt: now)
         XCTAssertEqual(
-            ObservedSource("Org", observation: missing, summary: "nothing open").text, "Org unavailable: no org/ folder"
+            ObservedSource("Local", observation: missing, summary: "nothing open").text,
+            "Local unavailable: store inaccessible"
         )
-        XCTAssertEqual(ObservedSource("Org", observation: empty, summary: "nothing open").text, "Org: nothing open")
-        XCTAssertEqual(ObservedSource("Org", observation: missing, summary: "nothing open").tone, .interrupted)
+        XCTAssertEqual(ObservedSource("Local", observation: empty, summary: "nothing open").text, "Local: nothing open")
+        XCTAssertEqual(ObservedSource("Local", observation: missing, summary: "nothing open").tone, .interrupted)
         XCTAssertEqual(
             ObservedSource(
-                "Seeds", observation: SourceObservation<[OpenLoop]>(state: .uninitialized, value: [], observedAt: now),
-                summary: "", notSetUp: "no .seeds/ folder"
+                "Reminders",
+                observation: SourceObservation<[OpenLoop]>(state: .uninitialized, value: [], observedAt: now),
+                summary: "", notSetUp: "not connected"
             ).text,
-            "Seeds not set up: no .seeds/ folder")
+            "Reminders not set up: not connected")
         XCTAssertEqual(
-            ObservedSource("Org", observation: SourceObservation<[OpenLoop]>?.none, summary: "").text,
-            "Org: not read yet")
+            ObservedSource("Local", observation: SourceObservation<[OpenLoop]>?.none, summary: "").text,
+            "Local: not read yet")
     }
 
     func testPartialAndStaleReadsSayWhenTheyWereLastRead() {
         let earlier = now.addingTimeInterval(-600)
         let partial = SourceObservation<[OpenLoop]>(
-            state: .partial(issues: [SourceIssue(path: ".seeds/issues.jsonl", line: 3, message: "not JSON")]),
+            state: .partial(issues: [SourceIssue(path: "tasks.json", line: 3, message: "bad task")]),
             value: [], observedAt: now)
-        let partialStatus = ObservedSource("Seeds", observation: partial, summary: "2 open")
+        let partialStatus = ObservedSource("Local", observation: partial, summary: "2 open")
         XCTAssertEqual(partialStatus.tone, .attention)
-        XCTAssertEqual(partialStatus.issues, [".seeds/issues.jsonl:3: not JSON"])
+        XCTAssertEqual(partialStatus.issues, ["tasks.json:3: bad task"])
         XCTAssertEqual(partialStatus.lastRead, now)
 
         let good = SourceObservation<[OpenLoop]>(state: .populated, value: [], observedAt: earlier)
         let stale = SourceObservation<[OpenLoop]>(state: .unauthorized, value: [], observedAt: now).following(good)
-        let staleStatus = ObservedSource("Org", observation: stale, summary: "1 open")
+        let staleStatus = ObservedSource("Local", observation: stale, summary: "1 open")
         XCTAssertEqual(staleStatus.lastRead, earlier)
-        XCTAssertTrue(staleStatus.text.hasPrefix("Org not authorized"), staleStatus.text)
+        XCTAssertTrue(staleStatus.text.hasPrefix("Local not authorized"), staleStatus.text)
         XCTAssertTrue(staleStatus.text.hasSuffix("Showing the last read"), staleStatus.text)
     }
 }

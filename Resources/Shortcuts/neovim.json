@@ -1,0 +1,1387 @@
+{
+  "sections": [
+    {
+      "title": "Files and pickers",
+      "rows": [
+        {
+          "label": "Smart file picker",
+          "keys": [
+            [
+              "␣",
+              "␣"
+            ]
+          ]
+        },
+        {
+          "label": "Find files (fff)",
+          "keys": [
+            [
+              "f",
+              "f"
+            ]
+          ]
+        },
+        {
+          "label": "Live grep (fff)",
+          "keys": [
+            [
+              "f",
+              "g"
+            ]
+          ]
+        },
+        {
+          "label": "Fuzzy grep (fff)",
+          "keys": [
+            [
+              "f",
+              "z"
+            ]
+          ]
+        },
+        {
+          "label": "Grep word under cursor",
+          "keys": [
+            [
+              "f",
+              "c"
+            ]
+          ]
+        },
+        {
+          "label": "Grep project",
+          "keys": [
+            [
+              "␣",
+              "s",
+              "g"
+            ]
+          ]
+        },
+        {
+          "label": "Buffers",
+          "keys": [
+            [
+              "H"
+            ]
+          ]
+        },
+        {
+          "label": "Keymaps",
+          "keys": [
+            [
+              "⌥K"
+            ]
+          ]
+        },
+        {
+          "label": "Explorer at current file",
+          "keys": [
+            [
+              "␣",
+              "e"
+            ]
+          ]
+        },
+        {
+          "label": "Explorer at cwd",
+          "keys": [
+            [
+              "␣",
+              "E"
+            ]
+          ]
+        },
+        {
+          "label": "Neo-tree reveal file",
+          "keys": [
+            [
+              "␣",
+              "r"
+            ]
+          ]
+        },
+        {
+          "label": "Neo-tree at cwd",
+          "keys": [
+            [
+              "␣",
+              "R"
+            ]
+          ]
+        },
+        {
+          "label": "Alternate buffer",
+          "keys": [
+            [
+              "⌥⌫"
+            ],
+            [
+              "␣",
+              "⌫"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Normal mode",
+      "rows": [
+        {
+          "label": "Save",
+          "keys": [
+            [
+              "⌥W"
+            ]
+          ]
+        },
+        {
+          "label": "Force quit window",
+          "keys": [
+            [
+              "⌥Q"
+            ]
+          ]
+        },
+        {
+          "label": "Save all and restart",
+          "keys": [
+            [
+              "⌥⇧R"
+            ]
+          ]
+        },
+        {
+          "label": "Scroll down / up and center",
+          "keys": [
+            [
+              "⌃D"
+            ],
+            [
+              "⌃U"
+            ]
+          ]
+        },
+        {
+          "label": "Next / previous match",
+          "keys": [
+            [
+              "n"
+            ],
+            [
+              "N"
+            ]
+          ]
+        },
+        {
+          "label": "Yank to end of line",
+          "keys": [
+            [
+              "Y"
+            ]
+          ]
+        },
+        {
+          "label": "Join lines keeping cursor",
+          "keys": [
+            [
+              "J"
+            ]
+          ]
+        },
+        {
+          "label": "Yank to clipboard",
+          "keys": [
+            [
+              "␣",
+              "y"
+            ]
+          ]
+        },
+        {
+          "label": "Copy line with diagnostics",
+          "keys": [
+            [
+              "y",
+              "d"
+            ]
+          ]
+        },
+        {
+          "label": "Messages",
+          "keys": [
+            [
+              "⌥H"
+            ]
+          ]
+        },
+        {
+          "label": "Toggle fold",
+          "keys": [
+            [
+              "↩"
+            ]
+          ]
+        },
+        {
+          "label": "Search and replace (grug-far)",
+          "keys": [
+            [
+              "␣",
+              "s",
+              "r"
+            ]
+          ]
+        },
+        {
+          "label": "Search and replace in file",
+          "keys": [
+            [
+              "␣",
+              "s",
+              "1"
+            ]
+          ]
+        },
+        {
+          "label": "Substitute word",
+          "keys": [
+            [
+              "␣",
+              "s",
+              "u"
+            ]
+          ]
+        },
+        {
+          "label": "Substitute word uppercase",
+          "keys": [
+            [
+              "␣",
+              "s",
+              "U"
+            ]
+          ]
+        },
+        {
+          "label": "Substitute word lowercase",
+          "keys": [
+            [
+              "␣",
+              "s",
+              "L"
+            ]
+          ]
+        },
+        {
+          "label": "Rename symbol and save all",
+          "keys": [
+            [
+              "␣",
+              "c",
+              "r"
+            ]
+          ]
+        },
+        {
+          "label": "Reload file from disk",
+          "keys": [
+            [
+              "␣",
+              "b",
+              "r"
+            ]
+          ]
+        },
+        {
+          "label": "Toggle TODO marker",
+          "keys": [
+            [
+              "␣",
+              "t",
+              "d"
+            ]
+          ]
+        },
+        {
+          "label": "Inline calculator",
+          "keys": [
+            [
+              "⌥3"
+            ]
+          ]
+        },
+        {
+          "label": "Select hunk",
+          "keys": [
+            [
+              "⌥2"
+            ]
+          ]
+        },
+        {
+          "label": "Toggle stay-centered",
+          "keys": [
+            [
+              "␣",
+              "U",
+              "S"
+            ]
+          ]
+        },
+        {
+          "label": "Toggle Tree-sitter context",
+          "keys": [
+            [
+              "␣",
+              "u",
+              "t"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Visual mode",
+      "rows": [
+        {
+          "label": "Move selection down / up",
+          "keys": [
+            [
+              "J"
+            ],
+            [
+              "K"
+            ]
+          ]
+        },
+        {
+          "label": "Yank to clipboard",
+          "keys": [
+            [
+              "y"
+            ]
+          ]
+        },
+        {
+          "label": "Select to end of line",
+          "keys": [
+            [
+              "g",
+              "l"
+            ]
+          ]
+        },
+        {
+          "label": "Search within selection",
+          "keys": [
+            [
+              "␣",
+              "s",
+              "v"
+            ]
+          ]
+        },
+        {
+          "label": "Surround with backticks",
+          "keys": [
+            [
+              "g",
+              "s",
+              "s"
+            ]
+          ]
+        },
+        {
+          "label": "Bold",
+          "keys": [
+            [
+              "␣",
+              "m",
+              "b"
+            ]
+          ]
+        },
+        {
+          "label": "Strikethrough",
+          "keys": [
+            [
+              "␣",
+              "m",
+              "x"
+            ]
+          ]
+        },
+        {
+          "label": "Delete blank lines",
+          "keys": [
+            [
+              "␣",
+              "m",
+              "j"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Windows and panes",
+      "rows": [
+        {
+          "label": "Focus left / down / up / right",
+          "keys": [
+            [
+              "⌃H"
+            ],
+            [
+              "⌃J"
+            ],
+            [
+              "⌃K"
+            ],
+            [
+              "⌃L"
+            ]
+          ]
+        },
+        {
+          "label": "Wider / narrower window",
+          "keys": [
+            [
+              "␣",
+              "w",
+              "l"
+            ],
+            [
+              "␣",
+              "w",
+              "h"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Git and tools",
+      "rows": [
+        {
+          "label": "Neogit",
+          "keys": [
+            [
+              "␣",
+              "g",
+              "g"
+            ]
+          ]
+        },
+        {
+          "label": "LazyGit",
+          "keys": [
+            [
+              "⌥G"
+            ]
+          ]
+        },
+        {
+          "label": "Git branches",
+          "keys": [
+            [
+              "⌥B"
+            ]
+          ]
+        },
+        {
+          "label": "Git log",
+          "keys": [
+            [
+              "␣",
+              "g",
+              "l"
+            ]
+          ]
+        },
+        {
+          "label": "Create GitHub repo",
+          "keys": [
+            [
+              "␣",
+              "g",
+              "C"
+            ]
+          ]
+        },
+        {
+          "label": "Open file on GitHub",
+          "keys": [
+            [
+              "␣",
+              "f",
+              "G"
+            ]
+          ]
+        },
+        {
+          "label": "Copy GitHub URL",
+          "keys": [
+            [
+              "⌥⇧C"
+            ]
+          ]
+        },
+        {
+          "label": "Copy file path",
+          "keys": [
+            [
+              "⌥C"
+            ]
+          ]
+        },
+        {
+          "label": "Copy file to Finder clipboard",
+          "keys": [
+            [
+              "␣",
+              "Y"
+            ]
+          ]
+        },
+        {
+          "label": "Reveal in Finder",
+          "keys": [
+            [
+              "⌥F"
+            ],
+            [
+              "␣",
+              "f",
+              "O"
+            ]
+          ]
+        },
+        {
+          "label": "Open cwd in VS Code",
+          "keys": [
+            [
+              "␣",
+              "f",
+              "V"
+            ]
+          ]
+        },
+        {
+          "label": "Toggle executable bit",
+          "keys": [
+            [
+              "␣",
+              "f",
+              "x"
+            ]
+          ]
+        },
+        {
+          "label": "Trash current file",
+          "keys": [
+            [
+              "␣",
+              "f",
+              "D"
+            ]
+          ]
+        },
+        {
+          "label": "Run bash script",
+          "keys": [
+            [
+              "␣",
+              "c",
+              "b"
+            ]
+          ]
+        },
+        {
+          "label": "Run Go file",
+          "keys": [
+            [
+              "␣",
+              "c",
+              "g"
+            ]
+          ]
+        },
+        {
+          "label": "Database UI",
+          "keys": [
+            [
+              "␣",
+              "d"
+            ]
+          ]
+        },
+        {
+          "label": "Source zshrc",
+          "keys": [
+            [
+              "␣",
+              "f",
+              "z"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Markdown",
+      "rows": [
+        {
+          "label": "Toggle task done",
+          "keys": [
+            [
+              "⌥X"
+            ]
+          ]
+        },
+        {
+          "label": "Add task checkbox",
+          "keys": [
+            [
+              "⌥T"
+            ]
+          ]
+        },
+        {
+          "label": "Toggle strikethrough",
+          "keys": [
+            [
+              "⌥D"
+            ]
+          ]
+        },
+        {
+          "label": "Toggle bold",
+          "keys": [
+            [
+              "␣",
+              "m",
+              "b"
+            ]
+          ]
+        },
+        {
+          "label": "Toggle bullet",
+          "keys": [
+            [
+              "␣",
+              "m",
+              "d"
+            ]
+          ]
+        },
+        {
+          "label": "Surround word with backticks",
+          "keys": [
+            [
+              "g",
+              "s",
+              "s"
+            ]
+          ]
+        },
+        {
+          "label": "Backtick URL",
+          "keys": [
+            [
+              "g",
+              "s",
+              "u"
+            ]
+          ]
+        },
+        {
+          "label": "New heading at same level",
+          "keys": [
+            [
+              "⌃↩"
+            ]
+          ]
+        },
+        {
+          "label": "Next / previous heading",
+          "keys": [
+            [
+              "g",
+              "j"
+            ],
+            [
+              "g",
+              "k"
+            ]
+          ]
+        },
+        {
+          "label": "Fold to level 1 / 2 / 3 / 4",
+          "keys": [
+            [
+              "z",
+              "j"
+            ],
+            [
+              "z",
+              "k"
+            ],
+            [
+              "z",
+              "l"
+            ],
+            [
+              "z",
+              ";"
+            ]
+          ]
+        },
+        {
+          "label": "Open all folds",
+          "keys": [
+            [
+              "z",
+              "u"
+            ]
+          ]
+        },
+        {
+          "label": "Fold previous heading",
+          "keys": [
+            [
+              "z",
+              "i"
+            ]
+          ]
+        },
+        {
+          "label": "Select inside code block",
+          "keys": [
+            [
+              "v",
+              "i",
+              "o"
+            ]
+          ]
+        },
+        {
+          "label": "Paste image",
+          "keys": [
+            [
+              "⌥A"
+            ]
+          ]
+        },
+        {
+          "label": "Markdown preview",
+          "keys": [
+            [
+              "␣",
+              "m",
+              "p"
+            ]
+          ]
+        },
+        {
+          "label": "Insert TOC",
+          "keys": [
+            [
+              "␣",
+              "m",
+              "t",
+              "t"
+            ]
+          ]
+        },
+        {
+          "label": "Jump to TOC / back",
+          "keys": [
+            [
+              "␣",
+              "m",
+              "m"
+            ],
+            [
+              "␣",
+              "m",
+              "n"
+            ]
+          ]
+        },
+        {
+          "label": "Copy all URLs",
+          "keys": [
+            [
+              "␣",
+              "m",
+              "l"
+            ]
+          ]
+        },
+        {
+          "label": "Paste as GitHub link",
+          "keys": [
+            [
+              "⌥;"
+            ]
+          ]
+        },
+        {
+          "label": "Increase / decrease headings",
+          "keys": [
+            [
+              "␣",
+              "m",
+              "h",
+              "I"
+            ],
+            [
+              "␣",
+              "m",
+              "h",
+              "D"
+            ]
+          ]
+        },
+        {
+          "label": "Format all Markdown in repo",
+          "keys": [
+            [
+              "␣",
+              "m",
+              "f",
+              "A"
+            ]
+          ]
+        },
+        {
+          "label": "Typst preview",
+          "keys": [
+            [
+              "␣",
+              "c",
+              "p",
+              "p"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Tasks and daily notes",
+      "rows": [
+        {
+          "label": "Incomplete tasks",
+          "keys": [
+            [
+              "␣",
+              "t",
+              "t"
+            ]
+          ]
+        },
+        {
+          "label": "Completed tasks",
+          "keys": [
+            [
+              "␣",
+              "t",
+              "c"
+            ]
+          ]
+        },
+        {
+          "label": "Open daily note",
+          "keys": [
+            [
+              "g",
+              "t"
+            ]
+          ]
+        },
+        {
+          "label": "Insert dated H1 / H2 / H3",
+          "keys": [
+            [
+              "␣",
+              "j",
+              "j"
+            ],
+            [
+              "␣",
+              "k",
+              "k"
+            ],
+            [
+              "␣",
+              "l",
+              "l"
+            ]
+          ]
+        },
+        {
+          "label": "Create next day's note",
+          "keys": [
+            [
+              "␣",
+              "m",
+              "A"
+            ]
+          ]
+        },
+        {
+          "label": "Create next week's notes",
+          "keys": [
+            [
+              "␣",
+              "m",
+              "W"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Spelling",
+      "rows": [
+        {
+          "label": "Accept first suggestion",
+          "keys": [
+            [
+              "␣",
+              "m",
+              "s",
+              "s"
+            ]
+          ]
+        },
+        {
+          "label": "Mark word good",
+          "keys": [
+            [
+              "␣",
+              "m",
+              "s",
+              "g"
+            ]
+          ]
+        },
+        {
+          "label": "Undo good word",
+          "keys": [
+            [
+              "␣",
+              "m",
+              "s",
+              "u"
+            ]
+          ]
+        },
+        {
+          "label": "Repeat replacement",
+          "keys": [
+            [
+              "␣",
+              "m",
+              "s",
+              "r"
+            ]
+          ]
+        },
+        {
+          "label": "English / Spanish / both",
+          "keys": [
+            [
+              "␣",
+              "m",
+              "s",
+              "l",
+              "e"
+            ],
+            [
+              "␣",
+              "m",
+              "s",
+              "l",
+              "s"
+            ],
+            [
+              "␣",
+              "m",
+              "s",
+              "l",
+              "b"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Images",
+      "rows": [
+        {
+          "label": "Paste image",
+          "keys": [
+            [
+              "⌥A"
+            ]
+          ]
+        },
+        {
+          "label": "Open in Preview",
+          "keys": [
+            [
+              "␣",
+              "i",
+              "o"
+            ]
+          ]
+        },
+        {
+          "label": "Reveal in Finder",
+          "keys": [
+            [
+              "␣",
+              "i",
+              "f"
+            ]
+          ]
+        },
+        {
+          "label": "Copy image path",
+          "keys": [
+            [
+              "␣",
+              "i",
+              "p"
+            ]
+          ]
+        },
+        {
+          "label": "Rename image",
+          "keys": [
+            [
+              "␣",
+              "i",
+              "R"
+            ]
+          ]
+        },
+        {
+          "label": "Delete image",
+          "keys": [
+            [
+              "␣",
+              "i",
+              "d"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Picker",
+      "rows": [
+        {
+          "label": "Close",
+          "keys": [
+            [
+              "Esc"
+            ]
+          ]
+        },
+        {
+          "label": "Scroll preview",
+          "keys": [
+            [
+              "J"
+            ],
+            [
+              "K"
+            ],
+            [
+              "H"
+            ],
+            [
+              "L"
+            ]
+          ]
+        },
+        {
+          "label": "Delete buffer (buffers)",
+          "keys": [
+            [
+              "d"
+            ]
+          ]
+        },
+        {
+          "label": "Toggle done (tasks)",
+          "keys": [
+            [
+              "⌥X"
+            ]
+          ]
+        },
+        {
+          "label": "Move to today (tasks)",
+          "keys": [
+            [
+              "⌥T"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Explorer (mini.files)",
+      "rows": [
+        {
+          "label": "Open / open and close",
+          "keys": [
+            [
+              "l"
+            ],
+            [
+              "↩"
+            ]
+          ]
+        },
+        {
+          "label": "Go up",
+          "keys": [
+            [
+              "h"
+            ],
+            [
+              "H"
+            ]
+          ]
+        },
+        {
+          "label": "Close",
+          "keys": [
+            [
+              "Esc"
+            ]
+          ]
+        },
+        {
+          "label": "Apply changes",
+          "keys": [
+            [
+              "s"
+            ]
+          ]
+        },
+        {
+          "label": "Reset / reveal cwd",
+          "keys": [
+            [
+              "⌫"
+            ],
+            [
+              "."
+            ]
+          ]
+        },
+        {
+          "label": "Open with default app",
+          "keys": [
+            [
+              "O"
+            ]
+          ]
+        },
+        {
+          "label": "Quick Look",
+          "keys": [
+            [
+              "␣",
+              "i"
+            ]
+          ]
+        },
+        {
+          "label": "Terminal in directory",
+          "keys": [
+            [
+              "⌥T"
+            ]
+          ]
+        },
+        {
+          "label": "Copy path",
+          "keys": [
+            [
+              "⌥C"
+            ]
+          ]
+        },
+        {
+          "label": "Copy to Finder clipboard",
+          "keys": [
+            [
+              "␣",
+              "Y"
+            ]
+          ]
+        },
+        {
+          "label": "Paste from Finder clipboard",
+          "keys": [
+            [
+              "␣",
+              "p"
+            ]
+          ]
+        },
+        {
+          "label": "Zip and copy",
+          "keys": [
+            [
+              "␣",
+              "y",
+              "z"
+            ]
+          ]
+        },
+        {
+          "label": "File info",
+          "keys": [
+            [
+              "␣",
+              "f",
+              "i"
+            ]
+          ]
+        },
+        {
+          "label": "Help",
+          "keys": [
+            [
+              "g",
+              "?"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Completion and surround",
+      "rows": [
+        {
+          "label": "Next item",
+          "keys": [
+            [
+              "⌃N"
+            ],
+            [
+              "↓"
+            ]
+          ]
+        },
+        {
+          "label": "Previous item",
+          "keys": [
+            [
+              "⌃P"
+            ],
+            [
+              "↑"
+            ]
+          ]
+        },
+        {
+          "label": "Snippet next / previous",
+          "keys": [
+            [
+              "⇥"
+            ],
+            [
+              "⇧⇥"
+            ]
+          ]
+        },
+        {
+          "label": "Show / toggle docs",
+          "keys": [
+            [
+              "⌃␣"
+            ]
+          ]
+        },
+        {
+          "label": "Hide menu",
+          "keys": [
+            [
+              "⌃E"
+            ]
+          ]
+        },
+        {
+          "label": "Add surrounding",
+          "keys": [
+            [
+              "g",
+              "s",
+              "a"
+            ]
+          ]
+        },
+        {
+          "label": "Delete surrounding",
+          "keys": [
+            [
+              "g",
+              "s",
+              "d"
+            ]
+          ]
+        },
+        {
+          "label": "Replace surrounding",
+          "keys": [
+            [
+              "g",
+              "s",
+              "r"
+            ]
+          ]
+        },
+        {
+          "label": "Code block snippet",
+          "keys": [
+            [
+              ";lua"
+            ],
+            [
+              ";bash"
+            ]
+          ],
+          "kind": "command"
+        },
+        {
+          "label": "Link from clipboard",
+          "keys": [
+            [
+              ";linkc"
+            ]
+          ],
+          "kind": "command"
+        },
+        {
+          "label": "TODO snippet",
+          "keys": [
+            [
+              ";todo"
+            ]
+          ],
+          "kind": "command"
+        }
+      ]
+    }
+  ]
+}

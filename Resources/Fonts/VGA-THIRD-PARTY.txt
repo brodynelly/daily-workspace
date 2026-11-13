@@ -1,0 +1,5 @@
+VGA.ttf is the Web437_IBM_VGA_8x16 face from VileR's The Ultimate Oldschool PC Font Pack.
+The original WOFF container was converted to TrueType by Quick Access Pascal using FontTools;
+the glyph design was not intentionally changed. This font remains licensed CC BY-SA 4.0,
+independently of Daily Workspace's source license. See VGA-LICENSE.txt.
+Original project: https://int10h.org/oldschool-pc-fonts/

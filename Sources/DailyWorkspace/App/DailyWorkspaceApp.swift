@@ -7,6 +7,7 @@ struct DailyWorkspaceApp: App {
     @StateObject private var shortcut = GlobalCaptureShortcut()
 
     @NSApplicationDelegateAdaptor(WorkspaceAppDelegate.self) private var appDelegate
+    @Environment(\.openWindow) private var openWindow
 
     init() {
         // Before any view resolves a type role; a no-op when the bundle has no Fonts folder (swift run).
@@ -14,16 +15,20 @@ struct DailyWorkspaceApp: App {
     }
 
     var body: some Scene {
-        WindowGroup("Daily Workspace", id: WindowID.workspace) {
+        Window("Daily Workspace", id: WindowID.workspace) {
             RootView()
                 .workspaceEnvironment(model)
                 .environmentObject(shortcut)
                 .frame(minWidth: 760, minHeight: 540)
-                .onAppear { appDelegate.model = model }
+                .onAppear {
+                    appDelegate.configure(model: model, shortcut: shortcut, openWindow: openWindow)
+                }
         }
         .defaultSize(width: 1100, height: 760)
         .windowResizability(.contentMinSize)
-        .commands { WorkspaceCommands(model: model, document: model.document) }
+        .commands {
+            WorkspaceCommands(model: model, document: model.document, preferences: model.preferences)
+        }
 
         Window("Capture", id: WindowID.capture) {
             CaptureForm(style: .window)
@@ -31,14 +36,5 @@ struct DailyWorkspaceApp: App {
         }
         .windowResizability(.contentSize)
         .defaultPosition(.center)
-
-        MenuBarExtra("Daily Workspace", systemImage: "sun.max") {
-            CaptureMenu(shortcut: shortcut)
-        }
-
-        Settings {
-            SettingsView()
-                .workspaceEnvironment(model)
-        }
     }
 }

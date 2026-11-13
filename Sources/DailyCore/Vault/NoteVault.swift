@@ -115,13 +115,22 @@ public struct NoteVault {
         return LoadedNote(text: text, snapshot: FileSnapshot(data: data, modified: modified))
     }
 
-    /// Create a new note. Fails rather than replacing an existing file.
-    public func create(_ url: URL, initialText: String) throws -> LoadedNote {
+    /// Create a new note. Fails rather than replacing an existing file. Reviewed captures require an
+    /// existing parent so a missing folder cannot be silently recreated.
+    public func create(_ url: URL, initialText: String, requireExistingParent: Bool = false) throws -> LoadedNote {
         _ = try resolve(relativePath: relativePath(of: url) ?? "")
+        let parent = url.deletingLastPathComponent()
+        var isDirectory: ObjCBool = false
+        if requireExistingParent,
+            !FileManager.default.fileExists(atPath: parent.path, isDirectory: &isDirectory) || !isDirectory.boolValue
+        {
+            throw VaultError.missing
+        }
         let data = Data(initialText.utf8)
         do {
-            try FileManager.default.createDirectory(
-                at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            if !requireExistingParent {
+                try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
+            }
             try data.write(to: url, options: .withoutOverwriting)
         } catch let error as CocoaError where error.code == .fileWriteFileExists {
             throw VaultError.alreadyExists

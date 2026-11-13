@@ -1,5 +1,18 @@
 import Foundation
 
+/// The network provider selected for Assistant turns. Credentials remain separate Keychain entries.
+public enum AssistantProvider: String, Codable, CaseIterable, Sendable {
+    case anthropic
+    case openRouter
+
+    public var title: String {
+        switch self {
+        case .anthropic: "Anthropic"
+        case .openRouter: "OpenRouter"
+        }
+    }
+}
+
 /// Everything the app remembers between launches, saved as `settings.json`.
 /// Missing keys fall back to defaults and unknown keys are ignored, so the file can be edited by hand.
 public struct WorkspaceSettings: Codable, Equatable {
@@ -13,15 +26,25 @@ public struct WorkspaceSettings: Codable, Equatable {
     public var dailyFilename: String
     public var caretPreset: CaretPreset
     public var showNotePreview: Bool
-    /// Blank means the OpenRouter account default.
-    public var openRouterModel: String
     public var recentNotes: [String]
-    /// Off until the user turns the Assistant on. While off, nothing is sent to Anthropic.
+    /// Off until the user turns the Assistant on. While off, nothing is sent to an AI provider.
     public var assistantEnabled: Bool
+    public var assistantProvider: AssistantProvider
     /// The Anthropic model ID the Assistant asks. Blank means the default.
     public var assistantModel: String
+    /// The OpenRouter model ID. Kept separately so changing providers does not send an ID to the wrong API.
+    public var openRouterModel: String
+    /// External Mail access requires explicit opt-in.
+    public var mailEnabled: Bool
+    /// Quick Panel clipboard access requires explicit opt-in.
+    public var quickPanelClipboardEnabled: Bool
+    /// Quick Panel terminal border integration requires explicit opt-in.
+    public var quickPanelTerminalBorderEnabled: Bool
+    /// User bindings keyed by stable command ID. Missing IDs use the catalog's defaults.
+    public var shortcutOverrides: [String: ShortcutOverride]
 
     public static let defaultAssistantModel = "claude-opus-5-5"
+    public static let defaultOpenRouterModel = "anthropic/claude-sonnet-4"
 
     public init(
         vaultBookmark: Data? = nil,
@@ -31,10 +54,15 @@ public struct WorkspaceSettings: Codable, Equatable {
         dailyFilename: String = "YYYY-MM-DD",
         caretPreset: CaretPreset = .glide,
         showNotePreview: Bool = false,
-        openRouterModel: String = "",
         recentNotes: [String] = [],
         assistantEnabled: Bool = false,
-        assistantModel: String = WorkspaceSettings.defaultAssistantModel
+        assistantProvider: AssistantProvider = .anthropic,
+        assistantModel: String = WorkspaceSettings.defaultAssistantModel,
+        openRouterModel: String = WorkspaceSettings.defaultOpenRouterModel,
+        mailEnabled: Bool = false,
+        quickPanelClipboardEnabled: Bool = false,
+        quickPanelTerminalBorderEnabled: Bool = false,
+        shortcutOverrides: [String: ShortcutOverride] = [:]
     ) {
         self.vaultBookmark = vaultBookmark
         self.vaultPath = vaultPath
@@ -43,10 +71,15 @@ public struct WorkspaceSettings: Codable, Equatable {
         self.dailyFilename = dailyFilename
         self.caretPreset = caretPreset
         self.showNotePreview = showNotePreview
-        self.openRouterModel = openRouterModel
         self.recentNotes = recentNotes
         self.assistantEnabled = assistantEnabled
+        self.assistantProvider = assistantProvider
         self.assistantModel = assistantModel
+        self.openRouterModel = openRouterModel
+        self.mailEnabled = mailEnabled
+        self.quickPanelClipboardEnabled = quickPanelClipboardEnabled
+        self.quickPanelTerminalBorderEnabled = quickPanelTerminalBorderEnabled
+        self.shortcutOverrides = shortcutOverrides
     }
 
     public init(from decoder: Decoder) throws {
@@ -62,13 +95,42 @@ public struct WorkspaceSettings: Codable, Equatable {
         // An unknown preset name (a typo, or one from a newer version) keeps the rest of the file usable.
         caretPreset = (try? c.decodeIfPresent(CaretPreset.self, forKey: .caretPreset)) ?? fallback.caretPreset
         showNotePreview = try c.decodeIfPresent(Bool.self, forKey: .showNotePreview) ?? fallback.showNotePreview
-        openRouterModel = try c.decodeIfPresent(String.self, forKey: .openRouterModel) ?? fallback.openRouterModel
         recentNotes = try c.decodeIfPresent([String].self, forKey: .recentNotes) ?? fallback.recentNotes
         // A value of the wrong type keeps the Assistant off rather than making the whole file unreadable.
         assistantEnabled =
             (try? c.decodeIfPresent(Bool.self, forKey: .assistantEnabled)) ?? fallback.assistantEnabled
+        assistantProvider =
+            (try? c.decodeIfPresent(AssistantProvider.self, forKey: .assistantProvider)) ?? fallback.assistantProvider
         assistantModel = (try? c.decodeIfPresent(String.self, forKey: .assistantModel)) ?? fallback.assistantModel
+        openRouterModel = (try? c.decodeIfPresent(String.self, forKey: .openRouterModel)) ?? fallback.openRouterModel
+        // Malformed consent values cannot opt into external sources or integrations.
+        mailEnabled = (try? c.decodeIfPresent(Bool.self, forKey: .mailEnabled)) ?? fallback.mailEnabled
+        quickPanelClipboardEnabled =
+            (try? c.decodeIfPresent(Bool.self, forKey: .quickPanelClipboardEnabled))
+            ?? fallback.quickPanelClipboardEnabled
+        quickPanelTerminalBorderEnabled =
+            (try? c.decodeIfPresent(Bool.self, forKey: .quickPanelTerminalBorderEnabled))
+            ?? fallback.quickPanelTerminalBorderEnabled
+        // A malformed individual binding must not discard unrelated settings or healthy shortcuts.
+        if let overrides = try? c.nestedContainer(keyedBy: ShortcutIDKey.self, forKey: .shortcutOverrides) {
+            var decoded: [String: ShortcutOverride] = [:]
+            for key in overrides.allKeys {
+                if let value = try? overrides.decode(ShortcutOverride.self, forKey: key) {
+                    decoded[key.stringValue] = value
+                }
+            }
+            shortcutOverrides = decoded
+        } else {
+            shortcutOverrides = [:]
+        }
     }
+}
+
+private struct ShortcutIDKey: CodingKey {
+    let stringValue: String
+    init(stringValue: String) { self.stringValue = stringValue }
+    var intValue: Int? { nil }
+    init?(intValue: Int) { return nil }
 }
 
 /// JSON persistence for `WorkspaceSettings`. A corrupt file is moved aside, never overwritten silently.

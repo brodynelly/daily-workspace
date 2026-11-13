@@ -1,7 +1,7 @@
 import AppKit
 import CoreText
 
-/// Outfit (SIL OFL 1.1), the one bundled font: headings, titles and metrics at weight 600.
+/// Outfit (SIL OFL 1.1) for headings; optional VGA (CC BY-SA 4.0) for the quick panel.
 /// The .app carries `Contents/Resources/Fonts` (Info.plist `ATSApplicationFontsPath`), and launch also
 /// registers that folder for the process. Under `swift run` and in tests the folder is absent and
 /// every display role falls back to the system font, silently.
@@ -10,6 +10,14 @@ enum BundledFonts {
     /// instance is Thin, so CoreText names the family "Outfit Thin" and the instance `Outfit-Thin_SemiBold`.
     private static let semiboldNames = ["Outfit-Thin_SemiBold", "Outfit-SemiBold"]
     private static let weightAxis = NSNumber(value: 0x7767_6874)  // 'wght'
+    /// The Pascal panel's bundled IBM VGA face, registered at process scope once.
+    static let vgaName: String? = {
+        guard let url = Bundle.main.url(forResource: "VGA", withExtension: "ttf") else { return nil }
+        _ = CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
+        guard let descriptor = (CTFontManagerCreateFontDescriptorsFromURL(url as CFURL) as? [CTFontDescriptor])?.first
+        else { return nil }
+        return CTFontDescriptorCopyAttribute(descriptor, kCTFontNameAttribute) as? String
+    }()
 
     /// Registers every font file in `<resources>/Fonts` for this process. Safe to call more than once.
     static func register(bundle: Bundle = .main) {

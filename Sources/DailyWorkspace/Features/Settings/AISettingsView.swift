@@ -1,6 +1,7 @@
+import DailyCore
 import SwiftUI
 
-/// Settings → AI: the Assistant's switch, its Anthropic API key (Keychain only) and the model ID.
+/// Settings → AI: selected provider, its Keychain-only API key and its model ID.
 struct AISettingsView: View {
     @EnvironmentObject private var preferences: Preferences
     @EnvironmentObject private var key: AssistantKey
@@ -17,26 +18,51 @@ struct AISettingsView: View {
                 SettingsRow(
                     "Enable the Assistant",
                     description:
-                        "Questions and the notes, tasks and events the Assistant reads are sent to Anthropic."
+                        "Questions and the notes, tasks and events the Assistant reads are sent to "
+                        + (preferences.assistantProvider == .openRouter
+                            ? "OpenRouter and its selected model provider." : "Anthropic.")
                 ) {
                     Toggle("Enable the Assistant", isOn: $preferences.assistantEnabled)
                         .toggleStyle(.switch)
                         .labelsHidden()
                 }
+                SettingsRow(
+                    "Provider",
+                    description: "Changing provider starts a new conversation; keys and model choices remain separate."
+                ) {
+                    Picker("Provider", selection: $preferences.assistantProvider) {
+                        ForEach(AssistantProvider.allCases, id: \.self) { provider in
+                            Text(provider.title).tag(provider)
+                        }
+                    }
+                    .labelsHidden()
+                    .frame(width: 240)
+                }
                 keyRow
                 SettingsRow(
                     "Model",
-                    description: "The Anthropic model ID. Changing it starts a new conversation.",
+                    description:
+                        "The \(preferences.assistantProvider.title) model ID. Changing it starts a new conversation.",
                     stacked: true,
                     divider: false
                 ) {
-                    TextField(
-                        "Model ID", text: $preferences.assistantModel,
-                        prompt: Text(AssistantSession.defaultModel)
-                    )
-                    .textFieldStyle(.roundedBorder)
-                    .font(TextRole.mono.font)
-                    .frame(width: 320)
+                    if preferences.assistantProvider == .anthropic {
+                        TextField(
+                            "Model ID", text: $preferences.assistantModel,
+                            prompt: Text(AssistantSession.defaultModel)
+                        )
+                        .textFieldStyle(.roundedBorder)
+                        .font(TextRole.mono.font)
+                        .frame(width: 320)
+                    } else {
+                        TextField(
+                            "Model ID", text: $preferences.openRouterModel,
+                            prompt: Text(WorkspaceSettings.defaultOpenRouterModel)
+                        )
+                        .textFieldStyle(.roundedBorder)
+                        .font(TextRole.mono.font)
+                        .frame(width: 320)
+                    }
                 }
             }
             .padding(Space.s6)
@@ -44,12 +70,19 @@ struct AISettingsView: View {
         }
         .background(Theme.surface)
         .onAppear { key.refresh() }
+        .onChange(of: preferences.assistantProvider) { _, _ in
+            newKey = ""
+            keyMessage = nil
+            keyFailed = false
+        }
     }
 
     private var keyRow: some View {
         SettingsRow(
-            "Anthropic API key",
-            description: "Stored only in the macOS Keychain, never in a file or the vault.",
+            "\(preferences.assistantProvider.title) API key",
+            description: preferences.assistantProvider == .anthropic
+                ? "Stored only in the macOS Keychain. Claude subscription OAuth cannot authenticate this app."
+                : "Stored only in the macOS Keychain, never in a file or the vault.",
             stacked: true
         ) {
             StatusBadge(keyStatus, tone: key.readError == nil ? nil : .danger)
@@ -81,6 +114,7 @@ struct AISettingsView: View {
     }
 
     private var keyStatus: String {
+        if key.isChecking { return "Checking Keychain" }
         if key.readError != nil { return "Unreadable" }
         return key.isSaved ? "Saved" : "Not set"
     }

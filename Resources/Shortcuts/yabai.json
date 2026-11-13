@@ -1,0 +1,28 @@
+{
+  "sections": [
+    {"title": "Focus", "rows": [
+      {"label": "Focus window left", "keys": [["⌃⌥H"]]},
+      {"label": "Focus window down / next in stack", "keys": [["⌃⌥J"]]},
+      {"label": "Focus window up / previous in stack", "keys": [["⌃⌥K"]]},
+      {"label": "Focus window right", "keys": [["⌃⌥L"]]}
+    ]},
+    {"title": "Swap", "rows": [
+      {"label": "Swap window left", "keys": [["⌃⌥⇧H"]]},
+      {"label": "Swap window down", "keys": [["⌃⌥⇧J"]]},
+      {"label": "Swap window up", "keys": [["⌃⌥⇧K"]]},
+      {"label": "Swap window right", "keys": [["⌃⌥⇧L"]]}
+    ]},
+    {"title": "Layout", "rows": [
+      {"label": "Toggle zoom fullscreen", "keys": [["⌃⌥↩"]]}
+    ]},
+    {"title": "Desktops", "rows": [
+      {"label": "Go to desktop 1–9", "keys": [["⌃⌥1–9"]]},
+      {"label": "Send window to desktop 1–9", "keys": [["⌃⌥⇧1–9"]]}
+    ]},
+    {"title": "Mouse", "rows": [
+      {"label": "Move window", "keys": [["fn Drag"]]},
+      {"label": "Resize window", "keys": [["fn Right-drag"]]},
+      {"label": "Swap windows", "keys": [["Drop on window"]]}
+    ]}
+  ]
+}

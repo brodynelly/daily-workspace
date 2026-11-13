@@ -19,5 +19,13 @@
     <string>Daily Workspace shows your calendar and lets you create, edit, and delete events when you choose.</string>
     <key>NSRemindersFullAccessUsageDescription</key>
     <string>Daily Workspace shows your reminders and lets you add and complete them when you choose.</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>Read flagged Mail metadata when you enable it, control Music, or request a restart only when you choose those actions.</string>
+    <key>NSBluetoothAlwaysUsageDescription</key>
+    <string>Restart Bluetooth only when you choose BT Restart in the quick panel.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>When you tap Dictate question, Daily Workspace listens to fill your Assistant draft until you stop dictation or leave the Assistant. Nothing is sent until you choose Ask.</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>When you tap Dictate question, Daily Workspace uses on-device speech recognition to put words in your Assistant draft. Recognition is unavailable rather than using a remote transcription service.</string>
 </dict>
 </plist>

@@ -1,0 +1,44 @@
+{
+  "sections": [
+    {
+      "title": "Running apps picker",
+      "rows": [
+        { "label": "Switch to app", "keys": [["↩"]] },
+        { "label": "Quit selected app", "keys": [["⌃⌥K"]] },
+        { "label": "Close picker", "keys": [["Esc"]] }
+      ]
+    },
+    {
+      "title": "Bookmarks picker",
+      "rows": [
+        { "label": "Search (3+ characters)", "keys": [["Type"]] },
+        { "label": "Open bookmark set", "keys": [["↩"]] },
+        { "label": "Close picker", "keys": [["Esc"]] }
+      ]
+    },
+    {
+      "title": "Zoxide and agent tabs pickers",
+      "rows": [
+        { "label": "Open directory, session or tab", "keys": [["↩"]] },
+        { "label": "Close picker", "keys": [["Esc"]] }
+      ]
+    },
+    {
+      "title": "Task, mic and audio pickers",
+      "rows": [
+        { "label": "Move selection", "keys": [["↑"], ["↓"]] },
+        { "label": "Run or select item", "keys": [["↩"]] },
+        { "label": "Mark multiple choices", "keys": [["⇥"]] },
+        { "label": "Cancel", "keys": [["Esc"]] }
+      ]
+    },
+    {
+      "title": "Helper prompts",
+      "rows": [
+        { "label": "Submit URL or value", "keys": [["↩"]] },
+        { "label": "Close error or finished screen", "keys": [["↩"]] },
+        { "label": "Close daily note error", "keys": [["Any key"]] }
+      ]
+    }
+  ]
+}

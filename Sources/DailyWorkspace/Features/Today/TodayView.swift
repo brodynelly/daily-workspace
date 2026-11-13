@@ -17,6 +17,8 @@ struct TodayContent: View {
     @EnvironmentObject private var vaultSession: VaultSession
     @EnvironmentObject private var calendar: CalendarService
     @EnvironmentObject private var openLoops: OpenLoopsStore
+    @EnvironmentObject private var luunaWork: LuunaWorkStore
+    @EnvironmentObject private var luuna: LuunaStore
     @State private var noteRevision = 0
 
     private var hasVault: Bool {
@@ -44,6 +46,7 @@ struct TodayContent: View {
         }
         if !hasVault { VaultConnect(state: vaultSession.state) }
         stats(day: day)
+        luunaHome
         if hasVault {
             let notices = TodayDue.notices(from: openLoops)
             if !notices.isEmpty {
@@ -62,6 +65,41 @@ struct TodayContent: View {
             }
         }
         .task(id: day) { calendar.show(day: Date()) }
+    }
+
+    private var luunaHome: some View {
+        Panel(
+            "Luuna Home",
+            description: "All-project blockers reported by Luuna; undated issues are not assigned to today.",
+            variant: .subpanel
+        ) {
+            Button("Refresh Home") { Task { await luunaWork.refreshGlobalHome() } }
+                .buttonStyle(.workspace(.secondary, size: .small))
+        } content: {
+            if let home = luunaWork.globalHome.value {
+                if home.blockers.isEmpty {
+                    Text("Luuna Home reports no blockers.")
+                }
+                ForEach(Array(home.blockers.enumerated()), id: \.offset) { _, blocker in
+                    VStack(alignment: .leading, spacing: Space.sHalf) {
+                        Text(verbatim: blocker.title ?? blocker.kind.rawValue).textRole(.bodyStrong, lineBox: false)
+                        HStack(spacing: Space.s2) {
+                            Tag(blocker.kind.rawValue)
+                            if let state = blocker.state { StatusBadge(state.rawValue, tone: nil) }
+                            if let project = blocker.projectID { ShortId(project, kind: "project id") }
+                            if let ticket = blocker.ticketID { ShortId(ticket, kind: "ticket id") }
+                            if let run = blocker.runID { ShortId(run, kind: "run id") }
+                        }
+                        if let detail = blocker.detail { Text(verbatim: detail).textRole(.bodySmall, lineBox: false) }
+                    }
+                }
+            } else if luunaWork.globalHome.state == .empty {
+                Text("Luuna Home reports no blockers.")
+            } else if luunaWork.globalHome.state == .unavailable(.notChecked) {
+                Text("Luuna Home has not been read on this connection.")
+            }
+            LuunaObservedNote(name: "All-project Home", observation: luunaWork.globalHome, origin: luuna.origin)
+        }
     }
 
     private func stats(day: LocalDay) -> some View {
@@ -106,7 +144,7 @@ private struct VaultConnect: View {
     private var description: String {
         switch state {
         case .notConfigured, .available:
-            return "Choose your Obsidian vault to see Org items due today and today's note. Local tasks and the "
+            return "Choose your Obsidian vault to see today's note. Local tasks and the "
                 + "agenda work without it."
         case .needsReauthorization:
             return "macOS no longer lets the app open the vault. Choose the folder again to restore access."

@@ -5,7 +5,8 @@ let package = Package(
     name: "DailyWorkspace",
     platforms: [.macOS(.v14)],
     products: [
-        .executable(name: "DailyWorkspace", targets: ["DailyWorkspace"])
+        .executable(name: "DailyWorkspace", targets: ["DailyWorkspace"]),
+        .executable(name: "daily", targets: ["DailyControl"]),
     ],
     targets: [
         // Pure Foundation logic: caret physics, vault file layer, tasks, date templates.
@@ -24,6 +25,7 @@ let package = Package(
                 ])
             ]
         ),
+        .executableTarget(name: "DailyControl"),
         .testTarget(name: "DailyCoreTests", dependencies: ["DailyCore"]),
         // Store-level tests against fakes (`@testable import` of the executable target).
         .testTarget(name: "DailyWorkspaceTests", dependencies: ["DailyWorkspace"]),

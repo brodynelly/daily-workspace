@@ -1,9 +1,8 @@
 import DailyCore
 import SwiftUI
 
-/// Projects: the hubs in `01-projects` on a rail, and the selected hub as one detail card with its purpose,
-/// decisions, repositories, Seeds work, Plot coordination, restart record and Luuna binding. Vault files are only
-/// read; the one file this screen changes is the app's own `associations.json`, through `ProjectsStore`.
+/// Projects: vault hubs retain their purpose and context; bound Luuna projects show native read-only work.
+/// The app changes only its own associations.json when linking or unlinking.
 struct ProjectsView: View {
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var projects: ProjectsStore
@@ -20,7 +19,7 @@ struct ProjectsView: View {
                 }
                 .buttonStyle(.workspace(.secondary, size: .large))
                 .disabled(projects.isRefreshing)
-                .help("Read the hubs, Seeds and Plot again")
+                .help("Read the project hubs again")
             }
             content
         }
@@ -60,8 +59,7 @@ struct ProjectsView: View {
     }
 }
 
-/// The rail: a filter field, the hubs read's state, then one compact row per hub (title, folder and its open
-/// Seeds issue count).
+/// The rail: a filter field, hub read state and compact hub identity rows.
 struct ProjectRail: View {
     static let width: CGFloat = 280
 
@@ -78,7 +76,7 @@ struct ProjectRail: View {
                 VStack(spacing: 0) {
                     ForEach(Array(shown.enumerated()), id: \.element.id) { index, hub in
                         ProjectRailRow(
-                            hub: hub, openIssues: openIssues(hub), selected: projects.selectedSlug == hub.slug,
+                            hub: hub, selected: projects.selectedSlug == hub.slug,
                             divider: index > 0
                         ) { projects.select(hub.slug) }
                     }
@@ -106,17 +104,11 @@ struct ProjectRail: View {
         }
     }
 
-    /// Open Seeds issues labelled `project:<projectKey>`; nil when Seeds holds nothing readable.
-    private func openIssues(_ hub: ProjectHub) -> Int? {
-        guard let seeds = projects.seeds, seeds.state.isReadable || seeds.lastSuccessAt != nil else { return nil }
-        return seeds.value.issues.filter { $0.project == hub.projectKey && !$0.isDoneInSource }.count
-    }
 }
 
 /// One hub on the rail. The selected row carries the accent (selection); hover changes only the background.
 private struct ProjectRailRow: View {
     let hub: ProjectHub
-    let openIssues: Int?
     let selected: Bool
     let divider: Bool
     let action: () -> Void
@@ -137,12 +129,10 @@ private struct ProjectRailRow: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                if let openIssues {
-                    Text(openIssues == 1 ? "1 open" : "\(openIssues) open")
+                if selected {
+                    Text("Selected")
                         .textRole(.caption, lineBox: false)
                         .foregroundStyle(Theme.inkMuted)
-                        .monospacedDigit()
-                        .help("Open Seeds issues labelled project:\(hub.projectKey)")
                 }
             }
             .padding(.horizontal, Space.s3)

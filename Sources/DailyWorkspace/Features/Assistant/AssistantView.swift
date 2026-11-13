@@ -1,16 +1,16 @@
 import DailyCore
 import SwiftUI
 
-/// Assistant: questions about the notes, open loops, projects and calendar, answered read-only with what each
-/// answer read. Modelled on Luuna's Sessions view: a rail beside the live output. Nothing is sent while the
-/// Assistant is off or has no key.
+/// Assistant: questions about notes, projects, open loops and the calendar, answered with cited read-only
+/// lookups. Nothing is sent while the Assistant is off or the selected provider has no key.
+/// The provider and its model appear in the header so cross-provider routing is always visible.
 struct AssistantView: View {
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var assistant: AssistantSession
     @EnvironmentObject private var key: AssistantKey
     @EnvironmentObject private var preferences: Preferences
+    @EnvironmentObject private var navigation: AppNavigation
 
-    @State private var question = ""
     @State private var reveal: UUID?
 
     var body: some View {
@@ -27,13 +27,18 @@ struct AssistantView: View {
                     VStack(alignment: .leading, spacing: Space.s3) {
                         AssistantTranscript(reveal: $reveal).frame(maxHeight: .infinity)
                         if let error = assistant.error { AssistantErrorNote(message: error) }
-                        AssistantComposer(text: $question)
+                        if !navigation.showingAssistantPanel {
+                            AssistantComposer(text: $navigation.assistantDraft)
+                        }
                     }
                     .frame(maxWidth: .infinity)
                 }
                 .frame(maxHeight: .infinity)
             } else {
-                AssistantConnect()
+                VStack(alignment: .leading, spacing: Space.s3) {
+                    AssistantConnect()
+                    ScrollView { AssistantNativeRuns() }
+                }
             }
         }
         .navigationTitle(AppSection.assistant.title)
@@ -47,20 +52,25 @@ struct AssistantView: View {
 
     private var meta: String? {
         guard isConnected else { return nil }
-        let chosen = preferences.assistantModel.trimmingCharacters(in: .whitespacesAndNewlines)
-        return "Model \(chosen.isEmpty ? AssistantSession.defaultModel : chosen) · read-only tools"
+        let chosen = preferences.selectedAssistantModel.trimmingCharacters(in: .whitespacesAndNewlines)
+        let fallback =
+            preferences.assistantProvider == .anthropic
+            ? AssistantSession.defaultModel : WorkspaceSettings.defaultOpenRouterModel
+        return "\(preferences.assistantProvider.title) · \(chosen.isEmpty ? fallback : chosen) · read-only tools"
     }
 
     @ViewBuilder private var actions: some View {
         if assistant.isStreaming {
             Button("Stop", systemImage: "stop.circle") { assistant.stop() }
                 .buttonStyle(.workspace(.secondary, size: .large))
-                .keyboardShortcut(".", modifiers: .command)
+                .keyboardShortcut(
+                    KeyboardShortcutCatalog.binding(for: "assistant.stop", preferences: preferences)?.menuShortcut
+                )
                 .help("Stop the answer. The conversation so far is kept as it was.")
         }
         Button("New conversation", systemImage: "plus.bubble") {
             assistant.clear()
-            question = ""
+            navigation.assistantDraft = ""
         }
         .buttonStyle(.workspace(.secondary, size: .large))
         .disabled(assistant.turns.isEmpty && !assistant.isStreaming && assistant.error == nil)
@@ -73,12 +83,12 @@ struct AssistantView: View {
 struct AssistantConnect: View {
     @EnvironmentObject private var key: AssistantKey
     @EnvironmentObject private var preferences: Preferences
-    @Environment(\.openSettings) private var openSettings
+    @EnvironmentObject private var model: AppModel
 
     var body: some View {
         VStack(spacing: Space.s4) {
-            EmptyState(title, description: AssistantConnect.disclosure, systemImage: "lock.shield", boxed: true) {
-                Button("Open AI settings") { openSettings() }
+            EmptyState(title, description: disclosure, systemImage: "lock.shield", boxed: true) {
+                Button("Open AI settings") { model.navigation.showSettings(tab: .ai) }
                     .buttonStyle(.primary)
             }
             if let readError = key.readError {
@@ -90,27 +100,33 @@ struct AssistantConnect: View {
         .padding(.top, Space.s6)
     }
 
-    static let disclosure =
-        "Questions and the notes, tasks and events the Assistant reads are sent to Anthropic. Nothing is sent "
-        + "until you turn it on and save an API key."
+    private var disclosure: String {
+        let route =
+            preferences.assistantProvider == .openRouter
+            ? "OpenRouter and its selected model provider" : "Anthropic"
+        return "Questions and the notes, tasks and events the Assistant reads are sent to \(route). "
+            + "Nothing is sent until you turn it on and save the selected provider's API key."
+    }
 
     private var title: String {
         if !preferences.assistantEnabled { return "The Assistant is off" }
-        return key.readError == nil ? "Add an Anthropic API key" : "The API key could not be read"
+        if key.isChecking { return "Checking the Keychain" }
+        return key.readError == nil
+            ? "Add a \(preferences.assistantProvider.title) API key" : "The API key could not be read"
     }
 }
 
 /// A failed or refused turn: the reason in the danger tone, then the next step.
 struct AssistantErrorNote: View {
     let message: String
-    @Environment(\.openSettings) private var openSettings
+    @EnvironmentObject private var model: AppModel
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: Space.s3) {
             ReasonNote(message, tone: .danger, next: Self.nextStep(for: message))
                 .frame(maxWidth: .infinity, alignment: .leading)
             if message.contains("Settings → AI") {
-                Button("Open AI settings") { openSettings() }
+                Button("Open AI settings") { model.navigation.showSettings(tab: .ai) }
                     .buttonStyle(.text)
             }
         }

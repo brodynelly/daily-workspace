@@ -6,15 +6,15 @@ import SwiftUI
 struct CommandPaletteView: View {
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var document: NoteDocument
+    @EnvironmentObject private var preferences: Preferences
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openWindow) private var openWindow
-    @Environment(\.openSettings) private var openSettings
     @State private var query = ""
     @State private var selection = 0
     @FocusState private var searchFocused: Bool
 
     private var runner: CommandRunner {
-        CommandRunner(model: model, openWindow: openWindow, openSettings: { openSettings() })
+        CommandRunner(model: model, openWindow: openWindow)
     }
 
     /// The matching commands in registry order: every screen first, then the actions.
@@ -162,6 +162,7 @@ struct CommandPaletteView: View {
 /// One command: its symbol, its title, and its shortcut as key caps on the right. Selected (by the keys or
 /// the pointer) it sits on the accent's soft ground in full ink; nothing else moves.
 private struct PaletteRow: View {
+    @EnvironmentObject private var preferences: Preferences
     let command: AppCommand
     let selected: Bool
     let action: () -> Void
@@ -179,7 +180,9 @@ private struct PaletteRow: View {
                     .fontWeight(.regular)
                     .foregroundStyle(selected ? Theme.ink : Theme.inkBody)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                if !command.shortcutLabel.isEmpty { Kbd(command.shortcutLabel) }
+                if !command.configuredLabel(using: preferences).isEmpty {
+                    Kbd(command.configuredLabel(using: preferences))
+                }
             }
             .padding(.horizontal, Space.s2Half)
             .padding(.vertical, Space.s1Half)
@@ -192,7 +195,7 @@ private struct PaletteRow: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(command.paletteTitle)
-        .accessibilityValue(command.shortcutLabel)
+        .accessibilityValue(command.configuredLabel(using: preferences))
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
