@@ -17,6 +17,22 @@ final class QuickPanelUIIntegrationTests: XCTestCase {
         XCTAssertEqual(host.rootView.controller.rows.count, QuickPanelSystemAction.allCases.count)
     }
 
+    func testPanelStaysVisibleForNativeMenusButHidesWhenAnotherAppTakesFocus() {
+        let controller = QuickPanelController()
+        controller.panel.setFrame(NSRect(x: -10_000, y: -10_000, width: 1060, height: 680), display: false)
+        controller.panel.orderFront(nil)
+        defer { controller.panel.orderOut(nil) }
+        XCTAssertTrue(controller.panel.isVisible)
+
+        controller.dismissAfterKeyLoss(frontmostPID: ProcessInfo.processInfo.processIdentifier)
+        XCTAssertTrue(controller.panel.isVisible)
+        controller.dismissAfterKeyLoss(frontmostPID: nil)
+        XCTAssertTrue(controller.panel.isVisible)
+
+        controller.dismissAfterKeyLoss(frontmostPID: ProcessInfo.processInfo.processIdentifier + 1)
+        XCTAssertFalse(controller.panel.isVisible)
+    }
+
     func testQuickAIChatFileMenuOpensSharedAssistant() throws {
         let panel = QuickPanelController()
         var opened: AppSection?

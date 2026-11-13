@@ -35,3 +35,19 @@ extension QuickPanelController {
         }
     }
 }
+
+extension QuickPanelController {
+    func dismissAfterKeyLoss(frontmostPID: pid_t?) {
+        guard isVisible, !panel.isKeyWindow,
+            let frontmostPID, frontmostPID != ProcessInfo.processInfo.processIdentifier
+        else { return }
+        hide(restoreFocus: false)
+    }
+
+    func windowDidResignKey(_ notification: Notification) {
+        // Menus and permission dialogs can take key status without leaving this app.
+        DispatchQueue.main.async { [weak self] in
+            self?.dismissAfterKeyLoss(frontmostPID: NSWorkspace.shared.frontmostApplication?.processIdentifier)
+        }
+    }
+}

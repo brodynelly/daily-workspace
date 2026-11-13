@@ -258,13 +258,6 @@ final class QuickPanelController: NSObject, ObservableObject, NSWindowDelegate {
         previousLocalWindow = nil
     }
 
-    func windowDidResignKey(_ notification: Notification) {
-        DispatchQueue.main.async { [weak self] in
-            guard let self, self.isVisible, !self.panel.isKeyWindow else { return }
-            self.hide(restoreFocus: false)
-        }
-    }
-
     func reportError(_ message: String?) {
         error = message
         objectWillChange.send()

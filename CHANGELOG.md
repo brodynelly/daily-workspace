@@ -68,6 +68,7 @@ All notable changes to this project are documented here. The format follows [Kee
 - A bound project's Markdown hub and restart context remain citeable when native Luuna ticket reads fail; the Assistant labels the native work state unavailable rather than falsely empty. Board cards label completed runs as run states, separate from native ticket status.
 - The synthetic nested-repository exclusion fixture is recreated during tests so a clean Git checkout checks the same policy; CI also checks bundled microphone and speech usage descriptions.
 - The quick-panel glass effect uses an AppKit visual-effect view that builds with the CI runner's older macOS SDK as well as current SDKs; Reduce Transparency still selects the opaque background.
+- The quick panel no longer closes when a native menu or permission dialog inside Daily Workspace briefly takes key-window focus; switching to another app still hides it without restoring focus.
 
 ### Removed
 - The `DailyCore` library product. It is still a target; nothing outside the app used the product.
