@@ -369,15 +369,20 @@ extension QuickPanelController {
         hosting.frame = panel.contentView?.bounds ?? NSRect(origin: .zero, size: panel.frame.size)
         hosting.autoresizingMask = [.width, .height]
         hosting.sizingOptions = []
-        if configuration.glass, #available(macOS 26.0, *),
-            !NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
-        {
-            let glass = NSGlassEffectView(frame: panel.contentView?.bounds ?? panel.frame)
-            glass.style = .regular
-            glass.cornerRadius = 3
-            glass.tintColor = NSColor(srgbRed: 8 / 255, green: 27 / 255, blue: 64 / 255, alpha: 0.48)
-            if #available(macOS 27.0, *) { glass.effectIsInteractive = false }
-            glass.contentView = hosting
+        if configuration.glass, !NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency {
+            let glass = NSVisualEffectView(frame: panel.contentView?.bounds ?? panel.frame)
+            glass.material = .hudWindow
+            glass.blendingMode = .behindWindow
+            glass.state = .active
+            glass.appearance = NSAppearance(named: .darkAqua)
+            let tint = NSView(frame: glass.bounds)
+            tint.wantsLayer = true
+            let tintColor = NSColor(srgbRed: 8 / 255, green: 27 / 255, blue: 64 / 255, alpha: 0.48)
+            tint.layer?.backgroundColor = tintColor.cgColor
+            tint.autoresizingMask = [.width, .height]
+            glass.addSubview(tint)
+            hosting.frame = glass.bounds
+            glass.addSubview(hosting)
             panel.contentView = glass
         } else {
             let background = NSView(frame: panel.contentView?.bounds ?? panel.frame)
