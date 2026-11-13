@@ -1,12 +1,14 @@
 # System Inventory
 
+> Owner update, 2026-11-13: Luuna/Missions owns project issues and plans. Project notes hold context and coordination; Org owns personal actions. This updates the target workflow. Legacy adapter code still requires implementation work; documentation changes do not certify its removal or enable external writes.
+
 The named parts of Daily Workspace, written before the next features are generated. Read this with [ARCHITECTURE.md](ARCHITECTURE.md) (how the code is organized today) and [`AGENTS.md`](../AGENTS.md) (the rules every agent follows). When the architecture changes, update this file in the same change.
 
 Inputs: the staged refactor at `2790699` (+99 staged files), the vault at `~/github/brodynelly-brain`, and the Daily Workspace–Luuna research (`03-resources/research/daily-workspace-luuna/research/notes/final_report_luuna-workspace-bridge-cadfad.md` in the vault). Owner decisions recorded 2026-11-12.
 
 ## 0. The one-line system
 
-**Daily Workspace is one Mac window over the systems that already own Brody's day — Calendar, Org, Seeds/Plot, Luuna, the app's own task list and the Obsidian vault — that shows each item with its source and native status, routes every action back to its owner, and helps resume a project from verified context.**
+**Daily Workspace is one Mac window over the systems that already own Brody's day — Calendar, Org, Luuna, the app's own task list and the Obsidian vault — that shows each item with its source and native status, routes every action back to its owner, and helps resume a project from verified context.**
 
 Remove-the-AI test: navigation, open loops, calendar, notes and capture keep working without a model. That is deliberate: the federated view must stay useful when the Assistant, the network or Luuna is unavailable. What the AI adds is grounded questions across all sources and a drafted restart record at the end of a project session. Without it, the restart loop below still works by hand, only slower. The compounding asset is the restart ledger, not the model.
 
@@ -14,7 +16,7 @@ Remove-the-AI test: navigation, open loops, calendar, notes and capture keep wor
 
 > **When Brody resumes or closes a project session, the app captures a reviewed restart record — the sources read (path + hash + observed time), the decision made and the next exact action — so the next resume of that project, and the Assistant's context for it, starts from verified state instead of a cold re-read.**
 
-- Capture: the Assistant drafts the record from the session (notes opened, Seeds/Plot rows viewed, today's agenda). Brody edits and accepts it. Nothing is saved without that acceptance.
+- Capture: the Assistant drafts the record from the session (notes opened, native project records viewed, today's agenda). Brody edits and accepts it. Nothing is saved without that acceptance.
 - Store (phase 1): app-owned `RestartLedger` in `~/.config/daily-workspace/`. A later, separately approved write adapter can publish an accepted record into the project's `notes/` folder.
 - Return arrow: Projects shows the latest accepted record first; the Assistant's project context loads it; changed source hashes are flagged as "changed since you last read it".
 - Return arrow traced? **Yes**, once Increments 1 and 2 ship.
@@ -26,28 +28,28 @@ Daily Workspace is a **unified interface, not a task store**. Every item keeps i
 | Kind of item | Owner | Phase-1 access in the app | Status shown as |
 | --- | --- | --- | --- |
 | Personal actions | Org (`org/inbox.org`, `org/projects.org`) | Read-only parser | Org keyword verbatim (`TODO`, `NEXT`, `DONE`…) plus `SCHEDULED`/`DEADLINE` |
-| Vault-managed project issues and plans | Seeds (`.seeds/`), labelled `project:<slug>` | Read-only parser | Seeds `status` verbatim |
-| Coordination events | Plot (`.plot/`) | Read-only parser | Plot event/state verbatim |
+| Project issues and plans | Luuna/Missions | Verified runtime route; full adapter migration pending | Native ticket status verbatim |
+| Coordination context | Visible project notes linked to native IDs | Read notes; write adapters remain proposals | Source context verbatim |
 | Repository work | The repo's established tracker (Luuna Missions where applicable) | Not yet (Increment 3, qualified reader) | Native status; a Luuna run `completed` is **not** a closed task |
 | Readable context, decisions, restart notes | Project Markdown in `01-projects/<project>/` | Read (open in editor) | n/a. Historical checkboxes are **not** tasks |
 | Calendar events | Apple Calendar (EventKit) | Existing read + edit | EventKit |
 | Reminders | Apple Reminders (EventKit) | Existing read, add, complete | EventKit |
 | App-local tasks | `tasks.json` (`~/.config/daily-workspace/`) | **Preserved unchanged**: existing edit/persist | Local |
 
-Not decided here, and each needs its own proposal and approval: capture or write adapters for Org, Seeds, Quick Notes and Luuna; any migration of `tasks.json`; any change to the vault's `AGENTS.md` or task ownership.
+Not decided here, and each needs its own proposal and approval: capture or write adapters for Org, Quick Notes and Luuna; any migration of `tasks.json`; any change to the vault's `AGENTS.md` or task ownership.
 
 ## 3. Information architecture (sidebar: 7 → 6)
 
 | Screen | Contents | Replaces |
 | --- | --- | --- |
 | **Today** | Agenda · local tasks due today · Org items whose own `SCHEDULED`/`DEADLINE` is today · today's daily note (correct path) · capture with an explicit destination | Today |
-| **Projects** *(new)* | Project list from `01-projects` hubs. Detail: hub purpose and decisions, latest restart record, checkout references, Seeds issues for `project:<slug>`, Plot events, related notes. Luuna panel later | — |
-| **Open Loops** | One list across Local, Org, Seeds and Reminders (Luuna later). Source badge, native status, observed time; filter by source/project. Actions route to the owner; external rows are read-only | Tasks, Reminders |
+| **Projects** *(new)* | Project list from `01-projects` hubs. Detail: hub purpose and decisions, latest restart record, checkout references, native project issues and linked context, related notes. Luuna panel later | — |
+| **Open Loops** | One list across Local, Org and Reminders, with native project integration pending. Source badge, native status, observed time; filter by source/project. Actions route to the owner; external rows are read-only | Tasks, Reminders |
 | **Notes** | Editor, recent notes, backlinks, vault search (search also in ⌘K) | Notes, Search |
 | **Calendar** | Day agenda and event editing | Calendar |
 | **Assistant** | Grounded chat with read-only tools; drafts restart records | AI Chat |
 
-Today never invents daily attention for undated Seeds or Luuna items (research: "Daily attention convenience versus native workflow meaning"). An opt-in focus list can come later without changing ownership.
+Today never invents daily attention for undated native project items (research: "Daily attention convenience versus native workflow meaning"). An opt-in focus list can come later without changing ownership.
 
 ## 4. The Brain (reasoning)
 
@@ -67,7 +69,7 @@ Today never invents daily attention for undated Seeds or Luuna items (research: 
 | Agent master files | Rules for agents building this app | `AGENTS.md` (+ `CLAUDE.md` → `@AGENTS.md`) | A line per session in the decisions log |
 | Assistant system context | App rules (§8) + the vault's root `AGENTS.md` (read-only, hash recorded) | Frozen system prompt; cached prefix | On vault switch or `AGENTS.md` hash change |
 | Vault retrieval | Note text for search, backlinks and `read_note` | `VaultIndex`: lexical, in memory. The **exclusion policy runs before any read** (§8.5) | On activation / Refresh; reports incomplete traversal |
-| Source observations | Org, Seeds and Plot rows, EventKit items, `tasks.json` | One `SourceAdapter` per owner → `OpenLoop` rows (authority, id, kind, project, native status, revision/hash, observed-at) | On activation and on file change; the last successful observation is kept with its timestamp |
+| Source observations | Org and native project records, EventKit items, `tasks.json` | One `SourceAdapter` per owner → `OpenLoop` rows (authority, id, kind, project, native status, revision/hash, observed-at) | On activation and on file change; the last successful observation is kept with its timestamp |
 | Associations *(Increment 3)* | Hub ↔ checkouts ↔ optional Luuna project | App registry in `~/.config/daily-workspace/`; host access (bookmarks, origins, tokens) stored separately | Explicit user edits |
 | **Restart ledger** *(the loop)* | Accepted restart records with source hashes | App store in `~/.config/daily-workspace/` | Append on acceptance |
 | Chat transcript | Current conversation | In memory, **append-only** (thinking blocks replayed unchanged) | Cleared by the user |
@@ -91,7 +93,7 @@ There is no vector store in phase 1. About 2,700 notes with lexical search plus 
 | `search_notes(query, limit)` | Lexical search over non-excluded notes; returns paths + snippets | Note text leaves the Mac for the API provider | Assistant must be enabled explicitly; sent paths are listed in the turn |
 | `read_note(path, max_bytes)` | Reads one note | Same; refuses excluded paths and anything outside the vault | Path resolved by `NoteVault.resolve` |
 | `list_open_loops(source?, project?, status?)` | Federated `OpenLoop` rows | Read-only | — |
-| `get_project(slug)` | Hub summary, checkouts, Seeds/Plot rows, latest restart record | Read-only | — |
+| `get_project(slug)` | Hub summary, checkouts, native project records, latest restart record | Read-only | — |
 | `get_agenda(day)` | EventKit events for a day | Event titles leave the Mac | Needs Calendar permission |
 
 ### App adapters (deterministic, no model)
@@ -102,7 +104,7 @@ There is no vector store in phase 1. About 2,700 notes with lexical search plus 
 | `TaskStore` (existing) | `tasks.json` read/write | Local tasks | Save-then-update (existing) |
 | Calendar / Reminders (existing) | EventKit read + user-initiated writes | The user's Apple accounts | System permission + explicit UI action |
 | `OrgReader` *(new)* | **Read-only** | none | Never writes `.org` files |
-| `SeedsReader`, `PlotReader` *(new)* | **Read-only** file parse of `.seeds/*.jsonl` and `.plot/*.json` | none | Never runs `sd`/`plot`, never touches locks, keeps unknown fields |
+| Legacy project readers | Deprecated implementation awaiting removal | No new authority | Do not extend; migrate to the verified Luuna runtime route |
 | `DailyNoteResolver` *(new, fixes a bug)* | Reads `.obsidian/daily-notes.json` | Wrong path means a note in the wrong place | Refuses unsupported format tokens; never falls back to the vault root |
 | `LuunaRuntimeReader` *(Increment 3)* | **Read-only** HTTP | none, if qualified | Loopback origin only, bearer token from Keychain, no redirects, no caching, never starts/initializes the runtime; first profile = health, project list/detail, component status |
 | `AgentTransport` *(Increment 2)* | HTTPS to the model API | Cost; selected text leaves the Mac | Key in Keychain; explicit enable; per-turn caps |
@@ -133,8 +135,8 @@ There is one Assistant agent plus deterministic adapters. There is no gateway or
 | --- | --- | --- | --- |
 | Model API | Assistant only | For the Assistant only | Every other screen is deterministic |
 | EventKit | Agenda, Reminders | No | Permission-denied state; notes and tasks unaffected |
-| Vault bookmark | Notes, Org/Seeds/Plot reads | Yes, for vault-backed views | Existing re-authorize state |
-| Seeds/Plot file formats | Read-only views | No | Pin the parser to observed fields, keep unknown fields, report parse errors as partial |
+| Vault bookmark | Notes, Org and project-context reads | Yes, for vault-backed views | Existing re-authorize state |
+| Luuna ticket contract | Project work views | No | Use verified CLI JSON, preserve native status and distinguish source errors |
 | Luuna runtime | Increment 3 panels | No | Optional; human context stays usable; timestamped last observation |
 
 ## 12. Delivery increments
@@ -142,10 +144,10 @@ There is one Assistant agent plus deterministic adapters. There is no gateway or
 | # | Outcome | Notes |
 | --- | --- | --- |
 | 0 | `DailyNoteResolver` + Moment tokens; capture and Today use the real daily note | **Done** 2026-11-12 |
-| 1 | IA 7 → 6; **Projects** (hubs, decisions, checkouts) and **Open Loops** (Local + Org + Seeds + Plot + Reminders, read-only external); visual system refresh across the new screens (Luuna design system) | **Done** 2026-11-12. `tasks.json` untouched; no writes to external owners |
+| 1 | IA 7 → 6; **Projects** (hubs, decisions, checkouts) and **Open Loops** (Local + Org + legacy project sources + Reminders, read-only external); visual system refresh across the new screens (Luuna design system) | **Done** 2026-11-12. `tasks.json` untouched; no writes to external owners |
 | 2 | Assistant v1: `AgentTransport`, read-only tools, restart-record drafts → `RestartLedger` | **Built** 2026-11-12, off by default. Still open: the golden-set eval (§10) before turning it on by default, and a hands-on pass with a real key |
 | 3 | Association registry + qualified `LuunaRuntimeReader` (health, projects, component status) | **Built** 2026-11-12 against the TS client's contract with stubbed responses. Still open: qualify against a running runtime build in a disposable fixture |
-| 4 | **Proposal only:** capture/write adapters per owner (Org inbox, Seeds via the vault launcher with an explicit actor, Quick Notes, Luuna) and any `tasks.json` migration | Separate review and approval before any code |
+| 4 | **Proposal only:** capture/write adapters per owner (Org inbox, Quick Notes, Luuna) and any `tasks.json` migration | Separate review and approval before any code |
 
 ## 13. Open questions and logic debt
 

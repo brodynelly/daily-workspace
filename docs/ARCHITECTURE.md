@@ -1,5 +1,7 @@
 # Architecture
 
+> Owner update, 2026-11-13: Luuna/Missions owns project issues and plans. Project notes hold context and coordination; Org owns personal actions. This updates the target workflow. Legacy adapter code still requires implementation work; documentation changes do not certify its removal or enable external writes.
+
 Daily Workspace is a Swift package with two code targets and two test targets:
 
 | Target | Kind | Contents |
@@ -18,7 +20,7 @@ Sources/DailyCore/
                   DailyNoteTemplate (+ DailyNoteSource, DailyNoteResolver), MomentFormat, ObsidianDailyNotes,
                   VaultIndex (search, backlinks; opt-in scoped scan), VaultScope (exclusions before reads)
   Loops/          OpenLoop, LoopAuthority, SourceState, SourceObservation; read-only OrgReader (+ OrgSyntax),
-                  SeedsReader, PlotReader; JSONValue (unknown fields kept)
+                  legacy project readers pending removal; JSONValue (unknown fields kept)
   Projects/       ProjectHub, ProjectHubReader (hubs under 01-projects), Frontmatter, MarkdownOutline
   Luuna/          LuunaOrigin (loopback-only), LuunaModels, LuunaObservation, ProjectAssociation, AssociationRegistry,
                   LuunaHostAccessStore, WorkspaceDirectory+Luuna
@@ -114,8 +116,8 @@ Rules:
 | `VaultSession` | resolving the bookmark, security-scoped access, `VaultSession.State` |
 | `NoteDocument` | the open note's URL, text, save state and snapshot; autosave (800 ms debounce); conflict resolution |
 | `TaskStore` | `TaskList`, persistence, undo of deletes |
-| `OpenLoopsStore` | read-only observations per owner (Org, Seeds, Plot, local tasks, Reminders), each with its `SourceState`; queries for a day, overdue and counts |
-| `ProjectsStore` | project hubs, the selected project's Seeds issues, Plot records and association; association edits (only `associations.json`) |
+| `OpenLoopsStore` | read-only observations per owner (Org, legacy project sources pending removal, local tasks, Reminders), each with its `SourceState`; queries for a day, overdue and counts |
+| `ProjectsStore` | project hubs, legacy project observations pending removal, and association; association edits (only `associations.json`) |
 | `LuunaStore` | the loopback connection, a session generation that discards stale responses, last-success observations |
 | `AssistantSession` | the append-only transcript, the tool loop and its caps, restart-record drafts |
 | `CalendarService` | permission status, selected day, that day's events |
@@ -162,7 +164,7 @@ Production instances are wired in `AppModel.Dependencies.live`. The fakes, and `
 | Restart records | `restart-ledger.jsonl` in the app folder: append-only; a corrupt line is skipped and reported, never rewritten |
 | Project associations | `associations.json` in the app folder (hub ↔ checkouts ↔ optional Luuna project); `luuna-host.json` holds the runtime origin only |
 | Keys and tokens | Keychain: `app.dailyworkspace.anthropic` (Assistant), `app.dailyworkspace.luuna` (Luuna runtime token), `app.dailyworkspace.openrouter` (plain chat) |
-| Read, never written | Org files, `.seeds/`, `.plot/`, `.obsidian/daily-notes.json` and the daily-note template, all inside the vault |
+| Read, never written | Org files, `.obsidian/daily-notes.json` and the daily-note template, all inside the vault |
 
 ## Logging
 

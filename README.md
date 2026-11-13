@@ -1,6 +1,8 @@
 # Daily Workspace
 
-One calm Mac window over the systems that already own your day: Apple Calendar and Reminders, your Obsidian vault and its daily note, Org, Seeds and Plot, the app's own task list, and (optionally) a Luuna runtime. Every item keeps its owner and shows the owner's own status; actions route back to the owner. A read-only Assistant answers questions over all of it and cites what it read. The look follows Luuna's desktop design system, and the editor has a smooth, spring-animated typing caret.
+> Owner update, 2026-11-13: Luuna/Missions owns project issues and plans. Project notes hold context and coordination; Org owns personal actions. This updates the target workflow. Legacy adapter code still requires implementation work; documentation changes do not certify its removal or enable external writes.
+
+One calm Mac window over the systems that already own your day: Apple Calendar and Reminders, your Obsidian vault and its daily note, Org, Luuna/Missions, the app's own task list, and (optionally) a Luuna runtime. Every item keeps its owner and shows the owner's own status; actions route back to the owner. A read-only Assistant answers questions over all of it and cites what it read. The look follows Luuna's desktop design system, and the editor has a smooth, spring-animated typing caret.
 
 Native macOS · Swift · SwiftUI + AppKit · local-first · read-only views of external systems · optional Claude Assistant · no telemetry.
 
@@ -31,8 +33,8 @@ scripts/bundle.sh release               # standalone build/DailyWorkspace.app
 | Screen | What it does |
 | --- | --- |
 | **Today** ⌘1 | Stat tiles, what's due today and overdue (only items with their own date), the agenda, today's note and capture with an explicit destination |
-| **Projects** ⌘2 | Project hubs from `01-projects/`: purpose, decisions, repositories, Seeds issues, Plot coordination, the latest restart record and an optional read-only Luuna panel |
-| **Open Loops** ⌘3 | Every open item across Org, Seeds, Plot, local tasks and Apple Reminders, with its source and the owner's status. Local tasks and reminders keep their actions; the others open their source |
+| **Projects** ⌘2 | Project hubs from `01-projects/`: purpose, decisions, repositories, native project issue context, the latest restart record and an optional read-only Luuna panel |
+| **Open Loops** ⌘3 | Every open item across Org, native project sources, local tasks and Apple Reminders, with its source and the owner's status. Local tasks and reminders keep their actions; the others open their source |
 | **Notes** ⌘4 | Markdown editor on the vault's real files, recent notes, preview, backlinks, save status, conflict handling, and vault search (⇧⌘F) |
 | **Calendar** ⌘5 | Agenda for one day (⌘← / ⌘→ to move), create events, edit or delete one occurrence |
 | **Assistant** ⌘6 | Questions over your notes, open loops, projects and calendar through read-only tools that cite what they read; drafts restart records for your review |
@@ -45,7 +47,7 @@ scripts/bundle.sh release               # standalone build/DailyWorkspace.app
 - **Search** scans visible Markdown files in the vault. It skips symlinks and files over 2 MB, and matches every term you type against both file names and contents. Click Refresh after changing files outside the app.
 - **Backlinks** finds wikilinks and Markdown file links that point to the open note. A wikilink that uses only a basename can match more than one note. Embeds, images and full Obsidian rendering are not supported, and Preview is a text-oriented Markdown preview, not Obsidian's renderer.
 - **Calendar:** double-click an event, or use its context menu, to edit it. Deleting asks for confirmation. For a repeating event, changes apply to that occurrence only.
-- **Open Loops:** Org, Seeds and Plot are read, never written; Markdown checkboxes are not treated as tasks. Archived, template, generated and board files are skipped before anything is read. New task adds to the app's own `tasks.json`; New reminder adds to your default Apple Reminders list.
+- **Open Loops:** External project sources and Org are read, never written; Markdown checkboxes are not treated as tasks. Archived, template, generated and board files are skipped before anything is read. New task adds to the app's own `tasks.json`; New reminder adds to your default Apple Reminders list.
 
 ## Capture
 
