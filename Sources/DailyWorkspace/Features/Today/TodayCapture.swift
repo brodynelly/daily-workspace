@@ -13,6 +13,7 @@ struct TodayCaptureState: Equatable {
     private(set) var status: Status?
 
     var canCapture: Bool { !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    var requiresVaultReview: Bool { destination == .quickNotes || destination == .inbox }
 
     /// Record the outcome of saving `draft`. Returns true when it was captured.
     @discardableResult
@@ -39,6 +40,7 @@ struct TodayCaptureState: Equatable {
 struct TodayCaptureSection: View {
     @EnvironmentObject private var model: AppModel
     @State private var state = TodayCaptureState()
+    @State private var showVaultReview = false
     @FocusState private var focused: Bool
 
     /// Called after a durable save, so Today can re-read what changed.
@@ -59,6 +61,16 @@ struct TodayCaptureSection: View {
             statusLine
         }
         .onChange(of: state.draft) { state.edited() }
+        .sheet(isPresented: $showVaultReview) {
+            VaultNoteReviewSheet(
+                source: state.destination == .quickNotes ? .quickNotes : .inbox,
+                draft: state.draft,
+                onDraftChange: { state.draft = $0 }
+            ) {
+                state.apply(.captured)
+                onCaptured()
+            }
+        }
     }
 
     private var field: some View {
@@ -86,7 +98,7 @@ struct TodayCaptureSection: View {
         case .captured(let destination):
             HStack(alignment: .firstTextBaseline, spacing: Space.s1Half) {
                 ToneMark(tone: .success).alignmentGuide(.firstTextBaseline) { $0[.bottom] - 1 }
-                Text(destination == .task ? "Captured as a task for today." : "Captured to today's note.")
+                Text(captureConfirmation(destination))
             }
             .textRole(.bodySmall, lineBox: false)
             .foregroundStyle(Theme.inkBody)
@@ -98,8 +110,21 @@ struct TodayCaptureSection: View {
         }
     }
 
+    private func captureConfirmation(_ destination: AppModel.CaptureDestination) -> String {
+        switch destination {
+        case .task: "Captured as a task for today."
+        case .note: "Captured to today's note."
+        case .quickNotes: "Saved to Quick Notes."
+        case .inbox: "Saved to Inbox."
+        }
+    }
+
     private func commit() {
         guard state.canCapture else { return }
+        if state.requiresVaultReview {
+            showVaultReview = true
+            return
+        }
         if state.apply(model.capture(state.draft, to: state.destination)) { onCaptured() }
     }
 }

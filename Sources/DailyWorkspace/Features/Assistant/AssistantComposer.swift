@@ -11,7 +11,7 @@ struct AssistantComposer: View {
 
     @FocusState private var focused: Bool
     @StateObject private var voice = AssistantVoiceService()
-    @State private var lastDictationText = ""
+    @State private var dictationDraft = AssistantVoiceService.Draft()
     @State private var lastSeenTurn: UUID?
     var autoFocus = false
 
@@ -53,7 +53,7 @@ struct AssistantComposer: View {
                     if voice.isListening || voice.isRequestingPermission {
                         voice.stopDictation()
                     } else {
-                        lastDictationText = ""
+                        dictationDraft = AssistantVoiceService.Draft()
                         voice.startDictation()
                     }
                 }
@@ -110,8 +110,7 @@ struct AssistantComposer: View {
         .onDisappear { voice.stop() }
         .onChange(of: voice.recognizedText) { _, recognized in
             guard !recognized.isEmpty else { return }
-            text = AssistantVoiceService.draft(text, replacing: lastDictationText, with: recognized)
-            lastDictationText = recognized
+            text = dictationDraft.update(text, with: recognized)
         }
         .onChange(of: assistant.turns.last?.id) { _, id in
             guard let id, id != lastSeenTurn else { return }

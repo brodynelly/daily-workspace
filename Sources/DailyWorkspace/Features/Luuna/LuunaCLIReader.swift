@@ -130,7 +130,7 @@ struct LuunaCLIReader: LuunaRuntimeReading {
         guard executable.isFileURL, executable.path.hasPrefix("/") else {
             throw LuunaReadFailure.unsupported
         }
-        return ["LUUNA_URL": origin, "LUUNA_API_TOKEN": connection.token]
+        return ["LUUNA_URL": origin, "LUUNA_API_TOKEN": connection.token, "LUUNA_NO_AUTO_START": "1"]
     }
 
     private func run(

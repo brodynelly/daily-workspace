@@ -96,6 +96,63 @@ final class KeyboardShortcutCatalogTests: XCTestCase {
         XCTAssertNil(ShortcutStroke("leftArrow").carbonKeyCode)
     }
 
+    func testPanelBindingsCannotOverrideFixedKeyDelivery() {
+        let preferences = Preferences(store: InMemorySettings())
+        for key in ["f2", "f4", "f5", "f6", "f7", "f8"] {
+            for modifiers in [ShortcutModifiers(), .command, .option] {
+                assertFailure(
+                    KeyboardShortcutCatalog.set(
+                        binding(key, modifiers), for: "panel.refresh", preferences: preferences),
+                    .reservedStroke)
+            }
+        }
+        for key in ["f", "e", "p", "v", "s", "w", "h"] {
+            assertFailure(
+                KeyboardShortcutCatalog.set(binding(key, .option), for: "panel.refresh", preferences: preferences),
+                .reservedStroke)
+            assertFailure(
+                KeyboardShortcutCatalog.set(
+                    binding(key, [.option, .shift]), for: "panel.refresh", preferences: preferences),
+                .reservedStroke)
+        }
+        for key in ["leftArrow", "rightArrow", "upArrow", "downArrow", "delete"] {
+            assertFailure(
+                KeyboardShortcutCatalog.set(binding(key, .command), for: "panel.refresh", preferences: preferences),
+                .reservedStroke)
+        }
+        for key in ["space", "return"] {
+            assertFailure(
+                KeyboardShortcutCatalog.set(binding(key, .control), for: "panel.refresh", preferences: preferences),
+                .reservedStroke)
+        }
+        XCTAssertEqual(
+            KeyboardShortcutCatalog.binding(for: "panel.actions", preferences: preferences),
+            binding("return", .command))
+    }
+
+    func testAssistantSubmitRequiresDeliverableButtonShortcut() {
+        let preferences = Preferences(store: InMemorySettings())
+        for key in ["f1", "f2", "f12"] {
+            assertFailure(
+                KeyboardShortcutCatalog.set(binding(key, .command), for: "assistant.submit", preferences: preferences),
+                .reservedStroke)
+        }
+        XCTAssertNoThrow(
+            try KeyboardShortcutCatalog.set(binding("j", .control), for: "assistant.submit", preferences: preferences)
+                .get())
+    }
+
+    func testSanitizationRejectsUndeliverableOverrides() {
+        let sanitized = KeyboardShortcutCatalog.sanitized([
+            "panel.refresh": ShortcutOverride(binding("f4", .shift)),
+            "assistant.submit": ShortcutOverride(binding("f1", .command)),
+            "searchNotes": ShortcutOverride(binding("z")),
+        ])
+        XCTAssertNil(sanitized["panel.refresh"])
+        XCTAssertNil(sanitized["assistant.submit"])
+        XCTAssertEqual(sanitized["searchNotes"]?.binding, binding("z"))
+    }
+
     func testSingleResetAndResetAllPersistExplicitUnbound() {
         let store = InMemorySettings()
         let preferences = Preferences(store: store)

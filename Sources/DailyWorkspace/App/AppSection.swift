@@ -67,6 +67,12 @@ enum NotesMode: String, CaseIterable {
     }
 }
 
+/// Transient, source-cited text awaiting an explicit Notes review. No destination is model-selected.
+struct AssistantNoteDraft {
+    var text: String
+    let paths: [String]
+}
+
 /// The active screen stays selected while Settings is open so Back returns to it.
 @MainActor
 final class AppNavigation: ObservableObject {
@@ -78,6 +84,7 @@ final class AppNavigation: ObservableObject {
     @Published var showingAssistantPanel = false
     @Published var assistantDraft = ""
     @Published var notesMode: NotesMode = .editor
+    @Published var reviewedAssistantNote: AssistantNoteDraft?
     @Published var showQuickCapture = false
     @Published var showCommandPalette = false
 

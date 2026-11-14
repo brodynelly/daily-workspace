@@ -26,6 +26,7 @@ struct NotesPage: View {
     @EnvironmentObject private var vaultSession: VaultSession
     @EnvironmentObject private var document: NoteDocument
     @Binding var showBacklinks: Bool
+    @State private var showNoteReview = false
 
     var body: some View {
         Page(scrolls: false) {
@@ -41,11 +42,29 @@ struct NotesPage: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
+        .sheet(isPresented: $showNoteReview) {
+            if let pending = navigation.reviewedAssistantNote {
+                VaultNoteReviewSheet(
+                    source: .assistant(paths: pending.paths), draft: pending.text,
+                    onDraftChange: { updated in
+                        navigation.reviewedAssistantNote = AssistantNoteDraft(text: updated, paths: pending.paths)
+                    }
+                ) {
+                    navigation.reviewedAssistantNote = nil
+                }
+            }
+        }
     }
 
     @ViewBuilder private var headerActions: some View {
         SegmentedControl(
             "Notes mode", selection: $navigation.notesMode, options: NotesMode.allCases.map { ($0, $0.title) })
+        if navigation.reviewedAssistantNote != nil {
+            Button("Review Assistant draft") { showNoteReview = true }
+                .buttonStyle(.workspace(.secondary, size: .small))
+            Button("Discard draft") { navigation.reviewedAssistantNote = nil }
+                .buttonStyle(.quiet)
+        }
         Menu {
             Button(AppCommand.openTodayNote.title) { model.openToday() }
             if !preferences.recentNotes.isEmpty {

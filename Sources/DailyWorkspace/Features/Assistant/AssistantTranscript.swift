@@ -116,8 +116,8 @@ struct AssistantQuestion: View {
 /// A finished answer: Markdown text, the model that served it when it was a fallback, an "unverified" mark for
 /// an uncited status claim, and the lookups behind it.
 struct AssistantAnswerCard: View {
+    @EnvironmentObject private var navigation: AppNavigation
     let turn: AssistantTurn
-    @State private var showNoteReview = false
 
     private var noteSources: [String] {
         turn.citations.compactMap { citation in
@@ -146,18 +146,19 @@ struct AssistantAnswerCard: View {
             }
             MarkdownText(turn.answer)
             if !noteSources.isEmpty {
-                Button("Draft vault note", systemImage: "square.and.pencil") { showNoteReview = true }
-                    .buttonStyle(.secondary)
-                    .help("Edit the cited draft and choose a Markdown path before reviewing and confirming a save")
+                Button("Review draft in Notes", systemImage: "square.and.pencil") {
+                    navigation.reviewedAssistantNote = AssistantNoteDraft(text: suggestedDraft, paths: noteSources)
+                    navigation.notesMode = .editor
+                    navigation.section = .notes
+                }
+                .buttonStyle(.secondary)
+                .help("Open Notes to review the cited text and choose a Markdown path before confirming a save")
             }
             if !turn.toolCalls.isEmpty { ToolCallsDisclosure(calls: turn.toolCalls) }
         }
         .padding(Space.s4)
         .frame(maxWidth: .infinity, alignment: .leading)
         .cardSurface()
-        .sheet(isPresented: $showNoteReview) {
-            VaultNoteReviewSheet(source: .assistant(paths: noteSources), draft: suggestedDraft)
-        }
     }
 }
 

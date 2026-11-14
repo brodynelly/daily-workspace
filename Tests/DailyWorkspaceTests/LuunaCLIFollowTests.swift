@@ -34,7 +34,13 @@ final class LuunaCLIFollowTests: XCTestCase {
         let credentials = await spy.credentials
         XCTAssertEqual(calls, [["follow", "r", "--after", "7", "--json"]])
         XCTAssertEqual(
-            credentials, [["LUUNA_URL": LuunaOrigin.standard.description, "LUUNA_API_TOKEN": "fixture-token"]])
+            credentials,
+            [
+                [
+                    "LUUNA_URL": LuunaOrigin.standard.description, "LUUNA_API_TOKEN": "fixture-token",
+                    "LUUNA_NO_AUTO_START": "1",
+                ]
+            ])
         XCTAssertNotNil(received.contents.range(of: Data(#""type":"run.started""#.utf8)))
         do {
             try await reader.follow("r", after: -1, connection) { _ in }

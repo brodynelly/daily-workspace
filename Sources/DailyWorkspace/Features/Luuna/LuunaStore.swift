@@ -111,7 +111,12 @@ final class LuunaStore: ObservableObject {
         let (detailRead, statusRead) = await (detail, status)
         // One read can pass its own check and then wait for the other while the session changes.
         guard generation == self.generation else { return }
-        if let detailRead { record(detailRead, in: \.project) }
+        if let detailRead {
+            record(
+                detailRead.flatMap { view in
+                    view.project.id == projectID ? .success(view) : .failure(.undecodable)
+                }, in: \.project)
+        }
         if let statusRead { record(statusRead, in: \.components, state: { $0.enabled ? .populated : .uninitialized }) }
     }
 

@@ -20,6 +20,11 @@ extension QuickPanelController {
         let retained = previous.flatMap { id in rows.firstIndex(where: { $0.id == id }) }
         if retained == nil { attentionPreview = nil }
         selectedIndex = retained ?? 0
+        // The attention watcher can open the panel without a keyboard selection event.
+        // Populate the selected row's preview once the panel is visible, not at startup.
+        if isVisible, currentRoute == .attention, attentionPreview == nil {
+            select(selectedIndex)
+        }
     }
     private func sourceRows() -> [QuickPanelDataRow] {
         switch currentRoute {

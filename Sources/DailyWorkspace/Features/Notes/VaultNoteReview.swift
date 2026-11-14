@@ -19,8 +19,10 @@ struct VaultNoteReview {
     static func prepare(
         model: AppModel, path: String, draft: String, mode: Mode, requirement: Requirement
     ) throws -> VaultNoteReview {
-        let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { throw VaultError.io("Enter note text before reviewing.") }
+        guard !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw VaultError.io("Enter note text before reviewing.")
+        }
+        let text = draft
         let (vault, allowed) = try target(model: model, path: path)
         let exists = vault.exists(allowed.url)
         switch requirement {

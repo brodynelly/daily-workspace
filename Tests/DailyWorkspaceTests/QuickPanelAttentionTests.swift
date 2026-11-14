@@ -1,3 +1,5 @@
+import AppKit
+import Combine
 import Foundation
 import XCTest
 
@@ -91,6 +93,41 @@ final class QuickPanelAttentionTests: XCTestCase {
         try write("[\(agent(13, generation: 2))]")
         await source.refresh()
         XCTAssertEqual(arrivals.count, 4, "Cleared attention is a new event if it returns")
+    }
+
+    func testAutoOpenedAttentionLoadsSelectedAgentPreviewWithoutOpeningAtLaunch() async throws {
+        try write("[\(agent(10))]")
+        let scripts = directory.appendingPathComponent("kitty/scripts", isDirectory: true)
+        try FileManager.default.createDirectory(at: scripts, withIntermediateDirectories: true)
+        try Data("printf 'preview-%s\\n' \"$2\"\n".utf8)
+            .write(to: scripts.appendingPathComponent("kitty-opencode-sessions.sh"))
+
+        let panel = QuickPanelController()
+        var configuration = QuickPanelControlConfiguration()
+        configuration.dotfiles = directory.path
+        configuration.attentionFile = inventory.path
+        panel.configure(model: AppModel(dependencies: .test()), configuration: configuration)
+        defer {
+            panel.attention.stop()
+            panel.panel.orderOut(nil)
+        }
+        panel.attention.stop()
+        await panel.attention.start()
+        XCTAssertFalse(panel.isVisible, "The launch-time snapshot must not auto-open attention")
+
+        let previewLoaded = expectation(description: "Selected agent preview loaded")
+        let observation = panel.$attentionPreview.sink { preview in
+            if preview == "preview-10" { previewLoaded.fulfill() }
+        }
+        defer { observation.cancel() }
+
+        try write("[\(agent(10)),\(agent(11))]")
+        await panel.attention.refresh()
+        XCTAssertTrue(panel.isVisible)
+        XCTAssertEqual(panel.currentRoute, .attention)
+        XCTAssertEqual(panel.rows[panel.selectedIndex].title, "Task 10")
+        await fulfillment(of: [previewLoaded], timeout: 3)
+        XCTAssertEqual(panel.attentionPreview, "preview-10")
     }
 
     func testMissingAndMalformedFilesAreNotEmptyOrNewAttention() async throws {

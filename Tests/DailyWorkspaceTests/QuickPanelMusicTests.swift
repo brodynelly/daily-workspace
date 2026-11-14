@@ -11,7 +11,7 @@ private actor FakeMusicBridge: QuickPanelMusicTransport {
     var bridgeError: Data?
 
     func enqueueStatus(_ status: Data) { pendingStatuses.append(status) }
-    func setBridgeError(_ error: Data) { bridgeError = error }
+    func setBridgeError(_ error: Data?) { bridgeError = error }
     func setFailure(_ error: Error?) { failure = error }
 
     func call(_ arguments: [String]) async throws -> Data {
@@ -236,6 +236,32 @@ final class QuickPanelMusicTests: XCTestCase {
         }
         let calls = await bridge.calls
         XCTAssertEqual(calls, [["library"]])
+    }
+
+    func testPollingFailureAfterLoadShowsPermissionInsteadOfStalePlayback() async throws {
+        let bridge = FakeMusicBridge()
+        await bridge.enqueueStatus(try FakeMusicBridge.player(id: "a"))
+        let music = music(bridge)
+        try await music.load()
+        XCTAssertNotNil(music.library)
+        XCTAssertNotNil(music.status)
+        XCTAssertTrue(music.summary.contains("Song"))
+
+        await bridge.setBridgeError(Data(#"{"error":{"code":-1743}}"#.utf8))
+        do {
+            try await music.pollNow()
+            XCTFail("Expected denied Automation access")
+        } catch {
+            XCTAssertEqual(error as? QuickPanelMusicError, .permissionDenied)
+        }
+        XCTAssertNil(music.status)
+        XCTAssertTrue(music.summary.contains("Privacy & Security → Automation"))
+        XCTAssertFalse(music.summary.contains("Song"))
+
+        await bridge.setBridgeError(nil)
+        try await music.pollNow()
+        XCTAssertNil(music.errorMessage)
+        XCTAssertNotNil(music.status)
     }
 
     func testAutomationMessageOnly1743DoesNotMisclassifyUnrelatedCodes() async {

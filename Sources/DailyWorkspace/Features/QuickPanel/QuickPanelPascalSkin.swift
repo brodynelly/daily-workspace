@@ -61,10 +61,11 @@ struct QuickPanelPascalSkin: View {
             let contentWidth = max(0, width - x - 7)
             let commandY = height - 122
             let showsPreview = controller.showsPreview
-            let documentBottom = controller.zoomed ? height - 38 : height - 134
+            let bottom = height - 38
+            let documentBottom = controller.zoomed ? bottom : bottom - 96
             let documentHeight =
                 showsPreview
-                ? min(210, max(100, (documentBottom - 40) * 0.45))
+                ? max(100, min(210, (documentBottom - 40) * 0.45))
                 : max(100, documentBottom - 40)
             let previewY = 52 + documentHeight
             let previewHeight = showsPreview ? max(80, documentBottom - 64 - documentHeight) : 0
@@ -125,7 +126,9 @@ struct QuickPanelPascalSkin: View {
     }
 
     private var documentTitle: String {
-        "\(route == .home ? "WORKSPACE" : route == .music ? "LIBRARY" : route.rawValue.uppercased()).PAS"
+        let name =
+            controller.shortcutTool ?? (route == .home ? "WORKSPACE" : route == .music ? "LIBRARY" : route.rawValue)
+        return "\(name.uppercased()).PAS"
     }
 
     private func pane<Content: View>(

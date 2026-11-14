@@ -149,6 +149,9 @@ extension QuickPanelPascalSkin {
                 }
                 Button("Open Calendar in Daily Workspace") { controller.open(.calendar) }
                     .foregroundStyle(Ink.title).buttonStyle(.plain)
+            } else if music, let error = controller.music.errorMessage {
+                Text("MUSIC ACCESS ERROR").foregroundStyle(Ink.notice)
+                Text(error).fixedSize(horizontal: false, vertical: true)
             } else if let row = controller.rows.indices.contains(controller.selectedIndex)
                 ? controller.rows[controller.selectedIndex] : nil
             {
@@ -223,7 +226,9 @@ extension QuickPanelPascalSkin {
                         : "\(controller.rows.count) \(controller.rows.count == 1 ? "item" : "items") · \(route.title)")
             )
             .font(Typography.font(11, preferred: controller.panelFont))
-            .foregroundStyle(controller.error == nil ? Ink.meta : Ink.notice)
+            .foregroundStyle(
+                controller.error == nil && (!music || controller.music.errorMessage == nil) ? Ink.meta : Ink.notice
+            )
             .lineLimit(1)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)

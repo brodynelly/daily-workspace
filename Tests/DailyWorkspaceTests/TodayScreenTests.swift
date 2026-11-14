@@ -132,4 +132,22 @@ final class TodayScreenTests: XCTestCase {
         state.edited()
         XCTAssertNil(state.status)
     }
+
+    func testVaultDestinationsRequireReviewWithoutClearingDraft() {
+        var state = TodayCaptureState()
+        state.draft = "Keep this thought"
+
+        for destination in [AppModel.CaptureDestination.quickNotes, .inbox] {
+            state.destination = destination
+            XCTAssertTrue(state.requiresVaultReview)
+            XCTAssertEqual(state.draft, "Keep this thought")
+            XCTAssertNil(state.status)
+        }
+
+        for destination in [AppModel.CaptureDestination.task, .note] {
+            state.destination = destination
+            XCTAssertFalse(state.requiresVaultReview)
+        }
+    }
+
 }

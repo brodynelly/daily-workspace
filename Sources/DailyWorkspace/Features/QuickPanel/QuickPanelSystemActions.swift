@@ -111,9 +111,15 @@ struct NativeQuickPanelSystemActionExecutor: QuickPanelSystemActionExecuting {
 @MainActor
 struct QuickPanelSystemActions {
     private let executor: any QuickPanelSystemActionExecuting
+    private static let bluetoothPowerCycleInterval: Duration = .seconds(2)
+    private let sleep: @MainActor (Duration) async -> Void
 
-    init(executor: (any QuickPanelSystemActionExecuting)? = nil) {
+    init(
+        executor: (any QuickPanelSystemActionExecuting)? = nil,
+        sleep: @escaping @MainActor (Duration) async -> Void = { try? await Task.sleep(for: $0) }
+    ) {
         self.executor = executor ?? NativeQuickPanelSystemActionExecutor()
+        self.sleep = sleep
     }
 
     func perform(_ action: QuickPanelSystemAction) async -> QuickPanelSystemActionResult {
@@ -152,6 +158,7 @@ struct QuickPanelSystemActions {
             return .unavailable("BT Restart requires blueutil in /opt/homebrew/bin or /usr/local/bin.")
         }
         try await executor.run(executable: executable, arguments: ["--power", "0"])
+        await sleep(Self.bluetoothPowerCycleInterval)
         do {
             try await executor.run(executable: executable, arguments: ["--power", "1"])
             return .completed

@@ -224,14 +224,11 @@ final class WorkspaceAssistantContext: AssistantContext {
                 "Luuna tickets for project \(binding.projectID) are unavailable (\(tickets.state)). "
                     + "Items are unknown, not empty.")
         }
-        guard board.state.isSuccess, board.state != .uninitialized, let placement = board.value else {
-            throw ToolFailure(
-                "Luuna board for project \(binding.projectID) is unavailable (\(board.state)). "
-                    + "Ticket placement is unknown, not empty.")
-        }
         var columns: [String: String] = [:]
-        for card in placement.cards(forProjectID: binding.projectID) where card.kind.rawValue == "ticket" {
-            if let id = card.ticketID { columns[id] = card.column.rawValue }
+        if board.state.isSuccess, board.state != .uninitialized, let placement = board.value {
+            for card in placement.cards(forProjectID: binding.projectID) where card.kind.rawValue == "ticket" {
+                if let id = card.ticketID { columns[id] = card.column.rawValue }
+            }
         }
         return records.filter { $0.projectID == binding.projectID }.map { ticket in
             ToolNativeTicket(

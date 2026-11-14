@@ -20,15 +20,88 @@ final class AssistantVoiceService: ObservableObject {
     private var permissionMonitor: Timer?
     private var generation = 0
 
-    /// Replace only our previous transcription, preserving text typed elsewhere in the draft.
-    static func draft(_ existing: String, replacing previous: String, with recognized: String) -> String {
-        guard !recognized.isEmpty else { return existing }
-        var draft = existing
-        if !previous.isEmpty, draft.hasSuffix(previous) {
-            draft.removeLast(previous.count)
+    /// Tracks the exact text inserted by this dictation session, not a matching suffix elsewhere.
+    struct Draft {
+        private var previousDraft: String?
+        private var recognizedRange: Range<Int>?
+        private var previousRecognition = ""
+        private var userEditedRecognition = false
+
+        mutating func update(_ existing: String, with recognized: String) -> String {
+            guard !recognized.isEmpty, !userEditedRecognition else { return existing }
+
+            if let previousDraft, let recognizedRange {
+                guard
+                    let start = adjustedStart(
+                        in: existing, since: previousDraft, recognizedRange: recognizedRange
+                    )
+                else {
+                    userEditedRecognition = true
+                    return existing
+                }
+
+                guard start >= 0, start + recognizedRange.count <= existing.count else {
+                    userEditedRecognition = true
+                    return existing
+                }
+                let lower = existing.index(existing.startIndex, offsetBy: start)
+                let upper = existing.index(lower, offsetBy: recognizedRange.count)
+                guard existing[lower..<upper] == previousRecognition else {
+                    userEditedRecognition = true
+                    return existing
+                }
+                var result = existing
+                result.replaceSubrange(lower..<upper, with: recognized)
+                self.previousDraft = result
+                self.recognizedRange = start..<(start + recognized.count)
+                previousRecognition = recognized
+                return result
+            }
+
+            var result = existing
+            if !result.isEmpty, !result.hasSuffix(" ") { result += " " }
+            let start = result.count
+            result += recognized
+            previousDraft = result
+            recognizedRange = start..<(start + recognized.count)
+            previousRecognition = recognized
+            return result
         }
-        if !draft.isEmpty, !draft.hasSuffix(" ") { draft += " " }
-        return draft + recognized
+
+        private func adjustedStart(
+            in existing: String, since previousDraft: String, recognizedRange: Range<Int>
+        ) -> Int? {
+            if existing == previousDraft { return recognizedRange.lowerBound }
+            var prefix = 0
+            var oldCursor = previousDraft.startIndex
+            var newCursor = existing.startIndex
+            while oldCursor < previousDraft.endIndex, newCursor < existing.endIndex,
+                previousDraft[oldCursor] == existing[newCursor]
+            {
+                prefix += 1
+                previousDraft.formIndex(after: &oldCursor)
+                existing.formIndex(after: &newCursor)
+            }
+
+            var suffix = 0
+            var oldTail = previousDraft.endIndex
+            var newTail = existing.endIndex
+            while oldTail > oldCursor, newTail > newCursor {
+                let oldBefore = previousDraft.index(before: oldTail)
+                let newBefore = existing.index(before: newTail)
+                guard previousDraft[oldBefore] == existing[newBefore] else { break }
+                suffix += 1
+                oldTail = oldBefore
+                newTail = newBefore
+            }
+
+            let oldChangedEnd = previousDraft.count - suffix
+            if oldChangedEnd <= recognizedRange.lowerBound {
+                return recognizedRange.lowerBound + existing.count - previousDraft.count
+            }
+            if prefix >= recognizedRange.upperBound { return recognizedRange.lowerBound }
+            return nil
+        }
     }
 
     func startDictation() {

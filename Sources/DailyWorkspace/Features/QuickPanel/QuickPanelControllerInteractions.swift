@@ -61,7 +61,10 @@ extension QuickPanelController {
                 navigationHistory.append(
                     .init(route: currentRoute, shortcutTool: shortcutTool, workspacePath: workspacePath))
                 workspacePath = path
-                workspaceRows = await dataProvider.workspaceActions(for: path)
+                workspaceRows = []
+                let actions = await dataProvider.workspaceActions(for: path)
+                guard workspacePath == path else { return }
+                workspaceRows = actions
                 query = ""
                 updateRows()
             }
@@ -164,13 +167,17 @@ extension QuickPanelController {
             currentRoute = previous.route
             shortcutTool = previous.shortcutTool
             workspacePath = previous.workspacePath
-            updateRows()
+            if previous.route == .calendar { loadCalendar() } else { updateRows() }
             return
         }
         hide(restoreFocus: true)
     }
 
     func cyclePane(reverse: Bool = false) {
+        if zoomed {
+            focusedPane = "document"
+            return
+        }
         let panes = currentRoute == .music ? ["playlists", "document", "command"] : ["document", "command"]
         let position = panes.firstIndex(of: focusedPane) ?? 0
         focusedPane = panes[(position + (reverse ? panes.count - 1 : 1)) % panes.count]

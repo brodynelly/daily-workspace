@@ -228,12 +228,7 @@ enum KeyboardShortcutCatalog {
         guard (1...2).contains(binding.strokes.count) else { return .invalidStroke }
         if context == .global && binding.strokes.count != 1 { return .invalidStroke }
         if context == .quickPanel && binding.strokes.count != 1 { return .invalidStroke }
-        if id == "assistant.submit" {
-            guard binding.strokes.count == 1,
-                let stroke = binding.strokes.first,
-                !stroke.modifiers.isDisjoint(with: [.command, .control])
-            else { return .reservedStroke }
-        }
+        if id == "assistant.submit", binding.menuShortcut == nil { return .reservedStroke }
         for stroke in binding.strokes {
             if let error = validateStroke(stroke, context: context) { return error }
         }
@@ -250,6 +245,23 @@ enum KeyboardShortcutCatalog {
         }
         if stroke.modifiers == .command && ["q", "h", "m", "w", "space"].contains(stroke.key) {
             return .reservedStroke
+        }
+        if context == .quickPanel {
+            // The panel dispatches configured shortcuts before its fixed navigation, menus and
+            // route-specific function keys. Do not let a binding steal those key events.
+            if [
+                "f2", "f4", "f5", "f6", "f7", "f8",
+                "leftArrow", "rightArrow", "upArrow", "downArrow", "delete",
+            ].contains(stroke.key) {
+                return .reservedStroke
+            }
+            if stroke.modifiers.contains(.option),
+                ["f", "e", "p", "v", "s", "w", "h"].contains(stroke.key)
+            {
+                return .reservedStroke
+            }
+            if stroke.key == "space" && !stroke.modifiers.contains(.command) { return .reservedStroke }
+            if stroke.key == "return" && !stroke.modifiers.contains(.command) { return .reservedStroke }
         }
         if context == .global && stroke.modifiers.isDisjoint(with: [.command, .option, .control]) {
             return .reservedStroke

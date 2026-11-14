@@ -88,11 +88,15 @@ struct LuunaProjectPanel: View {
     }
 
     @ViewBuilder private func work(_ binding: LuunaProjectBinding) -> some View {
+        let hasRetainedWork =
+            luunaWork.observedProjectBinding == binding
+            && (luunaWork.board.value != nil || luunaWork.tickets.value != nil
+                || luunaWork.selectedTicket.value != nil)
         if binding.origin != luuna.origin {
             ReasonNote(
                 "Native work is unavailable: this project belongs to \(binding.origin), not \(luuna.origin).",
                 tone: .attention)
-        } else if !luuna.isConnected {
+        } else if !luuna.isConnected && !hasRetainedWork {
             ReasonNote(
                 "Native work requires a connected Luuna runtime. No board or tickets are available for this connection.",
                 tone: .attention)
@@ -100,11 +104,27 @@ struct LuunaProjectPanel: View {
             Panel("Native work", description: "Read-only board and tickets from Luuna.", variant: .subpanel) {
                 Button("Refresh work") { Task { await luunaWork.refresh() } }
                     .buttonStyle(.workspace(.secondary, size: .small))
-                    .disabled(luunaWork.isRefreshing)
+                    .disabled(luunaWork.isRefreshing || !luuna.isConnected)
             } content: {
+                if !luuna.isConnected {
+                    ReasonNote(
+                        "The Luuna connection check failed. Native work below is from the last successful read.",
+                        tone: .attention)
+                }
                 board
                 tickets
             }
+        }
+    }
+
+    @ViewBuilder private func workNote<Value>(name: String, observation: LuunaObservation<Value>) -> some View {
+        if !luuna.isConnected, observation.state.isSuccess, let last = observation.lastSuccessAt {
+            let words = LuunaStatusWords.describe(luuna.connectionState, origin: luuna.origin)
+            ReasonNote(
+                "Stale: \(name) as last read at \(ObservedSource.time(last)). Connection check failed: \(words.text).",
+                tone: .interrupted)
+        } else {
+            LuunaObservedNote(name: name, observation: observation, origin: luuna.origin)
         }
     }
 
@@ -144,7 +164,7 @@ struct LuunaProjectPanel: View {
         } else if luunaWork.board.state == .unavailable(.notChecked) {
             Text("The board has not been read on this connection.")
         }
-        LuunaObservedNote(name: "Board", observation: luunaWork.board, origin: luuna.origin)
+        workNote(name: "Board", observation: luunaWork.board)
     }
 
     @ViewBuilder private var tickets: some View {
@@ -172,10 +192,12 @@ struct LuunaProjectPanel: View {
         } else if luunaWork.tickets.state == .unavailable(.notChecked) {
             Text("Tickets have not been read on this connection.")
         }
-        LuunaObservedNote(name: "Tickets", observation: luunaWork.tickets, origin: luuna.origin)
+        workNote(name: "Tickets", observation: luunaWork.tickets)
         if let selectedID = luunaWork.selectedTicketID {
             Text("Ticket detail").textRole(.bodyStrong, lineBox: false)
-                .task(id: selectedID) { await luunaWork.refreshSelectedTicket() }
+                .task(id: selectedID) {
+                    if luuna.isConnected { await luunaWork.refreshSelectedTicket() }
+                }
             if let ticket = luunaWork.selectedTicket.value {
                 Facts {
                     FactRow("Ticket ID") { Text(verbatim: ticket.id).font(TextRole.mono.font) }
@@ -197,7 +219,7 @@ struct LuunaProjectPanel: View {
             } else if luunaWork.selectedTicket.state == .unavailable(.notChecked) {
                 Text("Reading ticket \(selectedID)…")
             }
-            LuunaObservedNote(name: "Ticket detail", observation: luunaWork.selectedTicket, origin: luuna.origin)
+            workNote(name: "Ticket detail", observation: luunaWork.selectedTicket)
         }
     }
 

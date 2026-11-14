@@ -121,6 +121,7 @@ final class QuickPanelController: NSObject, ObservableObject, NSWindowDelegate {
     }
     var clipboardFeedbackEnabled: Bool {
         configuration.clipboardFeedback && model?.preferences.quickPanelClipboardEnabled == true
+            && ProcessInfo.processInfo.environment["QAP_INTEGRATIONS"] != "0"
     }
 
     let panel: QuickPanelWindow

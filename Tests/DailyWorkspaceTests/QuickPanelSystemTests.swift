@@ -69,7 +69,7 @@ final class QuickPanelSystemTests: XCTestCase {
         let executor = FakeSystemActionExecutor()
         executor.bluetooth = nil
 
-        let result = await QuickPanelSystemActions(executor: executor).perform(.bluetoothRestart)
+        let result = await QuickPanelSystemActions(executor: executor, sleep: { _ in }).perform(.bluetoothRestart)
 
         guard case .unavailable(let message) = result else {
             return XCTFail("Expected an unavailable state, got \(result)")
@@ -81,7 +81,7 @@ final class QuickPanelSystemTests: XCTestCase {
     func testBluetoothRestartTurnsPowerOffThenBackOn() async {
         let executor = FakeSystemActionExecutor()
 
-        let result = await QuickPanelSystemActions(executor: executor).perform(.bluetoothRestart)
+        let result = await QuickPanelSystemActions(executor: executor, sleep: { _ in }).perform(.bluetoothRestart)
         XCTAssertEqual(result, .completed)
         XCTAssertEqual(
             executor.calls,
@@ -93,11 +93,40 @@ final class QuickPanelSystemTests: XCTestCase {
         )
     }
 
+    func testBluetoothWaitsTwoSecondsBetweenPowerChangesWithoutBlockingMainActor() async {
+        let executor = FakeSystemActionExecutor()
+        let delayEntered = expectation(description: "Bluetooth power-off completed")
+        var interval: Duration?
+        var release: CheckedContinuation<Void, Never>?
+        let actions = QuickPanelSystemActions(
+            executor: executor,
+            sleep: { duration in
+                interval = duration
+                await withCheckedContinuation { continuation in
+                    release = continuation
+                    delayEntered.fulfill()
+                }
+            })
+
+        let operation = Task { await actions.perform(.bluetoothRestart) }
+        await fulfillment(of: [delayEntered], timeout: 2)
+        XCTAssertEqual(interval, .seconds(2))
+        XCTAssertEqual(
+            executor.calls,
+            [.bluetoothLookup, .run("/opt/homebrew/bin/blueutil", ["--power", "0"])],
+            "Power-on must wait for the asynchronous interval"
+        )
+        release?.resume()
+        let result = await operation.value
+        XCTAssertEqual(result, .completed)
+        XCTAssertEqual(executor.calls.last, .run("/opt/homebrew/bin/blueutil", ["--power", "1"]))
+    }
+
     func testBluetoothPermissionDenialDoesNotAttemptToTurnPowerOn() async {
         let executor = FakeSystemActionExecutor()
         executor.runErrors[1] = NSError(domain: NSPOSIXErrorDomain, code: 1)
 
-        let result = await QuickPanelSystemActions(executor: executor).perform(.bluetoothRestart)
+        let result = await QuickPanelSystemActions(executor: executor, sleep: { _ in }).perform(.bluetoothRestart)
 
         guard case .permissionDenied(let message) = result else {
             return XCTFail("Expected a permission-denied state, got \(result)")
@@ -110,7 +139,7 @@ final class QuickPanelSystemTests: XCTestCase {
         let executor = FakeSystemActionExecutor()
         executor.runErrors[2] = TestFailure("Bluetooth permission denied")
 
-        let result = await QuickPanelSystemActions(executor: executor).perform(.bluetoothRestart)
+        let result = await QuickPanelSystemActions(executor: executor, sleep: { _ in }).perform(.bluetoothRestart)
 
         guard case .failed(let message) = result else {
             return XCTFail("Expected a failure state, got \(result)")
@@ -124,7 +153,7 @@ final class QuickPanelSystemTests: XCTestCase {
         let executor = FakeSystemActionExecutor()
         executor.runErrors[2] = NSError(domain: NSPOSIXErrorDomain, code: 13)
 
-        let result = await QuickPanelSystemActions(executor: executor).perform(.bluetoothRestart)
+        let result = await QuickPanelSystemActions(executor: executor, sleep: { _ in }).perform(.bluetoothRestart)
 
         guard case .permissionDenied(let message) = result else {
             return XCTFail("Expected a permission-denied state, got \(result)")

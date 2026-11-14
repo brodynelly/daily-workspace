@@ -74,6 +74,7 @@ final class LuunaCLIReaderTests: XCTestCase {
                 call.environment,
                 [
                     "LUUNA_URL": "http://[::1]:5151", "LUUNA_API_TOKEN": "keychain-token",
+                    "LUUNA_NO_AUTO_START": "1",
                 ])
             XCTAssertFalse(call.arguments.joined().contains("keychain-token"))
         }
@@ -118,6 +119,7 @@ final class LuunaCLIReaderTests: XCTestCase {
             Array(
                 repeating: [
                     "LUUNA_URL": LuunaOrigin.standard.description, "LUUNA_API_TOKEN": "current-token",
+                    "LUUNA_NO_AUTO_START": "1",
                 ], count: 5))
         XCTAssertEqual(
             spy.calls.map(\.arguments),

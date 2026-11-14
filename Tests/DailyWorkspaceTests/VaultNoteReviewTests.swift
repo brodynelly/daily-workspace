@@ -66,6 +66,16 @@ final class VaultNoteReviewTests: XCTestCase {
         XCTAssertEqual(try contents(of: url), "# Idea\nA source.\n")
     }
 
+    func testReviewedNotePreservesMarkdownIndentationAndTrailingWhitespace() throws {
+        let path = "00-inbox/indented.md"
+        let draft = "    code block  \n\n"
+        let review = try VaultNoteReview.prepare(
+            model: model, path: path, draft: draft, mode: .replace, requirement: .new)
+        XCTAssertEqual(review.after, draft)
+        try review.commit(model: model)
+        XCTAssertEqual(try contents(of: root.appendingPathComponent(path)), draft)
+    }
+
     func testExternalEditAfterPreviewRefusesSaveWithoutLosingEitherVersion() throws {
         let url = root.appendingPathComponent("00-inbox/existing.md")
         try write("original\n", to: url)

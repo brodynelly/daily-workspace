@@ -11,7 +11,26 @@ extension QuickPanelController {
     }
 
     func handleKey(_ event: NSEvent) -> Bool {
-        guard !event.isARepeat else { return false }
+        if event.isARepeat {
+            let modifiers = event.modifierFlags
+            if !modifiers.contains(.command), !modifiers.contains(.option), !modifiers.contains(.control) {
+                if [125, 126, 116, 121, 115, 119].contains(event.keyCode) {
+                    return handleSelectionKey(event.keyCode, command: false, shift: modifiers.contains(.shift))
+                }
+                if currentRoute == .music, [123, 124].contains(event.keyCode) {
+                    return handleMusicKey(event.keyCode, character: "", command: false)
+                }
+                if focusedPane == "command", [123, 124].contains(event.keyCode) { return false }
+            }
+            // Let the focused search field repeat text/editing keys, not panel actions.
+            return
+                !(focusedPane == "command"
+                && !modifiers.contains(.command)
+                && (event.keyCode == 51 || event.keyCode == 117
+                    || (!modifiers.contains(.option) && !modifiers.contains(.control)
+                        && event.characters?.isEmpty == false
+                        && event.characters?.unicodeScalars.allSatisfy({ $0.value >= 32 && $0.value < 0xF700 }) == true)))
+        }
         return handleKey(
             keyCode: event.keyCode, characters: event.charactersIgnoringModifiers ?? "",
             modifiers: event.modifierFlags, typedCharacters: event.characters)
@@ -149,11 +168,14 @@ extension QuickPanelController {
     }
 
     private var pageSize: Int {
-        // Match the visible document list: pane insets, 27-point header and 28-point rows.
+        // Match QAP's scroll viewport (document pane height minus 34pt insets).
         let height = panel.contentView?.bounds.height ?? panel.frame.height
+        let documentBottom = zoomed ? height - 38 : height - 134
         let documentHeight =
-            showsPreview ? min(210, max(100, (height - 174) * 0.45)) : height - (zoomed ? 78 : 174)
-        return max(1, Int(max(0, documentHeight - 60) / 28))
+            showsPreview
+            ? min(210, max(100, (documentBottom - 40) * 0.45))
+            : max(100, documentBottom - 40)
+        return max(1, Int(max(0, documentHeight - 34) / 28))
     }
 
     private var playlistPageSize: Int {

@@ -148,7 +148,8 @@ struct CaptureForm: View {
         .onAppear { focused = true }
         .sheet(isPresented: $showVaultReview) {
             VaultNoteReviewSheet(
-                source: destination == .quickNotes ? .quickNotes : .inbox, draft: text
+                source: destination == .quickNotes ? .quickNotes : .inbox, draft: text,
+                onDraftChange: { text = $0 }
             ) {
                 text = ""
                 captureError = nil

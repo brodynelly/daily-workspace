@@ -35,6 +35,32 @@ final class LuunaStoreTests: XCTestCase {
         XCTAssertTrue(reader.connections.allSatisfy { $0.token == "tok" && $0.origin == .standard })
     }
 
+    func testForeignProjectDetailIsInvalidAndCannotReplaceLastGoodDetail() async {
+        var foreign = LuunaFixtures.projectValue
+        foreign.project.id = "another-project"
+        reader.set("project", Result<LuunaProjectView, LuunaReadFailure>.success(foreign))
+        let store = makeStore()
+        store.selectProject(binding)
+
+        await store.refresh()
+        XCTAssertEqual(store.project.state, .partial)
+        XCTAssertNil(store.project.value)
+        XCTAssertEqual(store.components.state, .uninitialized)
+
+        reader.set("project", Result<LuunaProjectView, LuunaReadFailure>.success(LuunaFixtures.projectValue))
+        await store.refresh()
+        let lastSuccess = store.project.lastSuccessAt
+        clock = clock.addingTimeInterval(60)
+        reader.set("project", Result<LuunaProjectView, LuunaReadFailure>.success(foreign))
+
+        await store.refresh()
+        XCTAssertEqual(store.project.state, .partial)
+        XCTAssertEqual(store.project.value?.project.id, binding.projectID)
+        XCTAssertEqual(store.project.lastSuccessAt, lastSuccess)
+        XCTAssertEqual(store.project.observedAt, clock)
+        XCTAssertTrue(store.project.isShowingRetainedValue)
+    }
+
     func testHealthOKButProjectsUnauthorizedIsNotConnected() async {
         reader.set("projects", Result<[LuunaProjectRecord], LuunaReadFailure>.failure(.unauthorized))
         let store = makeStore()

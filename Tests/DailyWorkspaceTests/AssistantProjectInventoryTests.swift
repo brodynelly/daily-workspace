@@ -3,6 +3,40 @@ import XCTest
 
 @testable import DailyWorkspace
 
+private struct TicketOnlyReader: LuunaWorkReading {
+    func board(_ projectID: String, _ connection: LuunaConnection) async throws -> LuunaBoard {
+        throw LuunaReadFailure.unavailable(.notChecked)
+    }
+
+    func tickets(_ projectID: String, _ connection: LuunaConnection) async throws -> [LuunaTicketRecord] {
+        try JSONDecoder().decode(
+            [LuunaTicketRecord].self,
+            from: Data(
+                #"[{"id":"native-1","project_id":"native-project","revision":1,"title":"Native work","status":"open"}]"#
+                    .utf8))
+    }
+
+    func showTicket(_ ticketID: String, _ connection: LuunaConnection) async throws -> LuunaTicketRecord {
+        throw LuunaReadFailure.unavailable(.notChecked)
+    }
+
+    func home(_ projectID: String, _ connection: LuunaConnection) async throws -> LuunaHome {
+        throw LuunaReadFailure.unavailable(.notChecked)
+    }
+
+    func homeAll(_ connection: LuunaConnection) async throws -> LuunaHome {
+        throw LuunaReadFailure.unavailable(.notChecked)
+    }
+
+    func runs(_ projectID: String, _ connection: LuunaConnection) async throws -> [LuunaRunRecord] {
+        throw LuunaReadFailure.unavailable(.notChecked)
+    }
+
+    func run(_ runID: String, _ connection: LuunaConnection) async throws -> LuunaRunRecord {
+        throw LuunaReadFailure.unavailable(.notChecked)
+    }
+}
+
 @MainActor
 final class AssistantProjectInventoryTests: XCTestCase {
     private func run(_ context: AssistantContext, input: String = "{}") async throws -> (ToolRunResult, [String: Any]) {
@@ -155,6 +189,42 @@ final class AssistantProjectInventoryTests: XCTestCase {
             AgentToolUse(id: "missing", name: "get_project", input: Data(#"{"slug":"visible"}"#.utf8)))
         XCTAssertTrue(project.call.isError)
         XCTAssertTrue(project.call.citations.isEmpty)
+    }
+
+    func testProjectPreservesNativeTicketsWhenBoardPlacementIsUnavailable() async throws {
+        let root = try makeTemporaryVault(self)
+        try write("---\ntype: project\n---\n# Atlas\n", to: root.appendingPathComponent("01-projects/atlas/atlas.md"))
+        let directory = try makeTemporaryVault(self)
+        let shell = AppModel(dependencies: .test())
+        let projects = ProjectsStore(
+            registry: AssociationRegistry(directory: WorkspaceDirectory(url: directory)),
+            luuna: nil, vaultRoot: root)
+        await projects.refresh()
+        projects.select("atlas")
+        XCTAssertNil(projects.bindLuuna(origin: .standard, projectID: "native-project"))
+        let work = LuunaWorkStore(reader: TicketOnlyReader())
+        work.connect(origin: .standard, token: "test-token", projectID: "native-project")
+        await work.refresh()
+        XCTAssertEqual(work.tickets.state, .populated)
+        XCTAssertFalse(work.board.state.isSuccess)
+        let context = WorkspaceAssistantContext(
+            vaultRoot: { root }, openLoops: shell.openLoops, projects: projects, luunaWork: work,
+            calendarStore: FakeCalendarStore(),
+            ledger: RestartLedger(url: directory.appendingPathComponent("restart-ledger.jsonl")))
+
+        let result = await AssistantToolRunner(context: context).run(
+            AgentToolUse(id: "project", name: "get_project", input: Data(#"{"slug":"atlas"}"#.utf8)))
+        XCTAssertFalse(result.call.isError, result.call.errorMessage ?? "")
+        let block = try XCTUnwrap(parseJSONObject(result.block))
+        let content = try XCTUnwrap(block["content"] as? String)
+        let project = try XCTUnwrap(parseJSONObject(Data(content.utf8)))
+        let tickets = try XCTUnwrap(project["native_tickets"] as? [[String: Any]])
+        XCTAssertEqual(tickets.count, 1)
+        XCTAssertEqual(tickets[0]["id"] as? String, "native-1")
+        XCTAssertEqual(tickets[0]["status"] as? String, "open")
+        XCTAssertNil(tickets[0]["board_column"])
+        XCTAssertNil(project["native_tickets_unavailable"])
+        XCTAssertTrue(result.call.citations.contains(.init(kind: .record, value: "native-1")))
     }
 
     func testRestartPromptRequestsOnlyAStructuredJSONObject() {

@@ -13,6 +13,7 @@ struct VaultNoteReviewSheet: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.dismiss) private var dismiss
     let source: Source
+    let onDraftChange: (String) -> Void
     let onSaved: () -> Void
     @State private var path: String
     @State private var draft: String
@@ -20,8 +21,12 @@ struct VaultNoteReviewSheet: View {
     @State private var review: VaultNoteReview?
     @State private var error: String?
 
-    init(source: Source, draft: String, onSaved: @escaping () -> Void = {}) {
+    init(
+        source: Source, draft: String, onDraftChange: @escaping (String) -> Void = { _ in },
+        onSaved: @escaping () -> Void = {}
+    ) {
         self.source = source
+        self.onDraftChange = onDraftChange
         self.onSaved = onSaved
         let initialPath: String
         switch source {
@@ -86,6 +91,10 @@ struct VaultNoteReviewSheet: View {
         .padding(Space.s5)
         .frame(width: 720)
         .background(Theme.surfaceOverlay)
+        .onChange(of: draft) { _, updated in
+            invalidate()
+            onDraftChange(updated)
+        }
     }
 
     private func preview(_ label: String, text: String) -> some View {

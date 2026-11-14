@@ -32,6 +32,7 @@ final class QuickPanelMusic: ObservableObject {
 
     var summary: String {
         if preview { return "Read-only layout preview · Music playback is disabled" }
+        if let errorMessage { return errorMessage }
         guard let status else { return "Music status unavailable" }
         var text =
             "\(status.state)  ·  \(status.track?.name ?? "") — \(status.track?.artist ?? "")  ·  volume \(status.volume)%"
@@ -105,6 +106,7 @@ final class QuickPanelMusic: ObservableObject {
             try await refreshLibraryAndStatus()
             errorMessage = nil
         } catch {
+            status = nil
             errorMessage = Self.describe(error)
             throw Self.map(error)
         }
@@ -134,7 +136,9 @@ final class QuickPanelMusic: ObservableObject {
                 try await stepQueue(by: 1)
             }
         } catch {
+            guard revision == capturedRevision, !busy, !sleeping else { return }
             if !(error is CancellationError) {
+                status = nil
                 errorMessage = Self.describe(error)
                 throw Self.map(error)
             }
