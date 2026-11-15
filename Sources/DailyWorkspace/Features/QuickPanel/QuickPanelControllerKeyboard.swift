@@ -230,8 +230,8 @@ extension QuickPanelController {
         switch keyCode {
         case 120: randomMusic()
         case 118: shuffleMusic()
-        case 96: performMusic(.volume(-5))
-        case 97: performMusic(.volume(5))
+        case 96: performMusic(.volume(-10))
+        case 97: performMusic(.volume(10))
         case 98: performMusic(.previous)
         case 100: performMusic(.playPause)
         case 101: performMusic(.next)
@@ -360,8 +360,8 @@ extension QuickPanelController {
         case "next": performMusic(.next)
         case "shuffle": shuffleMusic()
         case "endShuffle": performMusic(.endShuffle)
-        case "volumeDown": performMusic(.volume(-5))
-        case "volumeUp": performMusic(.volume(5))
+        case "volumeDown": performMusic(.volume(-10))
+        case "volumeUp": performMusic(.volume(10))
         default: break
         }
     }

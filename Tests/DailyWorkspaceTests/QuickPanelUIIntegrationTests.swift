@@ -299,4 +299,38 @@ extension QuickPanelUIIntegrationTests {
         XCTAssertEqual(panel.focusedPane, "command")
     }
 
+    func testMusicVolumeFunctionKeysAndMenusUseTenPercentSteps() throws {
+        let panel = QuickPanelController()
+        panel.currentRoute = .music
+        var deltas: [Int] = []
+        panel.onMusicAction = { action in
+            if case .volume(let delta) = action { deltas.append(delta) }
+        }
+
+        XCTAssertTrue(panel.handleKey(keyCode: 96))
+        XCTAssertTrue(panel.handleKey(keyCode: 97))
+        let menu = panel.panelMenu(named: "Play")
+        for title in ["Volume down", "Volume up"] {
+            let item = try XCTUnwrap(menu.items.first { $0.title == title })
+            XCTAssertTrue(NSApp.sendAction(try XCTUnwrap(item.action), to: item.target, from: item))
+        }
+        XCTAssertEqual(deltas, [-10, 10, -10, 10])
+        XCTAssertTrue(panel.handleKey(keyCode: 27, characters: "-", modifiers: [.command]))
+        XCTAssertEqual(deltas.last, -5, "⌘− keeps its separate five-percent step")
+    }
+
+    func testSuccessfulMusicActionClearsStaleBusyFeedback() async {
+        let panel = QuickPanelController()
+        panel.currentRoute = .music
+        panel.reportError("Music is finishing another action.")
+        let cleared = expectation(description: "Music action clears stale feedback")
+        panel.onErrorChange = { message in
+            if message == nil { cleared.fulfill() }
+        }
+
+        panel.performMusic(.endShuffle)
+        await fulfillment(of: [cleared], timeout: 1)
+        XCTAssertNil(panel.error)
+    }
+
 }

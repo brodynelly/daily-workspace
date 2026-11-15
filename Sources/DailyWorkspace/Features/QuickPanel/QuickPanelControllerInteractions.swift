@@ -155,6 +155,7 @@ extension QuickPanelController {
             do {
                 try await music.perform(action)
                 updateRows()
+                reportError(nil)
             } catch { reportError(error.localizedDescription) }
         }
     }

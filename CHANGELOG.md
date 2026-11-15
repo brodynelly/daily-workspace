@@ -57,6 +57,7 @@ All notable changes to this project are documented here. The format follows [Kee
 ### Fixed
 - Reviewed Quick Notes and Inbox destinations from Today now use the same exact-path preview and confirmation as Quick Capture; cancelled reviews retain draft edits. Cited Assistant drafts move to Notes for a separate review action; Markdown indentation and trailing whitespace survive.
 - Quick Panel history refreshes Calendar, held navigation keys repeat, attention auto-open loads its preview, workspace actions reject stale responses, and Music/clipboard permission or opt-out states no longer show stale integration data.
+- Turbo Music F5/F6 and its menus now change volume in 10% steps, while ⌘+/− retain 5% steps. A temporary "finishing another action" warning clears after the pending Music action succeeds.
 - Native Luuna work remains visible with stale-source warnings after health failures, foreign project detail is rejected, and installed `lu` reads request a no-auto-start launcher mode.
 - Today's note was created in the vault root (`2026-11-12.md`) because the template knew only `YYYY`, `MM` and `DD` and the folder was empty; `MM` also corrupted `MMM`. The Obsidian source now never creates a note in the vault root.
 - CI's swift-format 6.1 could not read `.swift-format` (the string form of `reflowMultilineStringLiterals`), so lint failed before checking any file.
