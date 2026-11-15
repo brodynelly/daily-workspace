@@ -93,7 +93,7 @@ Independent reviewers checked each §8 Panel, Views, Keys, Look and Behaviour/pe
 
 The desktop locked during verification. CLI responses and source tests do not substitute for the outstanding visual, physical-key or permission checks; keep the retained bundles and dotfiles commit as rollback until these pass.
 
-Local strict formatting used swift-format 6.4.4 (Swift 6.4.2, Xcode 27.2). The macOS 15 CI formatter from Swift 6.1 is not installed locally, so the local pass does not certify formatter compatibility on these unpublished commits; CI still needs to run after publication.
+Alongside Xcode 27.2's swift-format 6.4.4, locally built official swift-format 601.0.0 passed `lint --strict --recursive Sources Tests Package.swift`. It was compiled with Swift 6.4.2, so this checks 6.1 formatter rules, not the macOS 15 CI environment or Swift 6.1 compilation. These unpublished commits still need CI after publication.
 
 ### Main-window sidebar
 
