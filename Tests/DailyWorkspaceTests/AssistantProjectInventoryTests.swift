@@ -127,9 +127,8 @@ final class AssistantProjectInventoryTests: XCTestCase {
         XCTAssertEqual(try payload(preReadBlock)["state"] as? String, "not_read")
         XCTAssertTrue(notRead.call.citations.isEmpty)
 
-        model.useVault(at: root)
-        await model.projects.refresh()
-        let (missingFolder, block) = try await run(model.assistantContext)
+        await projects.refresh()
+        let (missingFolder, block) = try await run(notReadContext)
         let unavailable = try payload(block)
         XCTAssertEqual(unavailable["state"] as? String, "unavailable")
         XCTAssertEqual((unavailable["projects"] as? [Any])?.count, 0)
@@ -137,8 +136,8 @@ final class AssistantProjectInventoryTests: XCTestCase {
 
         try FileManager.default.createDirectory(
             at: root.appendingPathComponent("01-projects"), withIntermediateDirectories: true)
-        await model.projects.refresh()
-        let (empty, emptyBlock) = try await run(model.assistantContext)
+        await projects.refresh()
+        let (empty, emptyBlock) = try await run(notReadContext)
         let emptyPayload = try payload(emptyBlock)
         XCTAssertEqual(emptyPayload["state"] as? String, "empty")
         XCTAssertTrue(empty.call.citations.isEmpty)
