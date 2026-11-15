@@ -93,6 +93,8 @@ Independent reviewers checked each §8 Panel, Views, Keys, Look and Behaviour/pe
 
 The desktop locked during verification. CLI responses and source tests do not substitute for the outstanding visual, physical-key or permission checks; keep the retained bundles and dotfiles commit as rollback until these pass.
 
+Local strict formatting used swift-format 6.4.4 (Swift 6.4.2, Xcode 27.2). The macOS 15 CI formatter from Swift 6.1 is not installed locally, so the local pass does not certify formatter compatibility on these unpublished commits; CI still needs to run after publication.
+
 ### Main-window sidebar
 
 With the main window open, click the leading toolbar button and press ⌃⌘S to hide and restore the sidebar. Check that the screen column expands, Go and ⌘1…⌘6 still navigate while hidden, and VoiceOver announces “Hide Sidebar” or “Show Sidebar” for the current state.
