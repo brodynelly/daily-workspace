@@ -10,6 +10,8 @@ private final class BlockingCredential: APIKeyStore, @unchecked Sendable {
     private let staleToken: String
     private let lock = NSLock()
     private var stored: String?
+    private var reads = 0
+    var readCount: Int { lock.withLock { reads } }
     var savedToken: String? { lock.withLock { stored } }
 
     init(started: XCTestExpectation, token: String = "stale-token") {
@@ -18,6 +20,7 @@ private final class BlockingCredential: APIKeyStore, @unchecked Sendable {
     }
 
     func read() throws -> String? {
+        lock.withLock { reads += 1 }
         started.fulfill()
         release.wait()
         return staleToken
@@ -67,6 +70,26 @@ final class KeychainStartupTests: XCTestCase {
         try await Task.sleep(for: .milliseconds(50))
         XCTAssertEqual(model.luunaWorkToken, "current-token")
         XCTAssertTrue(model.luuna.hasToken)
+    }
+
+    func testAssistantCredentialReadStartsOnlyWhenShown() async {
+        let credential = BlockingCredential(started: expectation(description: "explicit Assistant key read"))
+        let key = AssistantKey(
+            store: credential, backgroundReads: true, deferInitialRead: true, openRouterStore: credential)
+        defer { credential.release.signal() }
+        key.setProvider(.openRouter)
+        try? await Task.sleep(for: .milliseconds(50))
+        XCTAssertEqual(credential.readCount, 0)
+        XCTAssertTrue(key.isChecking)
+
+        key.refresh()
+        await fulfillment(of: [credential.started], timeout: 2)
+        XCTAssertEqual(credential.readCount, 1)
+        credential.release.signal()
+        do {
+            try await waitUntil { !key.isChecking }
+        } catch { XCTFail("Explicit Assistant key check did not finish") }
+        XCTAssertTrue(key.isSaved)
     }
 
     func testAssistantKeyShowsCheckingInsteadOfNotSetDuringBlockedRead() async {

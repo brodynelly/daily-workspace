@@ -79,6 +79,7 @@ final class AppModel: ObservableObject {
             calendarStore: dependencies.calendarStore, ledger: ledger)
         assistantKey = AssistantKey(
             store: dependencies.assistantKeyStore, backgroundReads: dependencies.observesSystem,
+            deferInitialRead: dependencies.observesSystem,
             openRouterStore: dependencies.openRouterKeyStore)
         assistant = AssistantSession(
             transport: dependencies.agentTransport, keyStore: dependencies.assistantKeyStore,

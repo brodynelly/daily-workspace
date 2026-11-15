@@ -4,7 +4,7 @@ import Foundation
 /// The only messages accepted from the local socket. No request may carry a tool, path, or command.
 enum QuickPanelControlAction: Equatable {
     case show(QuickPanelRoute), toggle(QuickPanelRoute), hide, status, inspect
-    case refresh, attentionRefresh, paletteChanged, quit, clipboard, mouse(String)
+    case refresh, attentionRefresh, paletteChanged, quit, clipboard, mouse(String), login(String)
 
     init(json: Any) throws {
         guard let object = json as? [String: Any], let name = object["action"] as? String else {
@@ -24,6 +24,12 @@ enum QuickPanelControlAction: Equatable {
                 throw QuickPanelControlError.invalidRequest
             }
             self = .mouse(position)
+        case "login":
+            fields = ["action", "mode"]
+            guard let mode = object["mode"] as? String, ["status", "enable", "disable"].contains(mode) else {
+                throw QuickPanelControlError.invalidRequest
+            }
+            self = .login(mode)
         default:
             fields = ["action"]
             guard let action = Self.simpleAction(named: name) else { throw QuickPanelControlError.invalidRequest }

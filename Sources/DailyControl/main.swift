@@ -8,7 +8,7 @@ private enum ControlFailure: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .usage:
-            "Usage: daily [--config path] show|toggle <view> | hide | status | inspect | attention-refresh | palette-reload | clipboard | mouse center|corner"
+            "Usage: daily [--config path] show|toggle <view> | hide | status | inspect | login status|enable|disable | attention-refresh | palette-reload | clipboard | mouse center|corner"
         case .unavailable: "Daily Workspace control service is unavailable."
         case .unsafePath: "Control socket or its directory is not owned by this user or is unsafe."
         case .oversizedResponse: "Control response exceeds 64 KiB."
@@ -66,9 +66,8 @@ private func commandRequest(_ args: [String]) throws -> [String: String] {
             ].contains(args[1])
         else { throw ControlFailure.usage }
         return ["action": command, "view": args[1]]
-    case "mouse":
-        guard args.count == 2, ["center", "corner"].contains(args[1]) else { throw ControlFailure.usage }
-        return ["action": "mouse", "position": args[1]]
+    case "mouse": return try mouseRequest(args)
+    case "login": return try loginRequest(args)
     case "hide", "status", "inspect", "clipboard":
         guard args.count == 1 else { throw ControlFailure.usage }
         return ["action": command]
@@ -77,6 +76,18 @@ private func commandRequest(_ args: [String]) throws -> [String: String] {
         return ["action": command == "attention-refresh" ? "attentionRefresh" : "paletteChanged"]
     default: throw ControlFailure.usage
     }
+}
+
+private func mouseRequest(_ args: [String]) throws -> [String: String] {
+    guard args.count == 2, ["center", "corner"].contains(args[1]) else { throw ControlFailure.usage }
+    return ["action": "mouse", "position": args[1]]
+}
+
+private func loginRequest(_ args: [String]) throws -> [String: String] {
+    guard args.count == 2, ["status", "enable", "disable"].contains(args[1]) else {
+        throw ControlFailure.usage
+    }
+    return ["action": "login", "mode": args[1]]
 }
 
 private func checkPath() throws {

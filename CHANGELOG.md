@@ -32,6 +32,7 @@ All notable changes to this project are documented here. The format follows [Kee
 - **Quick-panel parity corrections:** the borderless window hides without stealing focus back when it loses key status, the Pascal panes use the available height, Attention keeps its All agents action without a selected preview, and music permission failures include actionable Automation guidance. File and palette changes refresh the opted-in Kitty border.
 - Panel controls now include opt-in Zen pointer centering with Accessibility consent, explicit End Shuffle in both Music menus, and an on-screen lower-right corner placement. Notification-only `daily` refresh and clipboard commands no longer activate the app on cold start.
 - The panel now shows Calendar and selected-run previews, and its control responses include clipboard-change metadata only when that integration is enabled. If quitting is blocked by an unsaved note conflict, Return to Notes reopens the workspace.
+- The protected `daily login status|enable|disable` CLI reports the native SMAppService status, including pending user approval, for an installed bundle.
 - **Settings → Permissions** offers separate off-by-default Mail metadata, clipboard change-count and Kitty border toggles; Mail requests Automation permission only on a read and never exposes bodies or Assistant context.
 
 ### Changed

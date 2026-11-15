@@ -49,6 +49,8 @@ The bundled Quick Panel offers Home, Agents, Sessions, Files, Projects, Workspac
 
 `daily show <view>` and `daily toggle <view>` accept `home`, `agents`, `sessions`, `files`, `projects`, `workspaces`, `ssh`, `tmux`, `shortcuts`, `attention`, `system`, `music` or `calendar`; `daily hide`, `status` and `inspect` control or inspect the panel. The CLI starts the app when needed and waits up to 15 seconds for its control socket; installing its symlink does not launch anything. Panel configuration lives at `~/.config/daily-workspace/quick-panel.json`. The VGA font is bundled and registered for the panel; if a requested face is unavailable at runtime, the panel uses the system monospaced font.
 
+For an installed app, `daily login status|enable|disable` reads or changes its macOS Start at Login registration through the same private control socket. A successful `enable` can return `requiresApproval`; finish approval in System Settings → General → Login Items before treating startup as enabled.
+
 Workspaces come from the dotfiles `workspace.py catalog` helper; unavailable helpers are shown as unavailable, not as an empty catalog. Kitty launch actions activate Kitty after a successful helper call. Music shuffle uses fresh order per invocation while keeping the selected first track.
 
 On Attention, **All agents** remains available without a selected alert. Music Automation failures show an explicit permission message; clipboard and Kitty border integrations remain opt-in.

@@ -100,12 +100,17 @@ final class QuickPanelControlTests: XCTestCase {
             #"{"action":"show","view":"../../tmp"}"#,
             #"{"action":"show","view":"home","path":"/tmp"}"#,
             #"{"action":"mouse","position":"somewhere"}"#,
+            #"{"action":"login","mode":"toggle"}"#,
+            #"{"action":"login","mode":"enable","path":"/tmp"}"#,
+            #"{"action":"login"}"#,
         ] {
             let value = try JSONSerialization.jsonObject(with: Data(request.utf8))
             XCTAssertThrowsError(try QuickPanelControlAction(json: value)) {
                 XCTAssertEqual($0 as? QuickPanelControlError, .invalidRequest)
             }
         }
+        XCTAssertEqual(
+            try QuickPanelControlAction(json: ["action": "login", "mode": "enable"]), .login("enable"))
         let root = try temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
         let server = try QuickPanelControlServer(directory: root.appendingPathComponent("private"))

@@ -13,17 +13,24 @@ final class AssistantKey: ObservableObject {
     private let store: APIKeyStore
     private let openRouterStore: APIKeyStore
     private let backgroundReads: Bool
+    private let deferInitialRead: Bool
+    private var hasStartedRead = false
     private var refreshGeneration = 0
     private var provider: AssistantProvider = .anthropic
 
     init(
-        store: APIKeyStore, backgroundReads: Bool = false,
+        store: APIKeyStore, backgroundReads: Bool = false, deferInitialRead: Bool = false,
         openRouterStore: APIKeyStore = KeychainAPIKeyStore(service: AssistantSession.openRouterKeyService)
     ) {
         self.store = store
         self.openRouterStore = openRouterStore
         self.backgroundReads = backgroundReads
-        refresh()
+        self.deferInitialRead = deferInitialRead
+        if deferInitialRead {
+            isChecking = true
+        } else {
+            refresh()
+        }
     }
 
     func setProvider(_ selected: AssistantProvider) {
@@ -33,12 +40,14 @@ final class AssistantKey: ObservableObject {
         isChecking = false
         isSaved = false
         readError = nil
-        refresh()
+        if !deferInitialRead || hasStartedRead { refresh() } else { isChecking = true }
     }
 
     private var currentStore: APIKeyStore { provider == .anthropic ? store : openRouterStore }
 
     func refresh() {
+        let readStarted = hasStartedRead
+        hasStartedRead = true
         guard backgroundReads else {
             do {
                 let key = try currentStore.read()?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -50,7 +59,7 @@ final class AssistantKey: ObservableObject {
             }
             return
         }
-        guard !isChecking else { return }
+        guard !isChecking || !readStarted else { return }
         isChecking = true
         refreshGeneration += 1
         let generation = refreshGeneration

@@ -1,4 +1,5 @@
 import AppKit
+import ServiceManagement
 
 extension QuickPanelController {
     func select(_ index: Int) {
@@ -202,13 +203,14 @@ extension QuickPanelController {
     }
 
     func handleControlAction(_ action: QuickPanelControlAction) -> [String: Any] {
+        if case .login(let mode) = action { return handleLoginControl(mode) }
         switch action {
         case .show, .toggle, .hide:
             handlePanelVisibility(action)
         case .refresh: refresh()
         case .attentionRefresh: Task { await attention.refresh() }
         case .paletteChanged: installBackground()
-        case .status, .inspect, .clipboard: break
+        case .status, .inspect, .clipboard, .login: break
         case .quit: DispatchQueue.main.async { NSApp.terminate(nil) }
         case .mouse(let position):
             if let screen = NSScreen.main,
@@ -231,6 +233,28 @@ extension QuickPanelController {
             response["clipboard_change_count"] = NSPasteboard.general.changeCount
         }
         return response
+    }
+
+    private func handleLoginControl(_ mode: String) -> [String: Any] {
+        let service = SMAppService.mainApp
+        do {
+            if mode == "enable", service.status != .enabled && service.status != .requiresApproval {
+                try service.register()
+            } else if mode == "disable", service.status == .enabled || service.status == .requiresApproval {
+                try service.unregister()
+            }
+            let status: String
+            switch service.status {
+            case .enabled: status = "enabled"
+            case .requiresApproval: status = "requiresApproval"
+            case .notRegistered: status = "notRegistered"
+            case .notFound: status = "notFound"
+            @unknown default: status = "unknown"
+            }
+            return ["ok": true, "login": status]
+        } catch {
+            return ["ok": false, "error": "Could not change Start at login: \(error.localizedDescription)"]
+        }
     }
 
     private func handlePanelVisibility(_ action: QuickPanelControlAction) {
