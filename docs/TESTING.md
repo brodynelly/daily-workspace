@@ -93,7 +93,9 @@ Independent reviewers checked each §8 Panel, Views, Keys, Look and Behaviour/pe
 
 The owner later unlocked the desktop for the focused checks above. Keep retained QAP/QAM bundles and the scoped rollback plan (`dotfiles-mac/skhd/README.md`) until physical-key, status-item, permission-dependent and live rollback checks are complete. The reverse route patch passed its preflight, and an isolated checkout of the pre-cutover configuration passed skhd lint (65 bindings); a live rollback has not yet been exercised.
 
-Alongside Xcode 27.2's swift-format 6.4.4, locally built official swift-format 601.0.0 passed `lint --strict --recursive Sources Tests Package.swift`. It was compiled with Swift 6.4.2, so this checks 6.1 formatter rules, not the macOS 15 CI environment or Swift 6.1 compilation. These unpublished commits still need CI after publication.
+On 2026-11-15, `swift build`, `swift test` (exit 0: 368 app and 114 core XCTest cases plus three Swift Testing cases), `swift format lint --strict --recursive Sources Tests Package.swift`, official swift-format 601.0.0 strict lint and `swiftlint --strict` (0 violations in 249 files) passed. The release bundle built, passed VGA hash and signature checks, was installed and answered `daily status`. [CI run 43742323216](https://github.com/brodynelly/daily-workspace/actions/runs/43742323216) passed lint, build, test, bundle and usage-string checks for commit `583bad8eae`. The 601.0.0 binary was compiled with Swift 6.4.2, so its local run checks formatter rules, not Swift 6.1 compilation or macOS 15; CI performs the repository's supported hosted checks.
+
+`./scripts/build_and_run.sh --verify` was not rerun after the latest fix: it quits the installed app and foregrounds a debug bundle while the owner is actively using the desktop. The installed signed release, control-socket smoke and hosted bundle check passed, but do not substitute for a claim that this particular local script was run.
 
 ### Main-window sidebar
 
