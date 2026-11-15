@@ -1,5 +1,11 @@
 # Handoff: Daily Workspace consolidation project
 
+> **Historical plan (2026-11-13), not current operating instructions.** Owner decisions
+> in `AGENTS.md` supersede proposed vault moves, external writes and automation.
+> Live cutover evidence is in `docs/TESTING.md`; use
+> `~/github/dotfiles-mac/skhd/README.md` for the current rollback procedure.
+> A raw revert of the original dotfiles cutover commit now conflicts with later edits.
+
 For: the Obsidian vault agent working in `~/github/brodynelly-brain`.
 From: the Daily Workspace build session, 2026-11-13.
 Your job: create a new project under `01-projects/` with its plan and migration notes, and create the opening tickets **in Luuna through the `lu` CLI** (`~/.local/bin/lu`), exactly as described here. **Create notes and tickets only. Do not change any application code.** Tickets live in Luuna (Missions behind the runtime), not in another tracker. Follow the vault's root `AGENTS.md` and `01-projects/personal/brodynelly-brain/workspace-operations.md` wherever they are stricter than this document.
