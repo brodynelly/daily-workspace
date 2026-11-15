@@ -68,6 +68,9 @@ struct RestartPanelContent: View {
             }
         }
         .task(id: "\(slug)#\(restarts.revision)") { await reload() }
+        .onAppear {
+            if preferences.assistantEnabled { key.refresh() }
+        }
         .restartReview(flow, restarts: restarts)
     }
 

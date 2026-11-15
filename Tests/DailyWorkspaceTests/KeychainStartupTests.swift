@@ -1,5 +1,7 @@
+import AppKit
 import DailyCore
 import Foundation
+import SwiftUI
 import XCTest
 
 @testable import DailyWorkspace
@@ -105,6 +107,36 @@ final class KeychainStartupTests: XCTestCase {
             try await waitUntil { !key.isChecking }
         } catch { XCTFail("Assistant key remained in the checking state") }
         XCTAssertTrue(key.isSaved)
+    }
+
+    func testRestartPanelLoadsDeferredKeyForDrafting() async throws {
+        let credential = BlockingCredential(started: expectation(description: "restart panel Assistant key read"))
+        let key = AssistantKey(
+            store: credential, backgroundReads: true, deferInitialRead: true, openRouterStore: FakeKeyStore())
+        defer { credential.release.signal() }
+        let preferences = Preferences(store: InMemorySettings())
+        preferences.assistantEnabled = true
+        let restarts = RestartRecords(
+            ledger: RestartLedger(
+                url: FileManager.default.temporaryDirectory.appendingPathComponent("restart-\(UUID().uuidString)")),
+            vaultRoot: { nil })
+        let assistant = AssistantSession(
+            transport: FakeAgentTransport(), keyStore: credential, context: FakeAssistantContext(),
+            openRouterKeyStore: FakeKeyStore())
+        let host = NSHostingView(
+            rootView: RestartPanelContent(
+                slug: "alpha", restarts: restarts, assistant: assistant, preferences: preferences, key: key))
+        let window = NSWindow(
+            contentRect: NSRect(x: -10_000, y: -10_000, width: 900, height: 600),
+            styleMask: .borderless, backing: .buffered, defer: false)
+        window.contentView = host
+        window.orderFront(nil)
+        defer { window.orderOut(nil) }
+
+        await fulfillment(of: [credential.started], timeout: 2)
+        XCTAssertFalse(key.isSaved)
+        credential.release.signal()
+        try await waitUntil { key.isSaved }
     }
 
     private func waitUntil(_ condition: @MainActor () -> Bool) async throws {

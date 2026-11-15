@@ -69,6 +69,7 @@ All notable changes to this project are documented here. The format follows [Kee
 - A task change that could not be saved (complete, edit, delete, undo) stayed on screen and then disappeared on relaunch. Such changes are now rolled back and the reason is shown.
 - "Keep My Version" reported success even when the save failed.
 - A Keychain read failure showed as "no key saved". It is now reported as an error.
+- Opening a project restart panel now checks the deferred Assistant credential when the Assistant is enabled, so “Draft a new one” works without visiting the Assistant page first.
 - A bound project's Markdown hub and restart context remain citeable when native Luuna ticket reads fail; the Assistant labels the native work state unavailable rather than falsely empty. Board cards label completed runs as run states, separate from native ticket status.
 - The synthetic nested-repository exclusion fixture is recreated during tests so a clean Git checkout checks the same policy; CI also checks bundled microphone and speech usage descriptions.
 - The quick-panel glass effect uses an AppKit visual-effect view that builds with the CI runner's older macOS SDK as well as current SDKs; Reduce Transparency still selects the opaque background.
