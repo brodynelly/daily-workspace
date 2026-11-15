@@ -89,6 +89,8 @@ The QAP integration preview was used as a call-site inventory, not applied as a 
 | Integrations | Agent wrapper returned the Agents view; `daily toggle system` returned five System rows; SketchyBar reported its Apple click script as `daily toggle system`; skhd bindings linted and reloaded. QAP/QAM processes stopped; Hammerspoon's independent IPC remained available. | Accessibility, Bluetooth and remaining Automation permission prompts; Music action consent; clipboard/Kitty behavior; actual click and key dispatch while macOS is locked. |
 | Performance and source state | `swift build`, `swift test`, swift-format strict lint, SwiftLint strict lint and bundle verification passed. | On-device hidden idle/show latency and scrolling measurements; full manual parity and owner-authorized native-source actions. |
 
+Independent reviewers checked each §8 Panel, Views, Keys, Look and Behaviour/performance bullet against implementation and tests. The review found and corrected the canonical Luuna workspace scan, Music Play/Shuffle menus, pointer-to-keyboard pane focus, Escape Music polling, attention warning color/prefix and sleep/wake handling, the `daily --help` route list, and the on-demand offline doctor check. These are source and automated-test findings, **not** completion of the manual cells above.
+
 The desktop locked during verification. CLI responses and source tests do not substitute for the outstanding visual, physical-key or permission checks; keep the retained bundles and dotfiles commit as rollback until these pass.
 
 ### Main-window sidebar

@@ -12,10 +12,18 @@ extension QuickPanelController {
             loadAttentionPreview(identity)
         }
     }
+    func selectResultFromPointer(_ index: Int) {
+        select(index)
+        focusedPane = "document"
+    }
 
     func selectPlaylist(_ id: String) {
         music.selectPlaylist(id)
         updateRows()
+    }
+    func selectPlaylistFromPointer(_ id: String) {
+        selectPlaylist(id)
+        focusedPane = "playlists"
     }
 
     func activateSelected(alternate: Bool = false, remove: Bool = false) {
@@ -168,6 +176,8 @@ extension QuickPanelController {
             currentRoute = previous.route
             shortcutTool = previous.shortcutTool
             workspacePath = previous.workspacePath
+            music.setVisible(isVisible && currentRoute == .music)
+            if isVisible && currentRoute == .music { reloadMusic() }
             if previous.route == .calendar { loadCalendar() } else { updateRows() }
             return
         }

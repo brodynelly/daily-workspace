@@ -46,6 +46,7 @@ other than that exact symlink.
 ### Quick Access Pascal panel
 
 The bundled Quick Panel offers Home, Agents, Sessions, Files, Projects, Workspaces, SSH, tmux, Shortcuts, Attention, System, Turbo Music and Calendar routes; it is distinct from the six main workspace screens below. From a focused panel use ⌘0 for Music, ⌘1…⌘9 for Home through Shortcuts, ⇧⌘A for Attention and ⇧⌘S for System by default. ⌘F focuses search, ⌘R refreshes, Tab/⇧Tab cycles panes, arrows and Page Up/Down select rows, Return opens a selection, and Escape backs out or dismisses. ⌘W or ⌥X closes the panel. Panel routes, search, refresh, zoom and help can be rebound in Settings → Keyboard; contextual F2/F4–F8, music controls, pane navigation and ⌘W remain fixed. Panel controls are not global hotkeys: bind the absolute `daily` path in your own skhd configuration if desired.
+In Music, Space toggles playback from a non-command pane; click a result or playlist to focus it first.
 
 `daily show <view>` and `daily toggle <view>` accept `home`, `agents`, `sessions`, `files`, `projects`, `workspaces`, `ssh`, `tmux`, `shortcuts`, `attention`, `system`, `music` or `calendar`; `daily hide`, `status` and `inspect` control or inspect the panel. The CLI starts the app when needed and waits up to 15 seconds for its control socket; installing its symlink does not launch anything. Panel configuration lives at `~/.config/daily-workspace/quick-panel.json`. The VGA font is bundled and registered for the panel; if a requested face is unavailable at runtime, the panel uses the system monospaced font.
 

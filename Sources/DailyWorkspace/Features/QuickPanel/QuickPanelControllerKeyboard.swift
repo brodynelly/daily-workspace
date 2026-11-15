@@ -292,17 +292,21 @@ extension QuickPanelController {
             ]
         case "Edit":
             choices = [("Clear search", "clear"), ("Find", "find"), ("Back", "back")]
-        case "Play", "Shuffle":
+        case "Play":
             if currentRoute == .music {
                 choices = [
                     ("Play / Pause", "playpause"), ("Stop", "stop"),
                     ("Previous track", "previous"), ("Next track", "next"),
-                    ("Shuffle", "shuffle"), ("End Shuffle", "endShuffle"),
                     ("Volume down", "volumeDown"), ("Volume up", "volumeUp"),
                 ]
             } else {
                 choices = QuickPanelRoute.allCases.map { ($0.title, "route:\($0.rawValue)") }
             }
+        case "Shuffle":
+            choices =
+                currentRoute == .music
+                ? [("Shuffle", "shuffle"), ("End Shuffle", "endShuffle")]
+                : QuickPanelRoute.allCases.map { ($0.title, "route:\($0.rawValue)") }
         case "Help":
             choices = [("Quick panel help", "help")]
         default:

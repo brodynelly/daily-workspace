@@ -5,10 +5,14 @@ import Foundation
 private enum ControlFailure: Error, LocalizedError {
     case usage, unavailable, unsafePath, oversizedResponse, invalidResponse, server(String)
 
+    static let help = """
+        Usage: daily [--config path] show|toggle <view> | hide | status | inspect | login status|enable|disable | attention-refresh | palette-reload | clipboard | mouse center|corner
+        Views: home agents sessions files projects workspaces ssh tmux shortcuts attention system music calendar
+        """
+
     var errorDescription: String? {
         switch self {
-        case .usage:
-            "Usage: daily [--config path] show|toggle <view> | hide | status | inspect | login status|enable|disable | attention-refresh | palette-reload | clipboard | mouse center|corner"
+        case .usage: Self.help
         case .unavailable: "Daily Workspace control service is unavailable."
         case .unsafePath: "Control socket or its directory is not owned by this user or is unsafe."
         case .oversizedResponse: "Control response exceeds 64 KiB."
@@ -204,7 +208,12 @@ private func launch(config: URL?, action: String?) throws {
 }
 
 private func main() throws {
-    let parsed = try request(from: Array(CommandLine.arguments.dropFirst()))
+    let arguments = Array(CommandLine.arguments.dropFirst())
+    if arguments == ["--help"] || arguments == ["-h"] || arguments == ["help"] {
+        print(ControlFailure.help)
+        return
+    }
+    let parsed = try request(from: arguments)
     let configURL =
         parsed.config
         ?? URL(fileURLWithPath: NSHomeDirectory())

@@ -1,6 +1,10 @@
 import SwiftUI
 
 extension QuickPanelPascalSkin {
+    func displayTitle(for row: QuickPanelDataRow) -> String {
+        route == .attention && controller.attentionIdentities[row.id] != nil ? "! \(row.title)" : row.title
+    }
+
     var documentTable: some View {
         VStack(spacing: 0) {
             GeometryReader { geometry in
@@ -30,7 +34,7 @@ extension QuickPanelPascalSkin {
             LazyVStack(alignment: .leading, spacing: 0) {
                 ForEach(controller.music.library?.playlists ?? []) { playlist in
                     Button {
-                        controller.selectPlaylist(playlist.id)
+                        controller.selectPlaylistFromPointer(playlist.id)
                     } label: {
                         HStack {
                             Text(playlist.id == controller.music.selectedPlaylistID ? "▼" : "▸")
@@ -55,7 +59,7 @@ extension QuickPanelPascalSkin {
                 LazyVStack(spacing: 0) {
                     ForEach(Array(controller.rows.enumerated()), id: \.element.id) { index, row in
                         Button {
-                            controller.select(index)
+                            controller.selectResultFromPointer(index)
                         } label: {
                             GeometryReader { geometry in
                                 HStack(spacing: 0) {
@@ -76,8 +80,14 @@ extension QuickPanelPascalSkin {
                                     } else {
                                         Text("\(index + 1)").foregroundStyle(Ink.meta)
                                             .frame(width: geometry.size.width * 0.045, alignment: .leading)
-                                        Text(row.title).frame(width: geometry.size.width * 0.30, alignment: .leading)
-                                            .lineLimit(1)
+                                        HStack(spacing: 0) {
+                                            if route == .attention && controller.attentionIdentities[row.id] != nil {
+                                                Text("! ").foregroundStyle(Ink.coral)
+                                            }
+                                            Text(row.title)
+                                        }
+                                        .frame(width: geometry.size.width * 0.30, alignment: .leading)
+                                        .lineLimit(1)
                                         Text(row.detail).foregroundStyle(Ink.meta)
                                             .frame(width: geometry.size.width * 0.435, alignment: .leading)
                                             .lineLimit(1)
@@ -94,12 +104,12 @@ extension QuickPanelPascalSkin {
                         .buttonStyle(.plain)
                         .simultaneousGesture(
                             TapGesture(count: 2).onEnded {
-                                controller.select(index)
+                                controller.selectResultFromPointer(index)
                                 controller.activateSelected()
                             }
                         )
                         .id(row.id)
-                        .accessibilityLabel("\(row.title), \(row.detail), \(row.group), \(row.status)")
+                        .accessibilityLabel("\(displayTitle(for: row)), \(row.detail), \(row.group), \(row.status)")
                     }
                 }
             }

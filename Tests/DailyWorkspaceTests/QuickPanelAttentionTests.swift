@@ -95,6 +95,75 @@ final class QuickPanelAttentionTests: XCTestCase {
         XCTAssertEqual(arrivals.count, 4, "Cleared attention is a new event if it returns")
     }
 
+    func testSleepSuspendsWatcherAndWakeBaselinesExistingAttentionBeforePolling() async throws {
+        try write("[\(agent(12))]")
+        let source = QuickPanelAttention(fileURL: inventory, pollInterval: 3_600, observesSleep: false)
+        var arrivals: [[QuickPanelAttentionIdentity]] = []
+        source.onNewAttention = { arrivals.append($0.map(\.id)) }
+        await source.start()
+        defer { source.stop() }
+        XCTAssertTrue(source.isWatching)
+        let waitingSince = try XCTUnwrap(source.rows.first?.waitingSince)
+
+        await source.setSleeping(true)
+        XCTAssertFalse(source.isWatching)
+        try write("[\(agent(12)),\(agent(13))]")
+        await source.refresh()
+        await source.start()
+        XCTAssertFalse(source.isWatching, "Neither manual refresh nor start may poll during sleep")
+        XCTAssertEqual(source.rows.map(\.agent.id), [12])
+        XCTAssertTrue(arrivals.isEmpty)
+
+        await source.setSleeping(false)
+        XCTAssertTrue(source.isWatching)
+        XCTAssertEqual(source.rows.map(\.agent.id), [12, 13])
+        XCTAssertEqual(source.rows.first?.waitingSince, waitingSince)
+        XCTAssertTrue(arrivals.isEmpty, "Attention already present at wake is a baseline, not a new alert")
+        await source.refresh()
+        XCTAssertTrue(arrivals.isEmpty)
+
+        try write("[\(agent(12)),\(agent(13)),\(agent(14))]")
+        await source.refresh()
+        XCTAssertEqual(arrivals.map { $0.map(\.id) }, [[14]])
+
+        try write("[\(agent(12)),\(agent(13, generation: 2)),\(agent(14))]")
+        await source.refresh()
+        XCTAssertEqual(arrivals.count, 2)
+        XCTAssertEqual(arrivals.last?.map(\.generation), [2])
+        await source.setSleeping(true)
+        source.stop()
+        await source.setSleeping(false)
+        XCTAssertFalse(source.isWatching, "An explicitly stopped watcher must not restart on wake")
+    }
+
+    func testFirstValidSnapshotAfterUnavailableWakeIsStillTheWakeBaseline() async throws {
+        try write("[\(agent(7))]")
+        let source = QuickPanelAttention(fileURL: inventory, pollInterval: 3_600, observesSleep: false)
+        var arrivals: [[QuickPanelAttentionIdentity]] = []
+        source.onNewAttention = { arrivals.append($0.map(\.id)) }
+        await source.start()
+        defer { source.stop() }
+
+        await source.setSleeping(true)
+        try FileManager.default.removeItem(at: inventory)
+        await source.setSleeping(false)
+        XCTAssertTrue(source.isWatching)
+        XCTAssertEqual(source.sourceState, .missing)
+        XCTAssertTrue(arrivals.isEmpty)
+
+        try write("not JSON")
+        await source.refresh()
+        XCTAssertEqual(source.sourceState, .invalid)
+        try write("[\(agent(7)),\(agent(8))]")
+        await source.refresh()
+        XCTAssertEqual(source.rows.map(\.agent.id), [7, 8])
+        XCTAssertTrue(arrivals.isEmpty, "A recovered file must not alert on pre-wake attention")
+
+        try write("[\(agent(7)),\(agent(8, generation: 2))]")
+        await source.refresh()
+        XCTAssertEqual(arrivals.map { $0.map(\.generation) }, [[2]])
+    }
+
     func testAutoOpenedAttentionLoadsSelectedAgentPreviewWithoutOpeningAtLaunch() async throws {
         try write("[\(agent(10))]")
         let scripts = directory.appendingPathComponent("kitty/scripts", isDirectory: true)

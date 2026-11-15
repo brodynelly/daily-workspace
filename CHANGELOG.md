@@ -74,6 +74,7 @@ All notable changes to this project are documented here. The format follows [Kee
 - The synthetic nested-repository exclusion fixture is recreated during tests so a clean Git checkout checks the same policy; CI also checks bundled microphone and speech usage descriptions.
 - The quick-panel glass effect uses an AppKit visual-effect view that builds with the CI runner's older macOS SDK as well as current SDKs; Reduce Transparency still selects the opaque background.
 - The quick panel no longer closes when a native menu or permission dialog inside Daily Workspace briefly takes key-window focus; switching to another app still hides it without restoring focus.
+- The Quick Panel's Music Play menu now exposes playback, pointer selection restores the keyboard pane, Escape updates Music polling, attention rows show a warning prefix and the attention watcher suspends across sleep. `daily --help` lists every route, including Workspaces.
 
 ### Removed
 - The `DailyCore` library product. It is still a target; nothing outside the app used the product.

@@ -62,6 +62,16 @@ final class QuickPanelParitySafetyTests: XCTestCase {
         XCTAssertFalse(config.shouldCenterMouse(applicationName: "Zen Browser", accessibilityTrusted: true))
     }
 
+    func testMusicPlayMenuOffersPlaybackInsteadOfRouteNavigation() {
+        let panel = QuickPanelController()
+        panel.currentRoute = .music
+        XCTAssertEqual(
+            panel.panelMenu(named: "Play").items.map(\.title),
+            ["Play / Pause", "Stop", "Previous track", "Next track", "Volume down", "Volume up"])
+        XCTAssertEqual(panel.panelMenu(named: "Shuffle").items.map(\.title), ["Shuffle", "End Shuffle"])
+        XCTAssertTrue(panel.panelMenu(named: "Window").items.contains { $0.title == "Workspaces" })
+    }
+
     func testStoppedAttentionWatcherCannotOpenPanelDuringSleepOrRestart() async throws {
         let file = FileManager.default.temporaryDirectory
             .appendingPathComponent("quick-panel-attention-\(UUID().uuidString).json")

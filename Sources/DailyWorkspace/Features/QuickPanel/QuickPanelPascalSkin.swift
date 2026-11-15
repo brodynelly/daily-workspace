@@ -19,12 +19,13 @@ struct QuickPanelPascalSkin: View {
         static let title = Color(red: 243 / 255, green: 221 / 255, blue: 150 / 255)
         static let inactiveTitle = Color(red: 198 / 255, green: 228 / 255, blue: 237 / 255)
         static let primary = Color(red: 224 / 255, green: 237 / 255, blue: 244 / 255)
+        static let footer = Color(red: 216 / 255, green: 234 / 255, blue: 240 / 255)
         static let meta = Color(red: 139 / 255, green: 179 / 255, blue: 198 / 255)
         static let header = Color(red: 10 / 255, green: 36 / 255, blue: 68 / 255).opacity(0.8)
         static let cyan = Color(red: 120 / 255, green: 224 / 255, blue: 230 / 255)
         static let selection = Color(red: 56 / 255, green: 186 / 255, blue: 208 / 255).opacity(0.36)
         static let gold = Color(red: 243 / 255, green: 206 / 255, blue: 131 / 255)
-        static let footer = Color(red: 216 / 255, green: 234 / 255, blue: 240 / 255)
+        static let coral = Color(red: 255 / 255, green: 169 / 255, blue: 154 / 255)
         static let notice = Color(red: 244 / 255, green: 205 / 255, blue: 129 / 255)
     }
 
@@ -179,12 +180,15 @@ struct QuickPanelPascalSkin: View {
                 Button("Clear search") { controller.query = "" }
                 Button("Dismiss / Close session ⌘⌫") { controller.activateSelected(remove: true) }
             }
-            menu(music ? "Play" : "View") {
-                ForEach(QuickPanelRoute.allCases) { destination in
-                    Button(destination.title) { controller.navigate(to: destination) }
-                }
-            }
             if music {
+                menu("Play") {
+                    Button("Play / Pause F8") { controller.performMusic(.playPause) }
+                    Button("Stop") { controller.performMusic(.stop) }
+                    Button("Previous F7") { controller.performMusic(.previous) }
+                    Button("Next F9") { controller.performMusic(.next) }
+                    Button("Volume down F5") { controller.performMusic(.volume(-5)) }
+                    Button("Volume up F6") { controller.performMusic(.volume(5)) }
+                }
                 menu("Shuffle") {
                     Button("Shuffle songs F4") {
                         controller.performMusic(
@@ -194,12 +198,12 @@ struct QuickPanelPascalSkin: View {
                                 }))
                     }
                     Button("End Shuffle") { controller.performMusic(.endShuffle) }
-                    Button("Play / Pause F8") { controller.performMusic(.playPause) }
-                    Button("Stop") { controller.performMusic(.stop) }
-                    Button("Previous F7") { controller.performMusic(.previous) }
-                    Button("Next F9") { controller.performMusic(.next) }
-                    Button("Volume down F5") { controller.performMusic(.volume(-5)) }
-                    Button("Volume up F6") { controller.performMusic(.volume(5)) }
+                }
+            } else {
+                menu("View") {
+                    ForEach(QuickPanelRoute.allCases) { destination in
+                        Button(destination.title) { controller.navigate(to: destination) }
+                    }
                 }
             }
             menu("Window") {

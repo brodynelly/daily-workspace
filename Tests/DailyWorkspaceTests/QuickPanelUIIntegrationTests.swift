@@ -200,6 +200,32 @@ final class QuickPanelUIIntegrationTests: XCTestCase {
         XCTAssertEqual(panel.focusedPane, "document")
     }
 
+    func testEscapeRestoresMusicFromAnotherRouteAndLeavesMusicOnBack() {
+        let panel = QuickPanelController()
+        panel.navigate(to: .music)
+        panel.navigate(to: .system)
+        panel.escape()
+        XCTAssertEqual(panel.currentRoute, .music)
+        panel.escape()
+        XCTAssertEqual(panel.currentRoute, .home)
+    }
+
+    func testAttentionWarningIsDisplayOnlyAndRetainsSourceMetadata() {
+        let panel = QuickPanelController()
+        panel.navigate(to: .attention)
+        let row = QuickPanelDataRow(
+            id: "attention:test", title: "Agent needs input", detail: "/tmp/project",
+            group: "Attention", status: "waiting")
+        panel.rows = [row]
+        panel.attentionIdentities[row.id] = .init(id: 1, instance: "test", generation: 1, reason: "question")
+        let skin = QuickPanelPascalSkin(controller: panel)
+        XCTAssertEqual(skin.displayTitle(for: row), "! Agent needs input")
+        XCTAssertEqual(panel.rows[0].title, "Agent needs input")
+        XCTAssertEqual(panel.rows[0].status, "waiting")
+        panel.navigate(to: .system)
+        XCTAssertEqual(QuickPanelPascalSkin(controller: panel).displayTitle(for: row), "Agent needs input")
+    }
+
     func testTypedDirectoryRequiresExistingDirectoryAndExplicitRoute() throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -244,4 +270,33 @@ final class QuickPanelUIIntegrationTests: XCTestCase {
         XCTAssertNil(panel.rows.first?.action)
         XCTAssertEqual(panel.rows.first?.group, "Attention")
     }
+}
+
+extension QuickPanelUIIntegrationTests {
+    func testPointerSelectionsRestoreKeyboardPaneAndTypeToSearch() {
+        let panel = QuickPanelController()
+        panel.navigate(to: .system)
+        panel.focusedPane = "command"
+        panel.selectResultFromPointer(1)
+        XCTAssertEqual(panel.selectedIndex, 1)
+        XCTAssertEqual(panel.focusedPane, "document")
+        XCTAssertTrue(panel.handleKey(keyCode: 0, characters: "s"))
+        XCTAssertEqual(panel.query, "s")
+        XCTAssertEqual(panel.focusedPane, "command")
+
+        panel.navigate(to: .music)
+        panel.focusedPane = "command"
+        panel.selectPlaylistFromPointer("missing")
+        XCTAssertEqual(panel.focusedPane, "playlists")
+        var actions = 0
+        panel.onMusicAction = { _ in actions += 1 }
+        XCTAssertTrue(panel.handleKey(keyCode: 49))
+        XCTAssertEqual(actions, 1, "Space controls Music after playlist selection")
+        panel.selectResultFromPointer(0)
+        XCTAssertEqual(panel.focusedPane, "document")
+        XCTAssertTrue(panel.handleKey(keyCode: 0, characters: "a"))
+        XCTAssertEqual(panel.query, "a")
+        XCTAssertEqual(panel.focusedPane, "command")
+    }
+
 }

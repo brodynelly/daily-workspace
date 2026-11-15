@@ -1,3 +1,4 @@
+import AppKit
 import Combine
 import Foundation
 
@@ -134,28 +135,76 @@ final class QuickPanelAttention: ObservableObject {
     private let helper: QuickPanelAttentionHelper
     private let pollInterval: TimeInterval
     private var timer: Timer?
+    private var sleepObserver: NSObjectProtocol?
+    private var wakeObserver: NSObjectProtocol?
     private var reading: Task<Void, Never>?
+    private var readingRevision: UInt64?
     private var starting = false
+    private var wantsWatching = false
+    private var sleeping = false
+    private var revision: UInt64 = 0
+    private var needsWakeBaseline = false
     private var hasBaseline = false
     private var seen: Set<QuickPanelAttentionIdentity> = []
     private var waitingSince: [QuickPanelAttentionIdentity: Date] = [:]
 
+    var isWatching: Bool { timer != nil }
+
     init(
         fileURL: URL = defaultFileURL,
         helper: QuickPanelAttentionHelper = .live(),
-        pollInterval: TimeInterval = 1
+        pollInterval: TimeInterval = 1,
+        observesSleep: Bool = true
     ) {
         self.fileURL = fileURL
         self.helper = helper
         self.pollInterval = pollInterval
+        if observesSleep {
+            sleepObserver = NSWorkspace.shared.notificationCenter.addObserver(
+                forName: NSWorkspace.willSleepNotification, object: nil, queue: .main
+            ) { [weak self] _ in MainActor.assumeIsolated { self?.suspendForSleep() } }
+            wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+                forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor [weak self] in await self?.setSleeping(false) }
+            }
+        }
+    }
+
+    deinit {
+        if let sleepObserver { NSWorkspace.shared.notificationCenter.removeObserver(sleepObserver) }
+        if let wakeObserver { NSWorkspace.shared.notificationCenter.removeObserver(wakeObserver) }
+        timer?.invalidate()
+    }
+
+    /// Sleep stops the watcher immediately. Wake reads a fresh baseline before reinstalling the timer.
+    func setSleeping(_ sleeping: Bool) async {
+        guard self.sleeping != sleeping else { return }
+        if sleeping {
+            suspendForSleep()
+        } else {
+            self.sleeping = false
+            if wantsWatching { await start() }
+        }
+    }
+
+    private func suspendForSleep() {
+        guard !sleeping else { return }
+        sleeping = true
+        revision &+= 1
+        needsWakeBaseline = true
+        stopTimer()
     }
 
     /// Baselines before installing the watcher so existing attention cannot open the panel at launch.
+    /// A manual stop stays stopped across sleep and wake; only a started watcher resumes.
     func start() async {
-        guard timer == nil, !starting else { return }
+        wantsWatching = true
+        guard timer == nil, !starting, !sleeping else { return }
         starting = true
+        let startingRevision = revision
         await refresh()
-        guard starting else { return }
+        guard wantsWatching, starting, !sleeping, revision == startingRevision else { return }
         starting = false
         timer = Timer.scheduledTimer(withTimeInterval: pollInterval, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in await self?.refresh() }
@@ -163,17 +212,26 @@ final class QuickPanelAttention: ObservableObject {
     }
 
     func stop() {
+        wantsWatching = false
+        stopTimer()
+    }
+
+    private func stopTimer() {
         timer?.invalidate()
         timer = nil
         starting = false
     }
 
-    /// Can also be called by panel Refresh or when returning from sleep. Concurrent reads are coalesced.
+    /// Can also be called by panel Refresh. Reads made before sleep never supply a wake baseline.
     func refresh() async {
+        guard !sleeping else { return }
         if let reading {
+            let readingRevision = readingRevision
             await reading.value
+            if readingRevision != revision, !sleeping { await refresh() }
             return
         }
+        let readRevision = revision
         let fileURL = fileURL
         let maximumBytes = Self.maximumBytes
         let readTask = Task.detached(priority: .utility) {
@@ -199,9 +257,13 @@ final class QuickPanelAttention: ObservableObject {
         }
         let task = Task { @MainActor [weak self] in
             let result = await readTask.value
-            self?.accept(result)
-            self?.reading = nil
+            if let self {
+                if self.revision == readRevision, !self.sleeping { self.accept(result) }
+                self.reading = nil
+                self.readingRevision = nil
+            }
         }
+        readingRevision = readRevision
         reading = task
         await task.value
     }
@@ -209,9 +271,10 @@ final class QuickPanelAttention: ObservableObject {
     private func accept(_ result: QuickPanelAttentionReadResult) {
         switch result {
         case .success(let inventory):
-            if sourceState != (inventory.isEmpty ? .empty : .populated) || agents != inventory {
+            if needsWakeBaseline || sourceState != (inventory.isEmpty ? .empty : .populated) || agents != inventory {
                 apply(inventory)
             }
+            needsWakeBaseline = false
         case .failure(let state):
             sourceState = state
             // Do not clear the identity baseline during a transient failure; a recovered file is not new attention.
@@ -261,7 +324,7 @@ final class QuickPanelAttention: ObservableObject {
         agents = inventory
         rows = active.map { QuickPanelAttentionRow(agent: $0, waitingSince: waitingSince[$0.identity] ?? now) }
         sourceState = inventory.isEmpty ? .empty : .populated
-        if hasBaseline, timer != nil, !fresh.isEmpty {
+        if hasBaseline, !needsWakeBaseline, timer != nil, !fresh.isEmpty {
             let freshIDs = Set(fresh.map(\.identity))
             onNewAttention?(rows.filter { freshIDs.contains($0.id) })
         }
