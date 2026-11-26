@@ -9,39 +9,8 @@ struct QuickPanelPascalSkin: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @FocusState var searchFocused: Bool
 
-    enum Ink {
-        static let overlay = Color(red: 9 / 255, green: 35 / 255, blue: 74 / 255).opacity(0.36)
-        static let band = Color(red: 66 / 255, green: 98 / 255, blue: 125 / 255).opacity(0.45)
-        static let pane = Color(red: 6 / 255, green: 23 / 255, blue: 47 / 255).opacity(0.2)
-        static let activeRule = Color(red: 180 / 255, green: 235 / 255, blue: 241 / 255).opacity(0.95)
-        static let idleRule = Color(red: 129 / 255, green: 161 / 255, blue: 183 / 255).opacity(0.65)
-        static let titleBox = Color(red: 16 / 255, green: 37 / 255, blue: 65 / 255).opacity(0.98)
-        static let title = Color(red: 243 / 255, green: 221 / 255, blue: 150 / 255)
-        static let inactiveTitle = Color(red: 198 / 255, green: 228 / 255, blue: 237 / 255)
-        static let primary = Color(red: 224 / 255, green: 237 / 255, blue: 244 / 255)
-        static let footer = Color(red: 216 / 255, green: 234 / 255, blue: 240 / 255)
-        static let meta = Color(red: 139 / 255, green: 179 / 255, blue: 198 / 255)
-        static let header = Color(red: 10 / 255, green: 36 / 255, blue: 68 / 255).opacity(0.8)
-        static let cyan = Color(red: 120 / 255, green: 224 / 255, blue: 230 / 255)
-        static let selection = Color(red: 56 / 255, green: 186 / 255, blue: 208 / 255).opacity(0.36)
-        static let gold = Color(red: 243 / 255, green: 206 / 255, blue: 131 / 255)
-        static let coral = Color(red: 255 / 255, green: 169 / 255, blue: 154 / 255)
-        static let notice = Color(red: 244 / 255, green: 205 / 255, blue: 129 / 255)
-    }
-
-    enum Typography {
-        static func name(_ preferred: String) -> String {
-            preferred == "VGA" ? (BundledFonts.vgaName ?? preferred) : preferred
-        }
-
-        static func font(_ size: CGFloat, preferred: String) -> Font {
-            let selected = name(preferred)
-            if NSFont(name: selected, size: size) != nil {
-                return .custom(selected, size: size, relativeTo: .body)
-            }
-            return .system(size: size, design: .monospaced)
-        }
-    }
+    typealias Ink = PascalInk
+    typealias Typography = PascalType
 
     var route: QuickPanelRoute { controller.currentRoute }
     var music: Bool { route == .music }
@@ -135,7 +104,7 @@ struct QuickPanelPascalSkin: View {
                     QuickPanelCommandPaletteOverlay(controller: controller, palette: controller.palette)
                         .padding(Space.s5)
                         .frame(width: width, height: height)
-                        .background(Color.black.opacity(0.25))
+                        .background(Ink.scrim)
                 }
             }
             .frame(width: width, height: height)
@@ -166,29 +135,6 @@ struct QuickPanelPascalSkin: View {
     func pane<Content: View>(
         _ title: String, active: Bool, @ViewBuilder content: () -> Content
     ) -> some View {
-        ZStack(alignment: .top) {
-            Ink.pane
-            content()
-                .padding(.horizontal, 9)
-                .padding(.top, 18)
-                .padding(.bottom, 15)
-        }
-        .overlay {
-            Rectangle().strokeBorder(active ? Ink.activeRule : Ink.idleRule, lineWidth: 1)
-                .padding(0.5)
-            Rectangle().strokeBorder(active ? Ink.activeRule : Ink.idleRule, lineWidth: 1)
-                .padding(3.5)
-        }
-        .overlay(alignment: .top) {
-            Text(" \(title) ")
-                .font(Typography.font(13, preferred: controller.panelFont))
-                .foregroundStyle(active ? Ink.title : Ink.inactiveTitle)
-                .padding(.horizontal, 3)
-                .background(Ink.titleBox)
-                .offset(y: -7)
-                .accessibilityAddTraits(.isHeader)
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel(title)
+        PascalPane(title, active: active, content: content)
     }
 }

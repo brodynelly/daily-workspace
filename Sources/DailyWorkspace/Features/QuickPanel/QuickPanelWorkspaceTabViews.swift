@@ -269,7 +269,7 @@ struct QuickPanelGitHubView: View {
             .lineLimit(1)
             .truncationMode(.middle)
             .frame(maxWidth: .infinity, minHeight: 17, alignment: .leading)
-            .background(index == selected ? (active ? Ink.selection : Ink.selection.opacity(0.35)) : .clear)
+            .pascalSelection(index == selected, focused: active)
             .contentShape(Rectangle())
             .onTapGesture { git.select(index, in: section) }
             .id(index)

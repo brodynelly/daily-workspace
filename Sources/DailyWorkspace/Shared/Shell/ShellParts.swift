@@ -15,7 +15,7 @@ struct NavItem: View {
         Button(action: action) {
             HStack(spacing: Space.s3) {
                 Image(systemName: symbol)
-                    .font(.system(size: 14, weight: current ? .semibold : .regular))
+                    .font(.system(size: TextRole.label.size, weight: current ? .semibold : .regular))
                     .frame(width: Metrics.iconSize, height: Metrics.iconSize)
                     .foregroundStyle(current ? Theme.accentText : Theme.inkMuted)
                 Text(title)

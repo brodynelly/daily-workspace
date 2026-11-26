@@ -100,7 +100,7 @@ struct QuickPanelAIChatsView: View {
         .padding(.horizontal, 6)
         .padding(.vertical, 5)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(selected ? Ink.selection : .clear)
+        .pascalSelection(selected)
         .contentShape(Rectangle())
         .id(index)
         .onTapGesture {

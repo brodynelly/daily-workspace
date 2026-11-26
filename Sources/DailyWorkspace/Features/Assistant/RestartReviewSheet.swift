@@ -78,12 +78,7 @@ struct RestartReviewSheet: View {
     }
 
     var body: some View {
-        FormSheet(
-            "Review the restart record",
-            description: "Edit anything, then accept. Nothing is saved until you do, and each source is hashed as it "
-                + "is on disk at that moment.",
-            width: .review, spacing: Space.s5
-        ) {
+        FormSheet("Review the restart record", description: Self.intro, width: .review, spacing: Space.s5) {
             Tag("project:\(draft.projectSlug)")
         } content: {
             ReviewField(title: "Decision", text: $draft.decision, editable: isEditable)
@@ -94,6 +89,10 @@ struct RestartReviewSheet: View {
             footer
         }
     }
+
+    private static let intro =
+        "Edit anything, then accept. Nothing is saved until you do, and each source is hashed as it is on disk at "
+        + "that moment."
 
     private var isEditable: Bool {
         switch phase {

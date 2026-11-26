@@ -39,11 +39,7 @@ struct VaultNoteReviewSheet: View {
     }
 
     var body: some View {
-        FormSheet(
-            "Review vault note",
-            description: "Only your final confirmation saves this exact change in the selected Obsidian vault.",
-            width: .comparison
-        ) {
+        FormSheet("Review vault note", description: Self.intro, width: .comparison) {
             if case .assistant(let paths) = source { sourcePaths(paths) }
             destination
             if let review {
@@ -90,6 +86,8 @@ struct VaultNoteReviewSheet: View {
             onDraftChange(updated)
         }
     }
+
+    private static let intro = "Only your final confirmation saves this exact change in the selected Obsidian vault."
 
     private func sourcePaths(_ paths: [String]) -> some View {
         VStack(alignment: .leading, spacing: Space.s1) {

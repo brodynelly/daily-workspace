@@ -72,7 +72,7 @@ struct QuickPanelHarnessView: View {
                             .lineLimit(1)
                             .truncationMode(.middle)
                             .frame(maxWidth: .infinity, minHeight: 17, alignment: .leading)
-                            .background(index == harness.selected ? Ink.selection : .clear)
+                            .pascalSelection(index == harness.selected)
                             .contentShape(Rectangle())
                             .onTapGesture { harness.select(index) }
                             .id(file.id)

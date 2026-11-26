@@ -78,7 +78,7 @@ struct QuickPanelProcessTable: View {
         }
         .padding(.horizontal, 10)
         .frame(height: 24)
-        .background(selected ? Ink.selection : .clear)
+        .pascalSelection(selected)
         .contentShape(Rectangle())
     }
 }

@@ -175,6 +175,58 @@ final class DesignSystemTests: XCTestCase {
         XCTAssertEqual(ShortId.shortForm("project:alpha"), "project:alpha")
     }
 
+    func testSelectedAndMutedStatesStayReadable() {
+        for dark in [false, true] {
+            // Selected tabs and palette rows: accent text on the accent-soft ground.
+            assertContrast(.accentText, on: .accentSoft, dark: dark, atLeast: 4.5)
+            // Selected list rows, and muted text on the grouped and inset grounds.
+            assertContrast(.ink, on: .controlSelected, dark: dark, atLeast: 4.5)
+            for ground in [ColorToken.surfaceMuted, .fill, .surfaceOverlay, .field] {
+                assertContrast(.inkMuted, on: ground, dark: dark, atLeast: 4.5)
+            }
+        }
+    }
+
+    func testIconRolesStayAtOrAboveTheDesktopMinimum() {
+        for role in IconRole.allCases { XCTAssertGreaterThanOrEqual(role.size, 10, "\(role)") }
+        XCTAssertEqual(IconRole.leading.size, Metrics.iconSize)
+        XCTAssertEqual(TextRole.monoCaption.size, TextRole.caption.size)
+        XCTAssertEqual(TextRole.monoCaption.family, .mono)
+    }
+
+    func testSheetWidthsAreOrdered() {
+        typealias Width = FormSheet<EmptyView, EmptyView>.Width
+        XCTAssertLessThan(Width.form.points, Width.review.points)
+        XCTAssertLessThan(Width.review.points, Width.comparison.points)
+    }
+
+    /// Main-window views draw through tokens and shared components. The Quick Panel keeps its own Pascal
+    /// palette (`QuickPanelPascalTheme`) and the theme files define the tokens, so both are exempt.
+    func testMainWindowViewsUseTokensNotLiterals() throws {
+        let sources = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Sources/DailyWorkspace")
+        let textStyles = "body|callout|caption|caption2|footnote|headline|subheadline|title|title2|title3|largeTitle"
+        let banned = try NSRegularExpression(
+            pattern: #"Color\(red:|\.font\(\.system\(size: [0-9]|RoundedRectangle\(cornerRadius: [0-9]|"#
+                + #"\.font\(\.("# + textStyles + #")\)|foregroundStyle\(\.(primary|secondary|tertiary)\)"#)
+        let enumerator = try XCTUnwrap(FileManager.default.enumerator(at: sources, includingPropertiesForKeys: nil))
+        var offenders: [String] = []
+        for case let url as URL in enumerator where url.pathExtension == "swift" {
+            let path = url.path
+            if path.contains("/Features/QuickPanel/") || path.contains("/Shared/Theme/") { continue }
+            let text = try String(contentsOf: url, encoding: .utf8)
+            for (index, line) in text.components(separatedBy: "\n").enumerated() {
+                let range = NSRange(line.startIndex..., in: line)
+                if banned.firstMatch(in: line, range: range) != nil {
+                    let trimmed = line.trimmingCharacters(in: .whitespaces)
+                    offenders.append("\(url.lastPathComponent):\(index + 1): \(trimmed)")
+                }
+            }
+        }
+        XCTAssertEqual(offenders, [], "Use Theme, TextRole, IconRole and .surface(...) instead of literals")
+    }
+
     private func assertContrast(
         _ text: ColorToken, on ground: ColorToken, dark: Bool, atLeast minimum: Double,
         file: StaticString = #filePath, line: UInt = #line

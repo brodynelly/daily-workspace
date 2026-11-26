@@ -61,16 +61,17 @@ Sources/DailyWorkspace/
     QuickPanel/     QuickPanelController (+rows, keyboard, interactions), QuickPanelControlServer,
                     QuickPanelDataProvider (+Parsing, +Actions), QuickPanelCommandRunner, QuickPanelAttention,
                     QuickPanelCalendar, QuickPanelMusic, QuickPanelSystemActions, QuickPanelIntegrations,
-                    QuickPanelPascalSkin (+Details), KittyQuickAccessBorder
-    Tasks/          TaskStore, TaskRow, TaskEditSheet (local tasks)
+                    QuickPanelPascalSkin (+Details), QuickPanelPascalTheme (panel palette, type, panes),
+                    KittyQuickAccessBorder
+    Tasks/          TaskStore, TaskEditSheet (local tasks)
     Reminders/      RemindersService, ReminderStore (+ EventKitReminderStore)
     Capture/        CaptureForm, CaptureMenu, GlobalCaptureShortcut
     CommandPalette/ CommandPaletteView
     Settings/       SettingsView → Vault, Editor, Keyboard, AI, Luuna, Permissions tabs;
                     KeyboardShortcutsSettingsView (searchable bindings and focused key recorder)
   Shared/
-    Theme/          ColorTokens, Theme, Typography, BundledFonts, WorkspaceTheme
-    Components/     Shared Luuna-style panels, rows, badges, fields and permission states
+    Theme/          ColorTokens, Theme, Typography, Iconography, Surfaces, BundledFonts
+    Components/     Shared Luuna-style panels, rows, badges, fields, sheets and permission states (docs/DESIGN-SYSTEM.md)
     Shell/          ShellParts (sidebar and top bar)
     Vault/          VaultSession (security-scoped bookmark), VaultSession+Status
     Logging/        Log (os.Logger channels)
@@ -83,7 +84,8 @@ Resources/                     Info.plist; Fonts/ (Outfit + licenses/provenance)
 The visual system follows Luuna's desktop design system (`docs/DESIGN-SYSTEM.md` in the Luuna repository): Mantine's
 default-theme colours in light and dark, the system font for text and Outfit for headings, six tones that each pair a
 colour with a shape (success, active, danger, attention, neutral, interrupted; green only for verified or authorised
-states), hover by background only, and tokens instead of literals.
+states), hover by background only, and tokens instead of literals. The catalogue of tokens and components, and the
+Quick Panel's separate Pascal theme, is in [DESIGN-SYSTEM.md](DESIGN-SYSTEM.md).
 
 **Where new code goes:**
 - A feature's views, store and service live together under `Features/<Feature>/`.
