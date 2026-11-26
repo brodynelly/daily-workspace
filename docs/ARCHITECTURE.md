@@ -32,10 +32,10 @@ Sources/DailyCore/
   LocalDay.swift  time-zone-free calendar day
 
 Sources/DailyWorkspace/
-  App/            DailyWorkspaceApp, AppModel (+Dependencies, +Sources, +Assistant): composition root,
+  App/            DailyWorkspaceApp, AppModel (+Dependencies, +Sources, +Assistant, +Agent): composition root,
                   cross-feature actions and observers; AppSection (six screens), AppNavigation, WindowID,
-                  AppCommand, CommandRunner, WorkspaceCommands, Preferences, RootView, WorkspaceAppDelegate,
-                  KeyboardShortcutCatalog, ShortcutBinding+AppKit, MainWindowShortcutRouter/KeyboardMonitor
+                  AppCommand, CommandRunner, WorkspaceCommands, Preferences, RootView, WorkspaceAppDelegate
+    Keyboard/     KeyboardShortcutCatalog, ShortcutBinding+AppKit, MainWindowShortcutRouter/KeyboardMonitor
   Features/
     Today/          TodayView, TodayDue (+Section), TodayAgendaSection, TodayNotePanel, TodayCapture
     Projects/       ProjectsStore, ProjectsView, ProjectDetailCard, ProjectRepositoriesPanel,
