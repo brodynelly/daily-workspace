@@ -51,9 +51,9 @@ final class AgentDurableSessionTests: XCTestCase {
         session.setWorkspace(FakeAgentWorkspace())
         session.applyRuntime(writingLimits)
         XCTAssertTrue(session.configuration.enabledTools.isSuperset(of: AssistantTool.vaultWrite + [.memory]))
-        let names = session.tools.compactMap { $0["name"]?.stringValue }
-        XCTAssertTrue(names.contains("create_note"))
-        XCTAssertTrue(names.contains("memory"))
+        let tools = JSONValue.array(session.tools).encoded()
+        XCTAssertTrue(tools.containsBytes(Data(#""create_note""#.utf8)))
+        XCTAssertTrue(tools.containsBytes(Data(#""memory""#.utf8)))
         XCTAssertNotEqual(JSONValue.array(session.system).encoded(), readOnlyPrompt)
 
         var runtime = AssistantRuntimeSettings()
