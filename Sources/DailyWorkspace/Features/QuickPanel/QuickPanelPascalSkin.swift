@@ -225,7 +225,7 @@ struct QuickPanelPascalSkin: View {
     }
 
     private func menu<Items: View>(_ name: String, @ViewBuilder items: () -> Items) -> some View {
-        QuickPanelMenuIcon(name: name, items: items)
+        QuickPanelMenuIcon(name: name, items: items())
     }
 
 }
@@ -234,7 +234,7 @@ struct QuickPanelPascalSkin: View {
 @MainActor
 struct QuickPanelMenuIcon<Items: View>: View {
     let name: String
-    @ViewBuilder let items: () -> Items
+    let items: Items
     @State private var hovered = false
 
     static func symbol(for name: String) -> String {
@@ -251,7 +251,9 @@ struct QuickPanelMenuIcon<Items: View>: View {
     }
 
     var body: some View {
-        Menu(content: items) {
+        Menu {
+            items
+        } label: {
             Image(systemName: Self.symbol(for: name))
                 .renderingMode(.template)
                 .symbolRenderingMode(.monochrome)
