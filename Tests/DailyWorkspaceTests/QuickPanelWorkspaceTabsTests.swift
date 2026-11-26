@@ -231,4 +231,20 @@ final class QuickPanelWorkspaceTabsTests: XCTestCase {
         harness.beginEdit()
         XCTAssertFalse(harness.editing)
     }
+
+    func testAskAboutHarnessFileKeepsTheAttachmentWhenTheAIPageStartsAFreshChat() async throws {
+        let project = try temporaryDirectory()
+        try write("rule\n", to: project.appendingPathComponent("AGENTS.md"))
+        let model = AppModel(dependencies: .test())
+        let panel = QuickPanelController()
+        panel.model = model
+        panel.harness.home = try temporaryDirectory()
+        panel.harness.open(path: project.path, readOnlyReason: nil)
+        await waitUntil { !panel.harness.loading && panel.harness.content != nil }
+        panel.askAboutHarnessFile()
+        XCTAssertTrue(panel.aiPopup.isVisible)
+        XCTAssertNotNil(model.assistant.attachment, "Opening the AI page must not drop the file just attached")
+        panel.toggleAIPopup()
+        XCTAssertNil(model.assistant.attachment, "Closing without asking drops it")
+    }
 }

@@ -85,8 +85,9 @@ extension QuickPanelController {
     /// Attaches the selected harness file to the next AI question and opens the AI page.
     func askAboutHarnessFile() {
         guard let model, let attachment = harness.attachment() else { return }
-        model.assistant.attachment = attachment
+        // Open first: the AI page starts a fresh chat, which would drop an attachment set before it.
         if !aiPopup.isVisible { toggleAIPopup() }
+        model.assistant.attachment = attachment
         let name = harness.selectedFile?.name ?? "file"
         aiPopup.notice =
             model.preferences.assistantEnabled

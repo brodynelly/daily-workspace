@@ -1,16 +1,16 @@
 import DailyCore
 import SwiftUI
 
-/// ⌘J / `?`: the AI chat takes over the panel's panes, in the panel's own style. QUESTIONS lists this
-/// conversation's questions (⌘[ / ⌘] jump between them), AI CHAT shows the answers, ASK is the composer.
+/// ⌘J / `?`: the AI chat takes over the panel's panes, in the panel's own style. CHATS lists the current and
+/// earlier chats (⌘[ / ⌘] step between them), AI CHAT shows the answers, ASK is the composer.
 extension QuickPanelPascalSkin {
     @ViewBuilder func aiPage(width: CGFloat, height: CGFloat) -> some View {
         if let model = controller.model {
             let left = round(min(300, width * 0.26))
             let x = left + 15
             let contentWidth = max(0, width - x - 7)
-            pane("QUESTIONS", active: controller.aiPopup.section == .questions) {
-                QuickPanelAITurnsView(
+            pane("CHATS", active: controller.aiPopup.section == .chats) {
+                QuickPanelAIChatsView(
                     controller: controller, popup: controller.aiPopup, assistant: model.assistant,
                     preferences: model.preferences)
             }
@@ -40,9 +40,9 @@ extension QuickPanelPascalSkin {
     }
 }
 
-/// The left pane: this conversation's questions and the provider and model.
+/// The left pane: the current chat and earlier chats from this app run, then the provider and model.
 @MainActor
-struct QuickPanelAITurnsView: View {
+struct QuickPanelAIChatsView: View {
     @ObservedObject var controller: QuickPanelController
     @ObservedObject var popup: QuickPanelAIPopup
     @ObservedObject var assistant: AssistantSession
@@ -51,22 +51,26 @@ struct QuickPanelAITurnsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 2) {
-                    if assistant.turns.isEmpty && assistant.pendingQuestion == nil {
-                        Text("No questions yet").foregroundStyle(Ink.meta).padding(.vertical, 4)
-                    }
-                    ForEach(Array(assistant.turns.enumerated()), id: \.element.id) { index, turn in
-                        row(index + 1, turn.question, selected: popup.focusedTurn == index)
-                            .onTapGesture {
-                                popup.focusedTurn = index
-                                popup.section = .questions
-                            }
-                    }
-                    if assistant.isStreaming, let pending = assistant.pendingQuestion {
-                        row(assistant.turns.count + 1, pending, selected: false).opacity(0.7)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 2) {
+                        row(
+                            0, title: assistant.turns.first?.question ?? assistant.pendingQuestion ?? "New chat",
+                            detail: "current · \(answers(assistant.turns.count))", current: true)
+                        if !popup.chats.isEmpty {
+                            Text("EARLIER").foregroundStyle(Ink.cyan).panelFont(10)
+                                .padding(.top, 8).padding(.horizontal, 6)
+                        }
+                        ForEach(Array(popup.chats.enumerated()), id: \.element.id) { index, chat in
+                            row(
+                                index + 1, title: chat.title,
+                                detail: "\(answers(chat.turns.count)) · \(Self.age(chat.archivedAt))"
+                                    + (chat.model == preferences.selectedAssistantModel ? "" : " · \(chat.model)"),
+                                current: false)
+                        }
                     }
                 }
+                .onChange(of: popup.chatIndex) { _, index in proxy.scrollTo(index) }
             }
             Rectangle().fill(Ink.idleRule.opacity(0.4)).frame(height: 1)
             VStack(alignment: .leading, spacing: 4) {
@@ -78,26 +82,43 @@ struct QuickPanelAITurnsView: View {
                 }
                 .buttonStyle(.plain)
                 .help("Change model (⇧⌘M)")
-                Text(
-                    "\(assistant.turns.count) \(assistant.turns.count == 1 ? "answer" : "answers") · zoom "
-                        + "\(Int((controller.aiZoomScale * 100).rounded()))%"
-                )
-                .foregroundStyle(Ink.meta)
+                Text("chats stay until the app quits").foregroundStyle(Ink.meta)
             }
             .panelFont(11)
         }
     }
 
-    private func row(_ number: Int, _ question: String, selected: Bool) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text("\(number)").foregroundStyle(Ink.meta).frame(width: 18, alignment: .trailing)
-            Text(question).lineLimit(2).foregroundStyle(selected ? Ink.title : Ink.primary)
+    private func row(_ index: Int, title: String, detail: String, current: Bool) -> some View {
+        let selected = popup.section == .chats && popup.chatIndex == index
+        return VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 6) {
+                if current { Circle().fill(Ink.gold).frame(width: 5, height: 5) }
+                Text(title).lineLimit(1).foregroundStyle(selected || current ? Ink.title : Ink.primary)
+            }
+            Text(detail).lineLimit(1).foregroundStyle(Ink.meta).panelFont(10.5)
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 5)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(selected ? Ink.selection : .clear)
         .contentShape(Rectangle())
+        .id(index)
+        .onTapGesture {
+            popup.section = .chats
+            popup.chatIndex = index
+            controller.openAIChatRow(index)
+        }
+    }
+
+    private func answers(_ count: Int) -> String { "\(count) \(count == 1 ? "answer" : "answers")" }
+
+    static func age(_ date: Date) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .short
+        formatter.dateTimeStyle = .named
+        let now = Date()
+        return now.timeIntervalSince(date) < 60
+            ? "just now" : formatter.localizedString(for: min(date, now), relativeTo: now)
     }
 }
 
@@ -166,7 +187,7 @@ struct QuickPanelAIConversationView: View {
                 QuickPanelKeyCaps(keys: "/", label: "Commands")
                 QuickPanelKeyCaps(keys: "⌘K", label: "Actions")
                 QuickPanelKeyCaps(keys: "⇧⌘M", label: "Model")
-                QuickPanelKeyCaps(keys: "⌘[ ⌘]", label: "Questions")
+                QuickPanelKeyCaps(keys: "⌘[ ⌘]", label: "Chats")
                 QuickPanelKeyCaps(keys: "⌃h ⌃j ⌃k ⌃l", label: "Sections")
             }
             .panelFont(11)
@@ -300,91 +321,5 @@ struct QuickPanelAIComposerView: View {
     private func focus() {
         let wanted = popup.layer == .chat && popup.section == .ask
         DispatchQueue.main.async { fieldFocused = wanted }
-    }
-}
-
-/// The corner list for actions, models and `/` commands: Raycast's action panel in the panel's frame style.
-struct QuickPanelAIList: View {
-    struct Row: Identifiable {
-        let id: String
-        let title: String
-        let symbol: String
-        var keys = ""
-        var destructive = false
-    }
-
-    var title = ""
-    let rows: [Row]
-    let selected: Int
-    let query: String?
-    let placeholder: String
-    let status: String?
-    let run: (Int) -> Void
-    private typealias Ink = QuickPanelPascalSkin.Ink
-
-    var body: some View {
-        VStack(spacing: 0) {
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(spacing: 2) {
-                        if let status {
-                            Text(status).foregroundStyle(Ink.meta).frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(10)
-                        }
-                        ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
-                            HStack(spacing: 10) {
-                                Image(systemName: row.symbol).frame(width: 18)
-                                    .foregroundStyle(row.destructive ? Ink.coral : Ink.cyan)
-                                Text(row.title).lineLimit(1)
-                                    .foregroundStyle(row.destructive ? Ink.coral : Ink.primary)
-                                Spacer(minLength: 8)
-                                if !row.keys.isEmpty {
-                                    if row.keys.count > 6 {
-                                        Text(row.keys).foregroundStyle(Ink.meta).panelFont(10).lineLimit(1)
-                                    } else {
-                                        QuickPanelKeyCaps(keys: row.keys.map(String.init).joined(separator: " "))
-                                    }
-                                }
-                            }
-                            .padding(.horizontal, 10)
-                            .frame(height: 32)
-                            .background(
-                                Rectangle().fill(index == selected ? Ink.selection : .clear)
-                            )
-                            .contentShape(Rectangle())
-                            .onTapGesture { run(index) }
-                            .id(row.id)
-                        }
-                    }
-                    .padding(6)
-                }
-                .onChange(of: selected) { _, index in
-                    if rows.indices.contains(index) { proxy.scrollTo(rows[index].id) }
-                }
-            }
-            if let query {
-                Rectangle().fill(Ink.idleRule.opacity(0.35)).frame(height: 1)
-                Text(query.isEmpty ? placeholder : query)
-                    .foregroundStyle(query.isEmpty ? Ink.meta : Ink.primary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 12)
-                    .frame(height: 38)
-            }
-        }
-        .frame(width: 380)
-        .frame(maxHeight: 330)
-        .fixedSize(horizontal: false, vertical: true)
-        .background(Ink.titleBox)
-        .overlay {
-            Rectangle().strokeBorder(Ink.activeRule, lineWidth: 1).padding(0.5)
-            Rectangle().strokeBorder(Ink.activeRule, lineWidth: 1).padding(3.5)
-        }
-        .overlay(alignment: .top) {
-            if !title.isEmpty {
-                Text(" \(title) ").foregroundStyle(Ink.title).background(Ink.titleBox).offset(y: -8)
-            }
-        }
-        .shadow(color: .black.opacity(0.5), radius: 18, y: 8)
-        .padding(12)
     }
 }

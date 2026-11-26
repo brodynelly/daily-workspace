@@ -24,7 +24,7 @@ extension QuickPanelController {
         if !aiPopup.isVisible, let hints = workspaceTabHints { return hints }
         if aiPopup.isVisible {
             return [
-                ("↵", "Ask"), ("/", "Commands"), ("⌘K", "Actions"), ("⇧⌘M", "Model"), ("⌘[ ⌘]", "Questions"),
+                ("↵", "Ask"), ("/", "Commands"), ("⌘K", "Actions"), ("⇧⌘M", "Model"), ("⌘[ ⌘]", "Chats"),
                 ("⌃h ⌃l", "Sections"),
                 ("⌘N", "New"), ("⌘+ ⌘-", "Zoom"), ("esc", "Close"),
             ]
