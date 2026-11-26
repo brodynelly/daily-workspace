@@ -110,10 +110,10 @@ struct AssistantToolRunner: Sendable {
     /// `text` cut to `maxBytes` of UTF-8 on a character boundary, ending with a note that tells the model how to
     /// narrow the request. Only citations still visible in the kept text are returned, so nothing the model never
     /// saw counts as observed.
-    static func budget(
-        _ text: String, citations: [ToolCitation], maxBytes: Int?
-    ) -> (text: String, citations: [ToolCitation], truncated: Bool) {
-        guard let maxBytes, text.utf8.count > maxBytes else { return (text, citations, false) }
+    static func budget(_ text: String, citations: [ToolCitation], maxBytes: Int?) -> BudgetedResult {
+        guard let maxBytes, text.utf8.count > maxBytes else {
+            return BudgetedResult(text: text, citations: citations, truncated: false)
+        }
         let note =
             "\n[Result cut at \(maxBytes) of \(text.utf8.count) bytes. Ask for less: a smaller limit or max_bytes, "
             + "a narrower query, or one project at a time.]"
@@ -126,7 +126,15 @@ struct AssistantToolRunner: Sendable {
             kept.append(character)
             used += size
         }
-        return (kept + note, citations.filter { kept.contains($0.value) }, true)
+        return BudgetedResult(
+            text: kept + note, citations: citations.filter { kept.contains($0.value) }, truncated: true)
+    }
+
+    /// A tool result after the size budget: its text, the citations still visible in it, and whether it was cut.
+    struct BudgetedResult {
+        let text: String
+        let citations: [ToolCitation]
+        let truncated: Bool
     }
 
     static func resultBlock(id: String, content: String, isError: Bool) -> Data {
