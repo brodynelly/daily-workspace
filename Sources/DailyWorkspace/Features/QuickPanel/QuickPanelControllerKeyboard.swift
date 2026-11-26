@@ -6,7 +6,7 @@ extension QuickPanelController {
         let alert = NSAlert()
         alert.messageText = "Daily Workspace quick panel"
         alert.informativeText =
-            "Tab / ⇧Tab changes panes. Arrows select; Return opens. Escape clears search, unzooms, hides preview, goes back, then hides. ⌘W hides directly. Configure panel routes, search, refresh, help and zoom in Settings → Keyboard. F2/F4–F8 navigate in Workspace or control playback in Music. ⌥F/E/P/S/W/H opens a menu."
+            "? shows search. Tab / ⇧Tab changes panes. Arrows select; Return opens. Escape clears search, hides search, unzooms, hides preview, goes back, then hides. ⌘W hides directly. Configure panel routes, search, refresh, help and zoom in Settings → Keyboard. F2/F4–F8 navigate in Workspace or control playback in Music. ⌥F/E/P/S/W/H opens a menu."
         alert.runModal()
     }
 
@@ -79,6 +79,10 @@ extension QuickPanelController {
 
     private func handleFallbackKey(_ keyCode: UInt16, characters: String, command: Bool, option: Bool) -> Bool {
         if currentRoute == .music ? handleMusicFunctionKey(keyCode) : handleRouteFunctionKey(keyCode) {
+            return true
+        }
+        if characters == "?", !command, !option, focusedPane != "command" {
+            focusSearch()
             return true
         }
         guard !command, !option, !characters.isEmpty,
@@ -170,7 +174,7 @@ extension QuickPanelController {
     private var pageSize: Int {
         // Match QAP's scroll viewport (document pane height minus 34pt insets).
         let height = panel.contentView?.bounds.height ?? panel.frame.height
-        let documentBottom = zoomed ? height - 38 : height - 134
+        let documentBottom = zoomed || !searchVisible ? height - 38 : height - 134
         let documentHeight =
             showsPreview
             ? min(210, max(100, (documentBottom - 40) * 0.45))

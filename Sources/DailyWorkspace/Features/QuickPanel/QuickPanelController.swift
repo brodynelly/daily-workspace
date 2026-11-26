@@ -113,6 +113,8 @@ final class QuickPanelController: NSObject, ObservableObject, NSWindowDelegate {
     var openWorkspace: ((AppSection) -> Void)?
 
     var isVisible: Bool { panel.isVisible }
+    /// The search pane stays hidden until `?`, Find or typing asks for it; a live query keeps it on screen.
+    var searchVisible: Bool { !zoomed && (focusedPane == "command" || !query.isEmpty) }
     var showsPreview: Bool {
         guard !zoomed else { return false }
         if currentRoute == .calendar || attentionPreview != nil { return true }

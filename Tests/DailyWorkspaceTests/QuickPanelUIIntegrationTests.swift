@@ -83,12 +83,16 @@ final class QuickPanelUIIntegrationTests: XCTestCase {
         XCTAssertEqual(panel.focusedPane, "command")
         XCTAssertTrue(panel.handleKey(keyCode: 53))
         XCTAssertEqual(panel.query, "")
+        XCTAssertTrue(panel.searchVisible)
+        XCTAssertTrue(panel.handleKey(keyCode: 53))
+        XCTAssertFalse(panel.searchVisible, "Escape on an empty query hides search before going back")
+        XCTAssertEqual(panel.currentRoute, .agents)
         XCTAssertTrue(panel.handleKey(keyCode: 53))
         XCTAssertEqual(panel.currentRoute, .home)
         XCTAssertTrue(panel.handleKey(keyCode: 48))
-        XCTAssertEqual(panel.focusedPane, "document")
-        XCTAssertTrue(panel.handleKey(keyCode: 48, modifiers: .shift))
         XCTAssertEqual(panel.focusedPane, "command")
+        XCTAssertTrue(panel.handleKey(keyCode: 48, modifiers: .shift))
+        XCTAssertEqual(panel.focusedPane, "document")
     }
 
     func testSystemRowKeyboardSelectionClampAndFind() {
@@ -152,13 +156,14 @@ final class QuickPanelUIIntegrationTests: XCTestCase {
         XCTAssertTrue(panel.handleKey(try key(125)))
         XCTAssertEqual(panel.selectedIndex, 2)
         XCTAssertTrue(panel.handleKey(try key(121)))
-        XCTAssertEqual(panel.selectedIndex, 18)  // 680pt panel: (506pt document - 34pt viewport inset) / 28pt.
+        // 680pt panel with search hidden: (602pt document - 34pt viewport inset) / 28pt = 20 rows.
+        XCTAssertEqual(panel.selectedIndex, 22)
         XCTAssertTrue(panel.handleKey(try key(115)))
         XCTAssertEqual(panel.selectedIndex, 0)
         XCTAssertTrue(panel.handleKey(try key(119)))
         XCTAssertEqual(panel.selectedIndex, 39)
         XCTAssertTrue(panel.handleKey(try key(116)))
-        XCTAssertEqual(panel.selectedIndex, 23)
+        XCTAssertEqual(panel.selectedIndex, 19)
 
         panel.navigate(to: .music)
         var actions = 0
@@ -273,6 +278,31 @@ final class QuickPanelUIIntegrationTests: XCTestCase {
 }
 
 extension QuickPanelUIIntegrationTests {
+    func testSearchPaneHiddenUntilQuestionMarkOrFind() {
+        let panel = QuickPanelController()
+        for route in [QuickPanelRoute.home, .tmux, .shortcuts, .music] {
+            panel.navigate(to: route)
+            XCTAssertFalse(panel.searchVisible, "\(route) opens without the search pane")
+        }
+        panel.navigate(to: .shortcuts)
+        XCTAssertTrue(panel.handleKey(keyCode: 44, characters: "?", modifiers: .shift, typedCharacters: "?"))
+        XCTAssertTrue(panel.searchVisible)
+        XCTAssertEqual(panel.focusedPane, "command")
+        XCTAssertEqual(panel.query, "", "? reveals search without inserting itself")
+        panel.query = "git"
+        XCTAssertFalse(
+            panel.handleKey(keyCode: 44, characters: "?", modifiers: .shift, typedCharacters: "?"),
+            "? inside an active search goes to the field as text")
+        XCTAssertTrue(panel.handleKey(keyCode: 53))
+        XCTAssertEqual(panel.query, "")
+        XCTAssertTrue(panel.handleKey(keyCode: 53))
+        XCTAssertFalse(panel.searchVisible)
+        XCTAssertTrue(panel.handleKey(keyCode: 99))  // F3 Find
+        XCTAssertTrue(panel.searchVisible)
+        panel.zoomed = true
+        XCTAssertFalse(panel.searchVisible, "Zoom keeps search hidden")
+    }
+
     func testPointerSelectionsRestoreKeyboardPaneAndTypeToSearch() {
         let panel = QuickPanelController()
         panel.navigate(to: .system)

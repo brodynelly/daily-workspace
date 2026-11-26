@@ -31,7 +31,7 @@ final class QuickPanelDataActionsTests: XCTestCase {
     @MainActor
     private func actions(_ fake: ActionFakeRunner) -> QuickPanelDataActions {
         let root = URL(fileURLWithPath: "/tmp/panel-dotfiles")
-        return QuickPanelDataActions(dotfiles: root) { exe, args, env in
+        return QuickPanelDataActions(dotfiles: root, rexExecutable: nil) { exe, args, env in
             try await fake.run(exe, args, env)
         }
     }
