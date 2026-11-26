@@ -31,7 +31,7 @@ struct QuickPanelKeyCaps: View {
             HStack(spacing: 3) {
                 ForEach(Array(Self.strokes(keys).enumerated()), id: \.offset) { _, stroke in
                     Text(stroke)
-                        .font(.system(size: 10.5, weight: .medium, design: .monospaced))
+                        .panelFont(10.5, weight: .medium)
                         .foregroundStyle(Ink.gold)
                         .padding(.horizontal, 5)
                         .frame(minWidth: 18, minHeight: 17)

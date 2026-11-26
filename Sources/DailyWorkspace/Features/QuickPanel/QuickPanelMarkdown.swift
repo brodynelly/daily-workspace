@@ -86,6 +86,7 @@ enum QuickPanelMarkdownBlock: Equatable {
 struct QuickPanelMarkdownView: View {
     let text: String
     var compact = false
+    @Environment(\.quickPanelFont) private var fontName
     private typealias Ink = QuickPanelPascalSkin.Ink
 
     var body: some View {
@@ -101,12 +102,12 @@ struct QuickPanelMarkdownView: View {
     @ViewBuilder private func render(_ block: QuickPanelMarkdownBlock) -> some View {
         switch block {
         case .heading(let level, let text):
-            Text(Self.inline(text))
-                .font(.system(size: level == 1 ? 16 : level == 2 ? 14.5 : 13.5, weight: .semibold))
+            Text(Self.inline(text, font: fontName))
+                .panelFont(level == 1 ? 16 : level == 2 ? 14.5 : 13.5, weight: .semibold)
                 .foregroundStyle(level <= 2 ? Ink.title : Ink.cyan)
                 .padding(.top, compact ? 2 : 4)
         case .paragraph(let text):
-            Text(Self.inline(text)).foregroundStyle(Ink.footer).lineSpacing(2)
+            Text(Self.inline(text, font: fontName)).foregroundStyle(Ink.footer).lineSpacing(2)
         case .bullet(let indent, let text):
             row(marker: indent == 0 ? "•" : "◦", indent: indent, text: text)
         case .numbered(let indent, let number, let text):
@@ -114,10 +115,10 @@ struct QuickPanelMarkdownView: View {
         case .code(let language, let text):
             VStack(alignment: .leading, spacing: 4) {
                 if !language.isEmpty {
-                    Text(language).font(.system(size: 10, weight: .medium)).foregroundStyle(Ink.meta)
+                    Text(language).panelFont(10, weight: .medium).foregroundStyle(Ink.meta)
                 }
                 ScrollView(.horizontal, showsIndicators: false) {
-                    Text(text).font(.system(size: 11.5, design: .monospaced)).foregroundStyle(Ink.primary)
+                    Text(text).panelFont(11.5).foregroundStyle(Ink.primary)
                 }
             }
             .padding(10)
@@ -128,7 +129,7 @@ struct QuickPanelMarkdownView: View {
         case .quote(let text):
             HStack(alignment: .top, spacing: 8) {
                 Rectangle().fill(Ink.gold.opacity(0.7)).frame(width: 2)
-                Text(Self.inline(text)).foregroundStyle(Ink.meta).italic()
+                Text(Self.inline(text, font: fontName)).foregroundStyle(Ink.meta).italic()
             }
             .fixedSize(horizontal: false, vertical: true)
         case .rule:
@@ -139,13 +140,13 @@ struct QuickPanelMarkdownView: View {
     private func row(marker: String, indent: Int, text: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 7) {
             Text(marker).foregroundStyle(Ink.gold).frame(minWidth: 12, alignment: .trailing)
-            Text(Self.inline(text)).foregroundStyle(Ink.footer).lineSpacing(2)
+            Text(Self.inline(text, font: fontName)).foregroundStyle(Ink.footer).lineSpacing(2)
         }
         .padding(.leading, CGFloat(indent) * 14)
     }
 
     /// Inline Markdown with bold in the primary colour, code in cyan on a tint, links underlined.
-    static func inline(_ text: String) -> AttributedString {
+    static func inline(_ text: String, font: String = "VGA") -> AttributedString {
         var value =
             (try? AttributedString(
                 markdown: text, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)))
@@ -153,7 +154,7 @@ struct QuickPanelMarkdownView: View {
         for run in value.runs {
             guard let intent = run.inlinePresentationIntent else { continue }
             if intent.contains(.code) {
-                value[run.range].font = .system(size: 11.5, design: .monospaced)
+                value[run.range].font = QuickPanelPascalSkin.Typography.font(11.5, preferred: font)
                 value[run.range].foregroundColor = Ink.cyan
                 value[run.range].backgroundColor = Ink.header
             }

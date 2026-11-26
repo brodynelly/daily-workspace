@@ -145,6 +145,7 @@ struct QuickPanelPascalSkin: View {
             .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
             .clipped()
             .font(Typography.font(13, preferred: controller.panelFont))
+            .environment(\.quickPanelFont, controller.panelFont)
             .foregroundStyle(Ink.primary)
             .transaction { transaction in
                 if reduceMotion { transaction.disablesAnimations = true }

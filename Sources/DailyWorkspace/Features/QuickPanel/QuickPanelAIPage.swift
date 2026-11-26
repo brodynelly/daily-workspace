@@ -84,7 +84,7 @@ struct QuickPanelAITurnsView: View {
                 )
                 .foregroundStyle(Ink.meta)
             }
-            .font(.system(size: 11, design: .monospaced))
+            .panelFont(11)
         }
     }
 
@@ -124,7 +124,7 @@ struct QuickPanelAIConversationView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .overlay(alignment: .bottomTrailing) { cornerList }
-        .font(.system(size: 13))
+        .panelFont(13)
     }
 
     private var transcript: some View {
@@ -169,7 +169,7 @@ struct QuickPanelAIConversationView: View {
                 QuickPanelKeyCaps(keys: "⌘[ ⌘]", label: "Questions")
                 QuickPanelKeyCaps(keys: "⌃h ⌃j ⌃k ⌃l", label: "Sections")
             }
-            .font(.system(size: 11, design: .monospaced))
+            .panelFont(11)
         }
         .padding(.top, 6)
     }
@@ -180,12 +180,12 @@ struct QuickPanelAIConversationView: View {
                 Text(">").foregroundStyle(Ink.gold)
                 Text(question).foregroundStyle(Ink.title).fixedSize(horizontal: false, vertical: true)
             }
-            .font(.system(size: 13, weight: .medium, design: .monospaced))
+            .panelFont(13, weight: .medium)
             VStack(alignment: .leading, spacing: 6) {
                 QuickPanelMarkdownView(text: answer)
                 if sources > 0 {
                     Text("\(sources) \(sources == 1 ? "source" : "sources") cited · open in Daily Workspace to inspect")
-                        .foregroundStyle(Ink.meta).font(.system(size: 11))
+                        .foregroundStyle(Ink.meta).panelFont(11)
                 }
             }
             .padding(.leading, 16)
@@ -288,7 +288,7 @@ struct QuickPanelAIComposerView: View {
                         .foregroundStyle(Ink.meta)
                 }
             }
-            .font(.system(size: 11, design: .monospaced))
+            .panelFont(11)
             .lineLimit(1)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
@@ -340,7 +340,7 @@ struct QuickPanelAIList: View {
                                 Spacer(minLength: 8)
                                 if !row.keys.isEmpty {
                                     if row.keys.count > 6 {
-                                        Text(row.keys).foregroundStyle(Ink.meta).font(.system(size: 10)).lineLimit(1)
+                                        Text(row.keys).foregroundStyle(Ink.meta).panelFont(10).lineLimit(1)
                                     } else {
                                         QuickPanelKeyCaps(keys: row.keys.map(String.init).joined(separator: " "))
                                     }

@@ -211,7 +211,7 @@ struct QuickPanelWorkspaceInsightsView: View {
                 Text(insights.loading ? "Reading workspace…" : "").foregroundStyle(Ink.meta)
             }
         }
-        .font(.system(size: 11, design: .monospaced))
+        .panelFont(11)
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Workspace details")

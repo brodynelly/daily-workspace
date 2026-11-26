@@ -189,7 +189,7 @@ struct QuickPanelMonitorView: View {
                 .frame(maxWidth: .infinity, maxHeight: geometry.size.height)
             }
         }
-        .font(.system(size: 11, design: .monospaced))
+        .panelFont(11)
         .onAppear { monitor.start(owner: controller) }
         .onDisappear { monitor.stop() }
         .accessibilityElement(children: .contain)
@@ -205,7 +205,7 @@ struct QuickPanelMonitorView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(String(format: "%.0f%%", reading.totalLoad * 100))
-                        .font(.system(size: 22, weight: .semibold, design: .monospaced))
+                        .panelFont(22, weight: .semibold)
                         .foregroundStyle(QuickPanelMeter.color(reading.totalLoad))
                     Text("total · \(reading.coreLoads.count) cores").foregroundStyle(Ink.meta)
                 }
@@ -289,7 +289,7 @@ struct QuickPanelMonitorView: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(QuickPanelMonitor.rate(rate)).foregroundStyle(Ink.primary)
                 Text("peak \(QuickPanelMonitor.rate(history.max() ?? 0))").foregroundStyle(Ink.meta)
-                    .font(.system(size: 9.5, design: .monospaced))
+                    .panelFont(9.5)
             }
             .frame(width: 104, alignment: .leading)
             QuickPanelAreaGraph(

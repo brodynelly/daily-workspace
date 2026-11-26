@@ -203,14 +203,14 @@ struct QuickPanelCommandPaletteOverlay: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 10) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 13))
+                    .panelFont(13)
                     .foregroundStyle(Ink.meta)
                 Text(palette.query.isEmpty ? "Type a command or panel…" : palette.query)
                     .foregroundStyle(palette.query.isEmpty ? Ink.meta : Ink.primary)
                     .lineLimit(1)
                 Spacer(minLength: 12)
             }
-            .font(.system(size: 14))
+            .panelFont(14)
             .padding(.horizontal, 18)
             .frame(height: 50)
             Rectangle().fill(Ink.idleRule.opacity(0.45)).frame(height: 1)
@@ -220,7 +220,7 @@ struct QuickPanelCommandPaletteOverlay: View {
                         ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                             if index == 0 || items[index - 1].group != item.group {
                                 Text(item.group)
-                                    .font(.system(size: 11, weight: .semibold))
+                                    .panelFont(11, weight: .semibold)
                                     .foregroundStyle(Ink.cyan)
                                     .padding(.horizontal, 10)
                                     .padding(.top, index == 0 ? 2 : 12)
@@ -253,7 +253,7 @@ struct QuickPanelCommandPaletteOverlay: View {
                 QuickPanelKeyCaps(keys: "esc", label: "to close")
                 Spacer(minLength: 0)
             }
-            .font(.system(size: 11))
+            .panelFont(11)
             .padding(.horizontal, 16)
             .frame(height: 36)
         }
@@ -277,7 +277,7 @@ struct QuickPanelCommandPaletteOverlay: View {
     private func row(_ item: QuickPanelPaletteItem, selected: Bool) -> some View {
         HStack(spacing: 12) {
             Image(systemName: item.symbol)
-                .font(.system(size: 13))
+                .panelFont(13)
                 .frame(width: 20)
                 .foregroundStyle(selected ? Ink.gold : Ink.cyan)
             Text(item.title).lineLimit(1)

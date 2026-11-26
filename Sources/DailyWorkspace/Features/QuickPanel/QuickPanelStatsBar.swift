@@ -40,7 +40,7 @@ struct QuickPanelStatsBar: View {
                 }
             }
             Spacer(minLength: 8)
-            QuickPanelKeyCaps(keys: "⌘K", label: "Commands")
+            QuickPanelKeyCaps(keys: "⌘K", label: controller.aiPopup.isVisible ? "Actions" : "Commands")
             TimelineView(.everyMinute) { context in
                 Text(context.date.formatted(date: .omitted, time: .shortened)).foregroundStyle(Ink.meta)
             }

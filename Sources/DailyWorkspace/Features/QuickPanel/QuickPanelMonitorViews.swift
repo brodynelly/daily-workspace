@@ -44,7 +44,7 @@ struct QuickPanelProcessTable: View {
             .padding(.horizontal, 10)
             .frame(height: 24)
         }
-        .font(.system(size: 11.5, design: .monospaced))
+        .panelFont(11.5)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Processes sorted by \(monitor.sort.title)")
     }
