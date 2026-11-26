@@ -18,6 +18,8 @@ swift test                              # unit tests
 scripts/bundle.sh release               # standalone build/DailyWorkspace.app
 ```
 
+To install or update the release app in `/Applications` (with Start at Login and the `daily` CLI link), run `just run`; `just quick` skips the checks and `just` lists every recipe.
+
 `scripts/build_and_run.sh` also supports `--debug` (runs under lldb), `--logs` (all process output) and `--app-logs` (only the app's own log channels).
 
 ### Optional `daily` control CLI for skhd

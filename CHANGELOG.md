@@ -7,6 +7,7 @@ All notable changes to this project are documented here. The format follows [Kee
 - **Calendar layout:** seven-day hourly grid with pinned day headers, an all-day row and overlapping event lanes; a right-side month picker selects a day and shows its agenda. Week arrows move seven days; existing EventKit editing and theme remain unchanged.
 
 ### Added
+- **One-command install/update:** `just run` (or `scripts/install_app.sh`) runs the baseline checks, builds a release bundle, backs up any installed copy to `~/.config/daily-workspace/backups/`, installs `/Applications/DailyWorkspace.app`, links `~/.local/bin/daily`, launches and enables Start at Login. `just` lists the other recipes; the project `/install-app` Claude skill wraps the same flow.
 - **A new look, ported from Luuna's desktop design system:** Mantine's colours in light and dark (following macOS), the system font for text and the bundled Outfit font for headings, six status tones that each pair a colour with a shape, a 240 pt sidebar, a 56 pt top bar with **Go to… ⌘K**, page headers with one sentence each, record rows, stat tiles, callouts and empty states. Hover changes only the background; nothing lifts or slides.
 - **Six screens instead of seven:** Today, Projects, Open Loops, Notes, Calendar and Assistant (⌘1…⌘6). Search lives inside Notes (⇧⌘F); Tasks and Reminders live inside Open Loops.
 - **Collapsible sidebar:** the main-window top bar has an accessible hide/show button (⌃⌘S); the content column expands when the sidebar is hidden and the Go menu remains available.
