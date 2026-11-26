@@ -173,7 +173,8 @@ struct SegmentedControl<Value: Hashable>: View {
                 .padding(.vertical, Space.s1)
                 .surface(
                     selected ? Theme.surfaceRaised : .clear, edge: selected ? Theme.borderStrong : nil,
-                    radius: Radius.sm)
+                    radius: Radius.sm
+                )
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

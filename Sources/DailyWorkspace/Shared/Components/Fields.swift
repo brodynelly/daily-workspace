@@ -72,7 +72,8 @@ private struct QuietToggleBody: View {
                 .frame(minHeight: Metrics.controlMd)
                 .surface(
                     isOn ? Theme.surfaceRaised : hovered && isEnabled ? Theme.fill : .clear,
-                    edge: isOn ? Theme.borderStrong : nil)
+                    edge: isOn ? Theme.borderStrong : nil
+                )
                 .contentShape(RoundedRectangle(cornerRadius: Radius.md, style: .continuous))
         }
         .buttonStyle(.plain)

@@ -63,7 +63,8 @@ struct AgentChangesView: View {
             .padding(Space.s2)
             .surface(
                 selection == change.id ? Theme.controlSelected : .clear,
-                edge: selection == change.id ? Theme.borderStrong : nil)
+                edge: selection == change.id ? Theme.borderStrong : nil
+            )
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
