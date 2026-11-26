@@ -50,18 +50,39 @@ Sources/DailyWorkspace/
     Calendar/       CalendarService (selected-day and week EventKit reads), CalendarStore (+ EventKitCalendarStore),
                     CalendarView, CalendarWeekView (hour grid), CalendarMonthRail (month and day agenda),
                     AgendaList (+ EventRow), EventEditorView
-    Assistant/      AssistantSession (+Loop, +Runtime), AnthropicClient and OpenRouterClient (AgentTransport),
-                    RetryingAgentTransport, AgentRuntime (limits, run events, deadlines), AgentUsage,
-                    AgentStream (+Accumulator), AssistantTools, AssistantToolRunner, AssistantPrompt,
-                    WorkspaceAssistantContext, AssistantKey, RestartRecords, RestartPanel,
-                    RestartReviewSheet, AssistantView and subviews; cited draft handoff to Notes
+    Assistant/      The read side of the Assistant, one folder per layer (each layer only calls the one below it):
+      Views/        AssistantView, AssistantInspector, AssistantRail, AssistantTranscript, AssistantComposer,
+                    ToolCallsView
+      Session/      AssistantSession (+Loop, +Runtime, +Durable): the manual tool loop and transcript;
+                    AssistantConversation/AssistantTurn, AssistantPrompt, AssistantPageFocus, AssistantKey,
+                    AssistantVoiceService
+      Tools/        AssistantTools (definitions), AssistantToolRunner (+Agent), VaultReadPolicy,
+                    WorkspaceAssistantContext (the tools over the app's real sources)
+      Transport/    AgentTransport (protocol, AgentRequest/Message/Error), AnthropicClient, OpenRouterClient,
+                    MessagesAPIClient (shared SSE path), RetryingAgentTransport, AgentStream (+Accumulator),
+                    AgentRuntime (limits, run events, deadlines), AgentUsage, OrderedJSON (byte-stable bodies)
+      Restart/      RestartRecords, RestartPanel, RestartReviewSheet; cited draft handoff to Notes
+    Agent/          The Assistant's write side: VaultChanges (review queue, undo, hash-only journal),
+                    WorkspaceAgent, AgentWorkspace, AgentCapabilities, ConversationArchive, RoutineScheduler,
+                    AgentChangesView
     Luuna/          LuunaCLIReader (fixed read-only JSON commands), LuunaRuntimeReading (shared protocol,
                     connection/errors), LuunaStore, LuunaWorkStore, LuunaRunFollower,
                     LuunaProjectPanel, LuunaSettingsView, LuunaStatusWords
-    QuickPanel/     QuickPanelController (+rows, keyboard, interactions), QuickPanelControlServer,
-                    QuickPanelDataProvider (+Parsing, +Actions), QuickPanelCommandRunner, QuickPanelAttention,
-                    QuickPanelCalendar, QuickPanelMusic, QuickPanelSystemActions, QuickPanelIntegrations,
-                    QuickPanelPascalSkin (+Details), KittyQuickAccessBorder
+    QuickPanel/     The reusable keyboard-first panel, grouped by responsibility:
+      Controller/   QuickPanelController (+Rows, +Keyboard, +VimKeys, +Menus, +Interactions, +Placement),
+                    QuickPanelZoom, QuickPanelControlServer and QuickPanelControlConfiguration (same-user socket)
+      Data/         QuickPanelDataProvider (+Parsing), QuickPanelDataActions, QuickPanelCommandRunner (fixed argv),
+                    QuickPanelIntegrations, QuickPanelSystemActions, QuickPanelAttention, QuickPanelCalendar,
+                    QuickPanelRex, QuickPanelFixtureTransport, KittyQuickAccessBorder
+      Skin/         QuickPanelPascalSkin (+Details), QuickPanelStatsBar, QuickPanelCommandPalette, QuickPanelKeyCaps,
+                    QuickPanelFont, QuickPanelRoute+Detail
+      AI/           QuickPanelAIPage, QuickPanelAIPopup, QuickPanelAIChats, QuickPanelAIList, QuickPanelMarkdown,
+                    QuickPanelModelCatalog
+      Workspace/    QuickPanelWorkspacePage, QuickPanelWorkspaceTabs (+TabViews), QuickPanelWorkspaceInsights,
+                    Git tab (QuickPanelGitHub (+Operations), QuickPanelGitModels), Harness tab (QuickPanelHarness
+                    (+Discovery), QuickPanelHarnessView)
+      Monitor/      QuickPanelMonitor, QuickPanelMonitorSampler, QuickPanelMonitorViews (read-only, never signals)
+      Music/        QuickPanelMusic, QuickPanelMusicBridge
     Tasks/          TaskStore, TaskRow, TaskEditSheet (local tasks)
     Reminders/      RemindersService, ReminderStore (+ EventKitReminderStore)
     Capture/        CaptureForm, CaptureMenu, GlobalCaptureShortcut
@@ -86,7 +107,9 @@ colour with a shape (success, active, danger, attention, neutral, interrupted; g
 states), hover by background only, and tokens instead of literals.
 
 **Where new code goes:**
-- A feature's views, store and service live together under `Features/<Feature>/`.
+- A feature's views, store and service live together under `Features/<Feature>/`. Once a feature passes about
+  fifteen files, group them in subfolders by layer or responsibility (as `Assistant/` and `QuickPanel/` do), never
+  by file kind across features. SwiftPM ignores folders, so a move never changes access control or behaviour.
 - Anything used by two or more features goes in `Shared/`.
 - Logic that needs no UI or system framework goes in `DailyCore`, with tests.
 

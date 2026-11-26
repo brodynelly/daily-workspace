@@ -273,6 +273,8 @@ final class QuickPanelControlServer {
         }
     }
 
+    /// Written once on the main actor before `signal()` and read only after `wait()` returns: the semaphore orders
+    /// the two accesses, so no lock is needed.
     private final class ResponseBox: @unchecked Sendable {
         var value: [String: Any]?
     }

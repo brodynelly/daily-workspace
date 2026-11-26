@@ -34,6 +34,43 @@ Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) first. In short:
 - **New disk, network or OS integration:** put a protocol at the boundary, a production implementation next to the feature, and a fake in `Tests/DailyWorkspaceTests/Fakes.swift`. Wire both in `AppModel.Dependencies`.
 - **Diagnostics:** use the `Log` channels. Never log note text, chat content or keys. Log paths with `privacy: .private`, and log errors as `Log.code(error)` (public) plus the description with `.private(mask: .hash)`.
 
+## Swift conventions
+
+The code follows the [Swift API Design Guidelines](https://www.swift.org/documentation/api-design-guidelines/) and
+[Swift concurrency](https://docs.swift.org/swift-book/documentation/the-swift-programming-language/concurrency/). The
+rules below are the ones review keeps coming back to.
+
+**Naming and files**
+- Name things for what they are at the point of use: types and protocols are nouns (`NoteVault`, `AgentTransport`),
+  capability protocols end in `-ing`/`-able` (`TaskPersisting`, `LuunaRuntimeReading`), methods with side effects are
+  verbs (`save(_:to:expecting:)`), and Boolean properties read as assertions (`isActive`, `isEmpty`).
+- One primary type per file, named after the file. Split a large type into `Type+Topic.swift` extensions
+  (`AssistantSession+Loop.swift`), each about one concern.
+- Never give two types the same name in different modules: `DailyCore.JSONValue` (lossless decoded JSON) and the app's
+  `OrderedJSON` (byte-stable request bodies) were split for this reason.
+- Default to `private`; widen access only when another file needs it. `DailyCore` marks its API `public`; the app
+  target stays `internal`.
+
+**Concurrency** (complete checking is on for every target in `Package.swift`)
+- Stores and anything that touches AppKit or SwiftUI state are `@MainActor`. Blocking work (file scans, `Process`,
+  Keychain, Apple Events) leaves the main actor with `Task.detached` or a `nonisolated` async function, and returns
+  `Sendable` values.
+- Values that cross actors are `Sendable` structs or enums. `@unchecked Sendable` is allowed only for a small final
+  class whose mutable state is guarded by a lock (`NSLock.withLock`) or another documented ordering, with a comment
+  saying which.
+- Prefer `async`/`await` and `Task` over `DispatchQueue`. Use `DispatchQueue.main.async` only to defer to the next
+  run-loop turn (for example a SwiftUI focus change in `onAppear`); inside `NotificationCenter` observers registered
+  on `.main`, use `MainActor.assumeIsolated`.
+- A task the UI started is cancelled when its owner goes away or the input changes, and a late result is discarded
+  by checking an identity or generation, never applied over newer state.
+
+**Errors and state**
+- Throw typed errors with user-actionable descriptions; never put note text, server bodies or keys in an error.
+- Model each source's state as an enum (`SourceState`) rather than a pile of optionals and flags, so "unavailable"
+  can never render as "empty".
+- No `try!`, force unwraps or `fatalError` on input from disk, the network or the user. A literal that cannot fail
+  (a constant regex or URL) may force, with a comment.
+
 ## Tests
 
 - Every change to core logic or a store comes with a test that would catch a regression users could notice.
