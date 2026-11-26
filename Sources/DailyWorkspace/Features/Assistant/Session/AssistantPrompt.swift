@@ -91,7 +91,7 @@ enum AssistantPrompt {
     }
 
     /// System blocks: the rules, then the vault's `AGENTS.md` when given. The last block carries the cache marker.
-    static func system(vaultAgents: String?, capabilities: AgentCapabilities = .readOnly) -> [JSONValue] {
+    static func system(vaultAgents: String?, capabilities: AgentCapabilities = .readOnly) -> [OrderedJSON] {
         var texts = [rules(for: capabilities)]
         if let vaultAgents, !vaultAgents.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             texts.append(
@@ -99,8 +99,8 @@ enum AssistantPrompt {
                     + "<vault_agents_md>\n\(vaultAgents)\n</vault_agents_md>")
         }
         return texts.enumerated().map { index, text in
-            var members: [(String, JSONValue)] = [("type", .string("text")), ("text", .string(text))]
-            if index == texts.count - 1 { members.append(("cache_control", JSONValue.ephemeralCache)) }
+            var members: [(String, OrderedJSON)] = [("type", .string("text")), ("text", .string(text))]
+            if index == texts.count - 1 { members.append(("cache_control", OrderedJSON.ephemeralCache)) }
             return .object(members)
         }
     }
@@ -132,7 +132,7 @@ enum AssistantPrompt {
     }
 
     /// The structured-output schema for a restart draft.
-    static let restartSchema = JSONValue.object([
+    static let restartSchema = OrderedJSON.object([
         ("type", .string("object")),
         (
             "properties",

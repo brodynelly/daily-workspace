@@ -32,7 +32,7 @@ extension AssistantSession {
     /// Identifies the model context a transcript was built in: the vault identity, system prompt and tools. A
     /// saved conversation is replayed only into the same context, across launches too.
     var contextFingerprint: String {
-        let bytes = Data(contextIdentity.utf8) + JSONValue.array(system).encoded() + JSONValue.array(tools).encoded()
+        let bytes = Data(contextIdentity.utf8) + OrderedJSON.array(system).encoded() + OrderedJSON.array(tools).encoded()
         return RestartLedger.sha256(of: bytes)
     }
 }

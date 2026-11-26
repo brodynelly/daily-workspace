@@ -209,7 +209,7 @@ final class AssistantWiringTests: XCTestCase {
         try write("# Vault rules\nChanged.", to: root.appendingPathComponent("AGENTS.md"))
         model.syncAssistantVaultAgents()
         XCTAssertTrue(model.assistant.turns.isEmpty)
-        XCTAssertTrue(JSONValue.array(model.assistant.system).encoded().containsBytes(Data("Changed.".utf8)))
+        XCTAssertTrue(OrderedJSON.array(model.assistant.system).encoded().containsBytes(Data("Changed.".utf8)))
     }
 
     // MARK: Restart records

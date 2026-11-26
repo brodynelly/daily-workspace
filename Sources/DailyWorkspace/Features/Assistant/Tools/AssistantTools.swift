@@ -129,8 +129,8 @@ struct ToolParameter: Sendable {
     var required = true
     var allowed: [String]?
 
-    var schema: JSONValue {
-        var members: [(String, JSONValue)] = [("type", .string(type.rawValue))]
+    var schema: OrderedJSON {
+        var members: [(String, OrderedJSON)] = [("type", .string(type.rawValue))]
         if let allowed { members.append(("enum", .array(allowed.map { .string($0) }))) }
         members.append(("description", .string(description)))
         return .object(members)
@@ -168,9 +168,9 @@ enum AssistantTool: String, CaseIterable, Sendable {
     static let readLimit = 1...100_000
 
     /// Read-only definitions sorted by name, rendered the same way every time so the cached prefix never changes.
-    static let definitions: [JSONValue] = readOnly.sorted { $0.rawValue < $1.rawValue }.map(\.definition)
+    static let definitions: [OrderedJSON] = readOnly.sorted { $0.rawValue < $1.rawValue }.map(\.definition)
 
-    var definition: JSONValue {
+    var definition: OrderedJSON {
         let properties = parameters.sorted { $0.name < $1.name }.map { ($0.name, $0.schema) }
         let required = parameters.filter(\.required).map(\.name).sorted()
         return .object([

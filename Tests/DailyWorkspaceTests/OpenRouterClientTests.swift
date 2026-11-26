@@ -43,7 +43,7 @@ final class OpenRouterClientTests: XCTestCase {
         return client
     }
 
-    private func request(model: String = "openai/gpt-4.1", outputSchema: JSONValue? = nil) -> AgentRequest {
+    private func request(model: String = "openai/gpt-4.1", outputSchema: OrderedJSON? = nil) -> AgentRequest {
         AgentRequest(
             model: model, maxTokens: 4096, effort: .medium,
             system: [

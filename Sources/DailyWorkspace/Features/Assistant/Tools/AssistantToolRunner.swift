@@ -144,11 +144,11 @@ struct AssistantToolRunner: Sendable {
     }
 
     static func resultBlock(id: String, content: String, isError: Bool) -> Data {
-        var members: [(String, JSONValue)] = [
+        var members: [(String, OrderedJSON)] = [
             ("type", .string("tool_result")), ("tool_use_id", .string(id)), ("content", .string(content)),
         ]
         if isError { members.append(("is_error", .bool(true))) }
-        return JSONValue.object(members).encoded()
+        return OrderedJSON.object(members).encoded()
     }
 
     private func execute(_ tool: AssistantTool, _ args: ToolArguments) async throws -> (String, [ToolCitation]) {
