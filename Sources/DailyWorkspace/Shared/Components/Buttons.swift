@@ -40,13 +40,7 @@ private struct WorkspaceButtonBody: View {
             .foregroundStyle(foreground)
             .padding(.horizontal, horizontalPadding)
             .frame(minHeight: height)
-            .background {
-                RoundedRectangle(cornerRadius: Radius.md, style: .continuous).fill(background)
-            }
-            .overlay {
-                RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
-                    .strokeBorder(border, lineWidth: Metrics.borderWidth)
-            }
+            .surface(background, edge: border)
             .underline(variant == .text && hovered && isEnabled)
             .contentShape(RoundedRectangle(cornerRadius: Radius.md, style: .continuous))
             .onHover { hovered = $0 }
@@ -117,7 +111,7 @@ private struct WorkspaceButtonBody: View {
 private struct ButtonLabelStyle: LabelStyle {
     func makeBody(configuration: Configuration) -> some View {
         HStack(spacing: Space.s2Half) {
-            configuration.icon.font(.system(size: 13, weight: .regular)).imageScale(.medium)
+            configuration.icon.iconRole(.inline).imageScale(.medium)
             configuration.title
         }
     }
@@ -161,11 +155,7 @@ struct SegmentedControl<Value: Hashable>: View {
             }
         }
         .padding(Space.s1 - 1)
-        .background(RoundedRectangle(cornerRadius: Radius.md, style: .continuous).fill(Theme.fill))
-        .overlay {
-            RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
-                .strokeBorder(Theme.borderStrong, lineWidth: Metrics.borderWidth)
-        }
+        .surface(Theme.fill, edge: Theme.borderStrong)
         .fixedSize()
         .accessibilityElement(children: .contain)
         .accessibilityLabel(label)
@@ -181,16 +171,9 @@ struct SegmentedControl<Value: Hashable>: View {
                 .foregroundStyle(selected ? Theme.ink : Theme.inkMuted)
                 .padding(.horizontal, Space.s2Half)
                 .padding(.vertical, Space.s1)
-                .background {
-                    if selected {
-                        RoundedRectangle(cornerRadius: Radius.sm, style: .continuous)
-                            .fill(Theme.surfaceRaised)
-                            .overlay {
-                                RoundedRectangle(cornerRadius: Radius.sm, style: .continuous)
-                                    .strokeBorder(Theme.borderStrong, lineWidth: Metrics.borderWidth)
-                            }
-                    }
-                }
+                .surface(
+                    selected ? Theme.surfaceRaised : .clear, edge: selected ? Theme.borderStrong : nil,
+                    radius: Radius.sm)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

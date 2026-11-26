@@ -22,10 +22,7 @@ struct Callout<Content: View>: View {
         .textRole(.bodySmall, lineBox: false)
         .foregroundStyle(tone == nil ? Theme.inkMuted : Theme.inkBody)
         .padding(Space.s4)
-        .background(
-            RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
-                .fill(tone?.background ?? Theme.surfaceMuted)
-        )
+        .surface(tone?.background ?? Theme.surfaceMuted)
         .accessibilityElement(children: .combine)
     }
 }
@@ -113,7 +110,7 @@ struct EmptyState<Action: View>: View {
         VStack(spacing: Space.s1Half) {
             if let systemImage {
                 Image(systemName: systemImage)
-                    .font(.system(size: 28, weight: .light))
+                    .iconRole(.emptyState)
                     .foregroundStyle(Theme.inkDisabled)
                     .padding(.bottom, Space.s2)
                     .accessibilityHidden(true)

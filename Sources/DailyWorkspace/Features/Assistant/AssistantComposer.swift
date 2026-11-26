@@ -40,14 +40,7 @@ struct AssistantComposer: View {
                 }
             }
             .frame(height: 88)
-            .background(
-                RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
-                    .fill(assistant.isStreaming ? Theme.surfaceDisabled : Theme.field)
-            )
-            .overlay {
-                RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
-                    .strokeBorder(focused ? Theme.focusRing : Theme.borderStrong, lineWidth: Metrics.borderWidth)
-            }
+            .fieldSurface(focused: focused, enabled: !assistant.isStreaming)
             HStack(spacing: Space.s3) {
                 Button(voice.isListening || voice.isRequestingPermission ? "Stop dictation" : "Dictate question") {
                     if voice.isListening || voice.isRequestingPermission {

@@ -17,7 +17,8 @@ struct AssistantInspector: View {
         VStack(alignment: .leading, spacing: Space.s3) {
             HStack(alignment: .top, spacing: Space.s2) {
                 Image(systemName: "sparkles")
-                    .foregroundStyle(Theme.accent)
+                    .iconRole(.leading)
+                    .foregroundStyle(Theme.accentText)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: Space.s1) {
                     Text("Ask AI").textRole(.sectionTitle, lineBox: false)

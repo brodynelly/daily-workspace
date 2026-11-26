@@ -150,7 +150,7 @@ private struct SourceRow: View {
         VStack(alignment: .leading, spacing: Space.s1) {
             HStack(alignment: .firstTextBaseline, spacing: Space.s2) {
                 Text(verbatim: source.path)
-                    .font(.system(size: TextRole.caption.size, design: .monospaced))
+                    .font(TextRole.monoCaption.font)
                     .foregroundStyle(Theme.inkBody)
                     .fixedSize(horizontal: false, vertical: true)
                     .textSelection(.enabled)

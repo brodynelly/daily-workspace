@@ -1,41 +1,42 @@
-import AppKit
 import SwiftUI
 
-/// Legacy names kept so earlier call sites compile, each pointing at a Luuna role (like Luuna's
-/// `tokens-legacy.css`). New code uses `Theme`, `Radius`, `Space`, `Metrics` and `TextRole` directly;
-/// migrate a caller to the role and delete the alias when nothing reads it.
-enum WorkspaceTheme {
-    /// `--surface`.
-    static let background = Theme.surface
-    /// `--fill`: a quiet grouped ground.
-    static let recessed = Theme.fill
-    /// `--separator`: hairlines.
-    static let border = Theme.separator
-    /// `--accent`.
-    static var accent: Color { Theme.accent }
-    /// `--accent-text` for AppKit drawing (links and the caret): readable on the surface in both schemes.
-    static var nativeAccent: NSColor { accentTextNSColor }
+/// The one rounded surface every container draws: a fill, an optional 1 pt edge on top of the content, the
+/// continuous md radius. Cards, trays, callouts, fields and selected rows are all this primitive with a role.
+struct SurfaceModifier: ViewModifier {
+    var fill: Color
+    var edge: Color?
+    var radius: CGFloat = Radius.md
 
-    private static let accentTextNSColor = ColorToken.accentText.nsColor
+    func body(content: Content) -> some View {
+        content
+            .background(RoundedRectangle(cornerRadius: radius, style: .continuous).fill(fill))
+            .overlay {
+                if let edge {
+                    RoundedRectangle(cornerRadius: radius, style: .continuous)
+                        .strokeBorder(edge, lineWidth: Metrics.borderWidth)
+                }
+            }
+    }
 }
 
-/// The window's ground: the surface role, edge to edge.
-struct WorkspaceCanvas: View {
-    var body: some View { Theme.surface.ignoresSafeArea() }
+/// The field ground (Mantine TextInput): the field fill with a strong 3:1 edge that turns to the focus ring
+/// while focused. Disabled uses the disabled ground and a quiet edge, never opacity.
+struct FieldSurfaceModifier: ViewModifier {
+    var focused: Bool
+    var enabled: Bool
+
+    func body(content: Content) -> some View {
+        content.surface(
+            enabled ? Theme.field : Theme.surfaceDisabled,
+            edge: !enabled ? Theme.border : focused ? Theme.focusRing : Theme.borderStrong)
+    }
 }
 
 /// A quiet grouped surface: the fill role with a separator hairline.
 struct SoftControlSurface: ViewModifier {
     var radius: CGFloat = Radius.md
     func body(content: Content) -> some View {
-        content.background {
-            RoundedRectangle(cornerRadius: radius, style: .continuous)
-                .fill(Theme.fill)
-                .overlay {
-                    RoundedRectangle(cornerRadius: radius, style: .continuous)
-                        .strokeBorder(Theme.separator, lineWidth: Metrics.borderWidth)
-                }
-        }
+        content.surface(Theme.fill, edge: Theme.separator, radius: radius)
     }
 }
 
@@ -77,9 +78,29 @@ struct ViewEntrance: ViewModifier {
 }
 
 extension View {
+    /// A rounded surface in a colour role, with an optional 1 pt edge.
+    func surface(_ fill: Color, edge: Color? = nil, radius: CGFloat = Radius.md) -> some View {
+        modifier(SurfaceModifier(fill: fill, edge: edge, radius: radius))
+    }
+
+    /// The muted inset ground for previews, quotes and transcripts (no edge).
+    func mutedSurface(radius: CGFloat = Radius.md) -> some View { surface(Theme.surfaceMuted, radius: radius) }
+
+    /// The field ground for a custom input; pass its focus state and whether it accepts input.
+    func fieldSurface(focused: Bool, enabled: Bool = true) -> some View {
+        modifier(FieldSurfaceModifier(focused: focused, enabled: enabled))
+    }
+
     func softControlSurface(radius: CGFloat = Radius.md) -> some View { modifier(SoftControlSurface(radius: radius)) }
+
     func cardSurface(radius: CGFloat = Radius.md, fill: Color = Theme.surfaceRaised) -> some View {
         modifier(CardSurface(radius: radius, fill: fill))
     }
+
     func viewEntrance() -> some View { modifier(ViewEntrance()) }
+}
+
+/// The window's ground: the surface role, edge to edge.
+struct WorkspaceCanvas: View {
+    var body: some View { Theme.surface.ignoresSafeArea() }
 }

@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// The colour roles as SwiftUI colours: `Theme.ink`, `Theme.surface`, `Theme.accent`.
@@ -37,6 +38,8 @@ enum Theme {
     static let accentText = ColorToken.accentText.color
     static let accentSoft = ColorToken.accentSoft.color
     static let focusRing = ColorToken.focusRing.color
+    /// `accentText` for AppKit drawing (links and the editor caret): readable on the surface in both schemes.
+    static let accentTextNSColor = ColorToken.accentText.nsColor
 
     // Toast, charts and AI output.
     static let toast = ColorToken.toast.color
@@ -125,6 +128,10 @@ enum Metrics {
     static let kbdSize: CGFloat = 20
     static let factsTerm: CGFloat = 150
     static let emptyDescriptionMax: CGFloat = 360
+    /// Sheet widths (`FormSheet.Width`): a short form, a review with editable fields, a side-by-side comparison.
+    static let sheetFormWidth: CGFloat = 480
+    static let sheetReviewWidth: CGFloat = 640
+    static let sheetComparisonWidth: CGFloat = 720
 }
 
 /// Durations and easings (tokens-motion.css). Only functional motion: state colour changes and the

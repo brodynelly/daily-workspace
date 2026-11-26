@@ -111,31 +111,3 @@ struct OpenLoopRow: View {
         }
     }
 }
-
-/// A 28 pt icon button for a row: no chrome until hovered, then the fill. Nothing lifts or scales.
-struct RowIconButton: View {
-    let symbol: String
-    let label: String
-    let action: () -> Void
-
-    @Environment(\.isEnabled) private var isEnabled
-    @State private var hovered = false
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: symbol)
-                .font(.system(size: 15, weight: .regular))
-                .foregroundStyle(isEnabled ? Theme.inkBody : Theme.inkDisabled)
-                .frame(width: Metrics.controlSm, height: Metrics.controlSm)
-                .background(
-                    RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
-                        .fill(hovered && isEnabled ? Theme.fill : .clear)
-                )
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .onHover { hovered = $0 }
-        .help(label)
-        .accessibilityLabel(label)
-    }
-}

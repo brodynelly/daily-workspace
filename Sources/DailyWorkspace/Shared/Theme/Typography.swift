@@ -27,6 +27,8 @@ enum TextRole: CaseIterable {
     case overline
     /// 14 / 1.55 / 400, monospaced: paths, ids and hashes.
     case mono
+    /// 12 / 1.4 / 400, monospaced: short ids, tool arguments, diffs and file previews.
+    case monoCaption
 
     enum Family { case display, text, mono }
 
@@ -37,7 +39,7 @@ enum TextRole: CaseIterable {
         case .sectionTitle: return 18
         case .wordmark, .bodyStrong, .body: return 16
         case .bodySmall, .label, .mono: return 14
-        case .caption, .overline: return 12
+        case .caption, .overline, .monoCaption: return 12
         }
     }
 
@@ -46,7 +48,7 @@ enum TextRole: CaseIterable {
         switch self {
         case .pageTitle: return 1.35
         case .sectionTitle, .bodySmall, .label: return 1.45
-        case .metric, .caption, .overline: return 1.4
+        case .metric, .caption, .overline, .monoCaption: return 1.4
         case .wordmark: return 1
         case .bodyStrong, .body, .mono: return 1.55
         }
@@ -55,14 +57,14 @@ enum TextRole: CaseIterable {
     var weight: Font.Weight {
         switch self {
         case .pageTitle, .sectionTitle, .metric, .wordmark, .bodyStrong, .label, .overline: return .semibold
-        case .body, .bodySmall, .caption, .mono: return .regular
+        case .body, .bodySmall, .caption, .mono, .monoCaption: return .regular
         }
     }
 
     var family: Family {
         switch self {
         case .pageTitle, .sectionTitle, .metric, .wordmark: return .display
-        case .mono: return .mono
+        case .mono, .monoCaption: return .mono
         default: return .text
         }
     }

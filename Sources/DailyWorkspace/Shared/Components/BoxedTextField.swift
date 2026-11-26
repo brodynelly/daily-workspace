@@ -40,20 +40,8 @@ struct BoxedTextField: View {
         .padding(.horizontal, Space.s3)
         .frame(height: Metrics.controlMd)
         .frame(maxWidth: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
-                .fill(isEnabled ? Theme.field : Theme.surfaceDisabled)
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
-                .strokeBorder(edge, lineWidth: Metrics.borderWidth)
-        }
+        .fieldSurface(focused: focused, enabled: isEnabled)
     }
 
     private var placeholder: Text { Text(prompt).foregroundStyle(Theme.inkMuted) }
-
-    private var edge: Color {
-        guard isEnabled else { return Theme.border }
-        return focused ? Theme.focusRing : Theme.borderStrong
-    }
 }

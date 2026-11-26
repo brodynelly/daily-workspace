@@ -39,13 +39,10 @@ struct SettingsView: View {
                         } label: {
                             Label(tab.title, systemImage: tab.symbol)
                                 .textRole(.label, lineBox: false)
-                                .foregroundStyle(navigation.settingsTab == tab ? Theme.accent : Theme.inkBody)
+                                .foregroundStyle(navigation.settingsTab == tab ? Theme.accentText : Theme.inkBody)
                         }
                         .buttonStyle(.quiet)
-                        .background(
-                            navigation.settingsTab == tab ? Theme.accentSoft : .clear,
-                            in: RoundedRectangle(cornerRadius: Radius.md)
-                        )
+                        .surface(navigation.settingsTab == tab ? Theme.accentSoft : .clear)
                         .accessibilityAddTraits(navigation.settingsTab == tab ? .isSelected : [])
                     }
                 }

@@ -61,7 +61,7 @@ struct CommandPaletteView: View {
     private var searchField: some View {
         HStack(spacing: Space.s2) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 13))
+                .iconRole(.inline)
                 .foregroundStyle(Theme.inkMuted)
                 .accessibilityHidden(true)
             TextField(
@@ -88,7 +88,7 @@ struct CommandPaletteView: View {
         }
         .padding(.horizontal, Space.s3)
         .frame(height: Metrics.controlLg)
-        .background(RoundedRectangle(cornerRadius: Radius.md, style: .continuous).fill(Theme.fill))
+        .surface(Theme.fill)
         .padding(Space.s3)
     }
 
@@ -171,7 +171,7 @@ private struct PaletteRow: View {
         Button(action: action) {
             HStack(spacing: Space.s3) {
                 Image(systemName: command.symbol)
-                    .font(.system(size: 13))
+                    .iconRole(.inline)
                     .foregroundStyle(selected ? Theme.accentText : Theme.inkMuted)
                     .frame(width: Metrics.iconSize)
                     .accessibilityHidden(true)
@@ -187,10 +187,7 @@ private struct PaletteRow: View {
             .padding(.horizontal, Space.s2Half)
             .padding(.vertical, Space.s1Half)
             .frame(minHeight: Metrics.controlMd)
-            .background(
-                RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
-                    .fill(selected ? Theme.accentSoft : .clear)
-            )
+            .surface(selected ? Theme.accentSoft : .clear)
             .contentShape(RoundedRectangle(cornerRadius: Radius.md, style: .continuous))
         }
         .buttonStyle(.plain)

@@ -89,11 +89,7 @@ struct TodayCaptureSection: View {
         .onSubmit(commit)
         .padding(.horizontal, Space.s3)
         .frame(height: Metrics.controlMd)
-        .background(RoundedRectangle(cornerRadius: Radius.md, style: .continuous).fill(Theme.field))
-        .overlay {
-            RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
-                .strokeBorder(focused ? Theme.focusRing : Theme.borderStrong, lineWidth: Metrics.borderWidth)
-        }
+        .fieldSurface(focused: focused)
         .accessibilityLabel("Capture text")
     }
 

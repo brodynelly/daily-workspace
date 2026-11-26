@@ -19,7 +19,7 @@ struct ToolCallsDisclosure: View {
             } label: {
                 HStack(spacing: Space.s1Half) {
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 10, weight: .semibold))
+                        .iconRole(.disclosure)
                         .rotationEffect(.degrees(expanded ? 90 : 0))
                         .accessibilityHidden(true)
                     Text(summary).textRole(.bodySmall, lineBox: false)
@@ -81,7 +81,7 @@ private struct ToolCallRow: View {
                     .font(TextRole.mono.font)
                     .foregroundStyle(Theme.ink)
                 Text(verbatim: call.arguments)
-                    .font(.system(size: TextRole.caption.size, design: .monospaced))
+                    .font(TextRole.monoCaption.font)
                     .foregroundStyle(Theme.inkMuted)
                     .fixedSize(horizontal: false, vertical: true)
                     .textSelection(.enabled)
@@ -113,7 +113,7 @@ private struct ToolCallRow: View {
         .padding(.horizontal, Space.s3)
         .padding(.vertical, live ? Space.s2 : Space.s3)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: Radius.md, style: .continuous).fill(Theme.surfaceMuted))
+        .mutedSurface()
     }
 }
 
@@ -128,11 +128,11 @@ struct CitationRow: View {
             switch citation.kind {
             case .path:
                 Image(systemName: "doc.text")
-                    .font(.system(size: 11))
+                    .iconRole(.caption)
                     .foregroundStyle(Theme.inkMuted)
                     .accessibilityHidden(true)
                 Text(verbatim: citation.value)
-                    .font(.system(size: TextRole.caption.size, design: .monospaced))
+                    .font(TextRole.monoCaption.font)
                     .foregroundStyle(Theme.inkBody)
                     .fixedSize(horizontal: false, vertical: true)
                     .textSelection(.enabled)
@@ -144,7 +144,7 @@ struct CitationRow: View {
                 }
             case .record:
                 Image(systemName: "number")
-                    .font(.system(size: 11))
+                    .iconRole(.caption)
                     .foregroundStyle(Theme.inkMuted)
                     .accessibilityHidden(true)
                 ShortId(citation.value, kind: "record ID")

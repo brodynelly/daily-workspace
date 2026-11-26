@@ -47,15 +47,7 @@ struct FieldChrome: ViewModifier {
             .padding(.horizontal, Space.s3)
             .padding(.vertical, Space.s1Half)
             .frame(minHeight: Metrics.controlMd)
-            .background(
-                RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
-                    .fill(isEnabled ? Theme.field : Theme.surfaceDisabled)
-            )
-            .overlay {
-                RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
-                    .strokeBorder(
-                        focused && isEnabled ? Theme.focusRing : Theme.borderStrong, lineWidth: Metrics.borderWidth)
-            }
+            .fieldSurface(focused: focused, enabled: isEnabled)
     }
 }
 

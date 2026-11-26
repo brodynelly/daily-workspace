@@ -61,9 +61,7 @@ struct CalendarMonthRail: View {
                                         ? Theme.ink : Theme.inkMuted
                             )
                             .frame(maxWidth: .infinity, minHeight: Metrics.controlSm)
-                            .background(
-                                selected ? Theme.accentSoft : Theme.surface,
-                                in: RoundedRectangle(cornerRadius: Radius.sm))
+                            .surface(selected ? Theme.accentSoft : Theme.surface, radius: Radius.sm)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(day.formatted(date: .complete, time: .omitted))
@@ -119,7 +117,7 @@ private struct CalendarRailEventRow: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(Space.s2)
-        .background(Theme.surfaceRaised, in: RoundedRectangle(cornerRadius: Radius.sm))
+        .surface(Theme.surfaceRaised, radius: Radius.sm)
         .overlay(alignment: .leading) { event.color.frame(width: Metrics.ruleWidth) }
         .accessibilityElement(children: .combine)
         .accessibilityAction(named: "Edit Event") { editing = true }

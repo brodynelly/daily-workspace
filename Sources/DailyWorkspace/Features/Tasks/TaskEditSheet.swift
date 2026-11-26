@@ -1,6 +1,8 @@
 import DailyCore
 import SwiftUI
 
+/// Edits one local task (`tasks.json`): title, an optional due date and an optional linked vault note, as a
+/// Luuna form with Save as the one primary action.
 struct TaskEditSheet: View {
     @EnvironmentObject private var tasks: TaskStore
     @Environment(\.dismiss) private var dismiss
@@ -10,39 +12,56 @@ struct TaskEditSheet: View {
     @State private var dueDate = Date()
     @State private var link = ""
 
+    private var canSave: Bool { !title.trimmingCharacters(in: .whitespaces).isEmpty }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Edit Task").font(.headline)
-            TextField("Title", text: $title).textFieldStyle(.roundedBorder)
+        FormSheet("Edit Task") {
+            LabeledField("Title") {
+                BoxedTextField("Task title", text: $title, onSubmit: save)
+            }
             Toggle("Due date", isOn: $hasDue)
+                .toggleStyle(.checkbox)
+                .textRole(.bodySmall, lineBox: false)
+                .foregroundStyle(Theme.inkBody)
             if hasDue {
-                DatePicker("Due", selection: $dueDate, displayedComponents: .date)
-            }
-            TextField("Linked note (vault-relative path, optional)", text: $link)
-                .textFieldStyle(.roundedBorder)
-            HStack {
-                Spacer()
-                Button("Cancel", role: .cancel) { dismiss() }.keyboardShortcut(.cancelAction)
-                Button("Save") {
-                    let trimmedLink = link.trimmingCharacters(in: .whitespaces)
-                    tasks.edit(
-                        id: task.id, title: title, due: hasDue ? LocalDay(dueDate) : nil,
-                        noteLink: trimmedLink.isEmpty ? nil : trimmedLink)
-                    dismiss()
+                LabeledField("Due") {
+                    DatePicker("Due", selection: $dueDate, displayedComponents: .date)
+                        .datePickerStyle(.compact)
+                        .labelsHidden()
+                        .fixedSize()
                 }
-                .keyboardShortcut(.defaultAction)
-                .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+            LabeledField("Linked note", hint: "A vault-relative path, such as 01-projects/app/app.md. Optional.") {
+                BoxedTextField("Vault-relative path", text: $link, monospaced: true)
+            }
+            FormFooter {
+                Button("Cancel", role: .cancel) { dismiss() }
+                    .buttonStyle(.secondary)
+                    .keyboardShortcut(.cancelAction)
+                Button("Save", action: save)
+                    .buttonStyle(.primary)
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(!canSave)
             }
         }
-        .padding(20)
-        .frame(width: 420)
-        .onAppear {
-            title = task.title
-            link = task.noteLink ?? ""
-            if let due = task.due, let date = due.date() {
-                hasDue = true
-                dueDate = date
-            }
+        .onAppear(perform: load)
+    }
+
+    private func load() {
+        title = task.title
+        link = task.noteLink ?? ""
+        if let due = task.due, let date = due.date() {
+            hasDue = true
+            dueDate = date
         }
+    }
+
+    private func save() {
+        guard canSave else { return }
+        let trimmedLink = link.trimmingCharacters(in: .whitespaces)
+        tasks.edit(
+            id: task.id, title: title, due: hasDue ? LocalDay(dueDate) : nil,
+            noteLink: trimmedLink.isEmpty ? nil : trimmedLink)
+        dismiss()
     }
 }

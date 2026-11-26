@@ -41,7 +41,7 @@ private struct CaptureDestinationOption: View {
         Button(action: select) {
             HStack(alignment: .top, spacing: Space.s3) {
                 Image(systemName: destination.captureSymbol)
-                    .font(.system(size: Metrics.iconSize))
+                    .iconRole(.leading)
                     .frame(width: Space.s6, height: Space.s6)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: Space.sHalf) {
@@ -55,22 +55,18 @@ private struct CaptureDestinationOption: View {
                 Spacer(minLength: 0)
                 if selected {
                     Image(systemName: "checkmark")
-                        .font(.system(size: Metrics.iconSize))
+                        .iconRole(.leading)
                         .foregroundStyle(Theme.ink)
                         .accessibilityHidden(true)
                 }
             }
             .frame(maxWidth: .infinity, minHeight: Space.s12, alignment: .leading)
             .padding(Space.s3)
-            .background(
+            .surface(
                 selected ? Theme.controlSelected : hovered ? Theme.fill : Theme.surfaceRaised,
-                in: RoundedRectangle(cornerRadius: Radius.md)
+                edge: selected ? Theme.borderStrong : Theme.border
             )
-            .overlay {
-                RoundedRectangle(cornerRadius: Radius.md)
-                    .strokeBorder(selected ? Theme.borderStrong : Theme.border, lineWidth: Metrics.borderWidth)
-            }
-            .contentShape(RoundedRectangle(cornerRadius: Radius.md))
+            .contentShape(RoundedRectangle(cornerRadius: Radius.md, style: .continuous))
         }
         .buttonStyle(.plain)
         .onHover { hovered = $0 }
@@ -161,10 +157,10 @@ struct CaptureForm: View {
     private var heading: some View {
         HStack(alignment: .top, spacing: Space.s3) {
             Image(systemName: "square.and.pencil")
-                .font(.system(size: Metrics.iconSize))
+                .iconRole(.leading)
                 .foregroundStyle(Theme.ink)
                 .frame(width: Metrics.controlLg, height: Metrics.controlLg)
-                .background(Theme.surfaceRaised, in: RoundedRectangle(cornerRadius: Radius.md))
+                .surface(Theme.surfaceRaised, edge: Theme.separator)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: Space.s1) {
                 Text("Quick Capture")

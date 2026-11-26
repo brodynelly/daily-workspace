@@ -12,16 +12,16 @@ struct AgentChangesView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Space.s4) {
-            HStack {
-                Text("Vault changes").textRole(.sectionTitle, lineBox: false)
-                Spacer()
-                Button("Done") { dismiss() }.buttonStyle(.secondary)
+            SectionHeading("Vault changes") {
+                Button("Done") { dismiss() }
+                    .buttonStyle(.secondary)
+                    .keyboardShortcut(.cancelAction)
             }
             if let storageError = changes.storageError { ReasonNote(storageError, tone: .danger) }
             if let error { ReasonNote(error, tone: .danger) }
             HStack(alignment: .top, spacing: Space.s4) {
                 list.frame(width: 280)
-                Divider()
+                VerticalHairline()
                 detail.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
         }
@@ -34,12 +34,14 @@ struct AgentChangesView: View {
     private var list: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Space.s2) {
-                Text("Waiting for review (\(changes.pending.count))").textRole(.label, lineBox: false)
+                Text("Waiting for review (\(changes.pending.count))")
+                    .textRole(.label, lineBox: false)
+                    .foregroundStyle(Theme.ink)
                 if changes.pending.isEmpty {
                     Text("Nothing is waiting.").textRole(.caption, lineBox: false).foregroundStyle(Theme.inkMuted)
                 }
                 ForEach(changes.pending) { row($0) }
-                Text("History").textRole(.label, lineBox: false).padding(.top, Space.s3)
+                Text("History").textRole(.label, lineBox: false).foregroundStyle(Theme.ink).padding(.top, Space.s3)
                 ForEach(changes.history) { row($0) }
             }
         }
@@ -59,7 +61,10 @@ struct AgentChangesView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(Space.s2)
-            .background(selection == change.id ? Theme.controlSelected : Color.clear)
+            .surface(
+                selection == change.id ? Theme.controlSelected : .clear,
+                edge: selection == change.id ? Theme.borderStrong : nil)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
@@ -67,11 +72,16 @@ struct AgentChangesView: View {
     @ViewBuilder private var detail: some View {
         if let change = changes.changes.first(where: { $0.id == selection }) {
             VStack(alignment: .leading, spacing: Space.s3) {
-                Text(verbatim: change.path).textRole(.bodyStrong, lineBox: false).textSelection(.enabled)
+                Text(verbatim: change.path)
+                    .textRole(.bodyStrong, lineBox: false)
+                    .foregroundStyle(Theme.ink)
+                    .textSelection(.enabled)
                 Text(verbatim: Self.provenance(change)).textRole(.caption, lineBox: false)
                     .foregroundStyle(Theme.inkMuted)
                 if !change.summary.isEmpty {
-                    Text(verbatim: "Why: \(change.summary)").textRole(.bodySmall, lineBox: false)
+                    Text(verbatim: "Why: \(change.summary)")
+                        .textRole(.bodySmall, lineBox: false)
+                        .foregroundStyle(Theme.inkBody)
                 }
                 if let failure = change.failure { ReasonNote(failure, tone: .danger) }
                 AgentDiffView(diff: LineDiff(before: change.before ?? "", after: change.after))
@@ -162,7 +172,7 @@ struct AgentDiffView: View {
             .padding(Space.s2)
         }
         .frame(minHeight: 240, maxHeight: .infinity)
-        .background(Theme.surfaceRaised)
+        .surface(Theme.surfaceRaised, edge: Theme.separator)
         .accessibilityLabel("Changes: \(diff.added) lines added, \(diff.removed) removed")
     }
 
@@ -179,7 +189,7 @@ struct AgentDiffView: View {
 
     private static func lineText(_ mark: String, _ line: String) -> some View {
         Text(verbatim: "\(mark) \(line)")
-            .font(.system(size: 12, design: .monospaced))
+            .font(TextRole.monoCaption.font)
             .textSelection(.enabled)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
