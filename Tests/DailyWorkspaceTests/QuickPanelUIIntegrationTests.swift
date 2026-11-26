@@ -156,13 +156,14 @@ final class QuickPanelUIIntegrationTests: XCTestCase {
         XCTAssertTrue(panel.handleKey(try key(125)))
         XCTAssertEqual(panel.selectedIndex, 2)
         XCTAssertTrue(panel.handleKey(try key(121)))
-        XCTAssertEqual(panel.selectedIndex, 18)  // 680pt panel: (506pt document - 34pt viewport inset) / 28pt.
+        // 680pt panel with search hidden: (602pt document - 34pt viewport inset) / 28pt = 20 rows.
+        XCTAssertEqual(panel.selectedIndex, 22)
         XCTAssertTrue(panel.handleKey(try key(115)))
         XCTAssertEqual(panel.selectedIndex, 0)
         XCTAssertTrue(panel.handleKey(try key(119)))
         XCTAssertEqual(panel.selectedIndex, 39)
         XCTAssertTrue(panel.handleKey(try key(116)))
-        XCTAssertEqual(panel.selectedIndex, 23)
+        XCTAssertEqual(panel.selectedIndex, 19)
 
         panel.navigate(to: .music)
         var actions = 0
