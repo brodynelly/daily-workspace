@@ -145,7 +145,7 @@ extension AssistantSession {
                 base: transcript, opening: opening, apiKey: apiKey,
                 options: LoopOptions(
                     effort: configuration.draftEffort, schema: AssistantPrompt.restartSchema, generation: generation,
-                    showsProgress: false, trace: trace))
+                    showsProgress: false, trace: trace, readOnly: true))
             finishRun(trace, error: nil, generation: generation)
         } catch {
             finishRun(trace, error: error, generation: generation)

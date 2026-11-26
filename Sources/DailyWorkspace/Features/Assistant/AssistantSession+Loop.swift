@@ -33,6 +33,9 @@ extension AssistantSession {
         var run = AgentRunContext(origin: "chat", conversationID: nil)
         /// Holds what the run completed so far, for a run that fails after a tool changed something.
         var progress: LoopProgress?
+        /// Run only read-only tools. The tool definitions stay the same, so the cached prefix and the conversation
+        /// stay valid, but a write or memory call is refused rather than run.
+        var readOnly = false
     }
 
     /// The loop's outcome up to its last complete tool round.
@@ -61,7 +64,9 @@ extension AssistantSession {
         // One snapshot per run: a Settings change mid-answer applies from the next question, never mid-run.
         let configuration = self.configuration
         let tools = AssistantTool.enabledDefinitions(configuration.enabledTools)
-        let runner = makeRunner(configuration, run: options.run)
+        var runnerConfiguration = configuration
+        if options.readOnly { runnerConfiguration.enabledTools.formIntersection(AssistantTool.readOnly) }
+        let runner = makeRunner(runnerConfiguration, run: options.run)
         var outcome = LoopOutcome(appended: [opening])
         var rounds = 0
         var continuations = 0

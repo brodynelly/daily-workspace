@@ -294,6 +294,8 @@ final class VaultChanges: ObservableObject {
     private func persist() {
         do {
             try store?.save(changes)
+            // Memory holds no more history than the file does.
+            changes = VaultChangeStore.kept(changes)
         } catch {
             Log.assistant.error("The vault change queue could not be saved: \(Log.code(error), privacy: .public)")
             storageError = "The Assistant's change history could not be saved."

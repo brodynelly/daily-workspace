@@ -49,6 +49,8 @@ final class AgentStorageTests: XCTestCase {
         XCTAssertEqual(loaded.count, VaultChangeStore.historyLimit + 1)
         XCTAssertTrue(loaded.contains(pending), "pending changes are never trimmed")
         XCTAssertFalse(loaded.contains { $0.path == "00-inbox/0.md" }, "the oldest history goes first")
+        XCTAssertEqual(
+            VaultChangeStore.kept(changes).map(\.id), loaded.map(\.id), "memory keeps what the file keeps")
     }
 
     func testJournalHoldsHashesNotText() throws {

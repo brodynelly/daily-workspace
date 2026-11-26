@@ -215,10 +215,15 @@ public struct VaultChangeStore: Sendable {
     }
 
     public func save(_ changes: [VaultChange]) throws {
+        try PrivateFile.write(
+            try PrivateFile.encoder().encode(Stored(version: 1, changes: Self.kept(changes))), to: url)
+    }
+
+    /// Every pending change and the newest `historyLimit` finished ones: what is saved, and what stays in memory.
+    public static func kept(_ changes: [VaultChange]) -> [VaultChange] {
         let pending = changes.filter { $0.status == .pending }
         let finished = changes.filter { $0.status != .pending }.sorted { $0.updatedAt > $1.updatedAt }
-        let kept = pending + finished.prefix(Self.historyLimit)
-        try PrivateFile.write(try PrivateFile.encoder().encode(Stored(version: 1, changes: kept)), to: url)
+        return pending + finished.prefix(historyLimit)
     }
 
     public func record(_ entry: VaultJournalEntry) throws {

@@ -14,7 +14,7 @@ extension AppModel {
             guard let self, !self.assistant.isStreaming else { return }
             self.assistant.clear()
         }
-        if preferences.agent.saveConversations { conversationArchive.load() }
+        if preferences.agent.saveConversations { loadSavedConversations() }
         vaultChanges.onWrite = { [weak self] in self?.assistantContext.invalidateNotes() }
         routines.makeSession = { [weak self] origin in self?.makeRoutineSession(origin: origin) }
         // `@Published` emits before the value changes, so the sink uses the emitted settings.
@@ -23,10 +23,18 @@ extension AppModel {
             .removeDuplicates()
             .sink { [weak self] agent in
                 guard let self else { return }
+                // Turning saving back on makes history saved in an earlier session reachable again.
+                if agent.saveConversations, !self.preferences.agent.saveConversations { self.loadSavedConversations() }
                 self.applyAssistantRuntime(runtime: self.preferences.assistantRuntime, agent: agent)
             }
             .store(in: &assistantSubscriptions)
         if startRoutines { routines.start() }
+    }
+
+    /// Read saved conversations in the background.
+    func loadSavedConversations() {
+        let archive = conversationArchive
+        Task { await archive.load() }
     }
 
     /// Apply `assistantRuntime` and `agent` together, so neither drops the other's tools.

@@ -29,7 +29,7 @@ final class ConversationArchive: ObservableObject {
     private var cipher: ConversationCipher?
 
     nonisolated static let keyService = "app.dailyworkspace.agent-history"
-    static let fileExtension = "chat"
+    nonisolated static let fileExtension = "chat"
 
     init(
         folder: URL, keyStore: APIKeyStore, isEnabled: @escaping () -> Bool,
@@ -42,32 +42,55 @@ final class ConversationArchive: ObservableObject {
         self.now = now
     }
 
-    /// Read every saved conversation, deleting those past retention.
-    func load() {
-        guard let names = try? FileManager.default.contentsOfDirectory(atPath: folder.path) else {
-            conversations = []
-            return
-        }
+    /// Read every saved conversation, deleting those past retention. The Keychain read and decryption run off the
+    /// main actor, so a stalled security daemon can't block startup; conversations saved meanwhile are kept.
+    func load() async {
+        let folder = folder
+        let keyStore = keyStore
+        let known = cipher
+        let cleared = clearedAt
         let cutoff = now().addingTimeInterval(-Double(retentionDays()) * 86_400)
-        var loaded: [AssistantConversation] = []
+        let result = await Task.detached(priority: .utility) {
+            Self.read(folder: folder, keyStore: keyStore, cipher: known, cutoff: cutoff)
+        }.value
+        // Delete all history during the read removed the key; a cipher read before it must not come back.
+        guard clearedAt == cleared else { return }
+        if cipher == nil { cipher = result.cipher }
+        unreadable = result.failed
+        let saved = Set(conversations.map(\.id))
+        let loaded = result.conversations.filter { !saved.contains($0.id) && !wasDeleted($0) }
+        conversations = (conversations + loaded).sorted { $0.archivedAt > $1.archivedAt }
+    }
+
+    private struct ReadResult: Sendable {
+        var cipher: ConversationCipher?
+        var conversations: [AssistantConversation] = []
         var failed = 0
-        for name in names where name.hasSuffix("." + Self.fileExtension) {
+    }
+
+    private nonisolated static func read(
+        folder: URL, keyStore: APIKeyStore, cipher known: ConversationCipher?, cutoff: Date
+    ) -> ReadResult {
+        var result = ReadResult(cipher: known)
+        guard let names = try? FileManager.default.contentsOfDirectory(atPath: folder.path) else { return result }
+        for name in names where name.hasSuffix("." + fileExtension) {
             let url = folder.appendingPathComponent(name)
             do {
                 guard let sealed = try PrivateFile.read(url) else { continue }
-                let data = try cipherForUse(create: false).open(sealed)
+                let cipher = try result.cipher ?? ConversationCipher(keyStore: keyStore, create: false)
+                result.cipher = cipher
+                let data = try cipher.open(sealed)
                 let conversation = try PrivateFile.decoder().decode(StoredConversation.self, from: data).conversation
                 if conversation.archivedAt < cutoff {
                     try? FileManager.default.removeItem(at: url)
                 } else {
-                    loaded.append(conversation)
+                    result.conversations.append(conversation)
                 }
             } catch {
-                failed += 1
+                result.failed += 1
             }
         }
-        unreadable = failed
-        conversations = loaded.sorted { $0.archivedAt > $1.archivedAt }
+        return result
     }
 
     /// Save `conversation`, replacing its earlier version. One with no turns and nothing running is removed.

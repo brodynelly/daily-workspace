@@ -29,7 +29,7 @@ final class FakeAgentWorkspace: AgentWorkspace, @unchecked Sendable {
 
 @MainActor
 final class AgentDurableSessionTests: XCTestCase {
-    private func makeSession(_ transport: FakeAgentTransport) -> AssistantSession {
+    fileprivate func makeSession(_ transport: FakeAgentTransport) -> AssistantSession {
         let keys = FakeKeyStore()
         keys.key = "sk-ant-test"
         return AssistantSession(
@@ -37,7 +37,7 @@ final class AgentDurableSessionTests: XCTestCase {
             configuration: AssistantTestClock.configuration, isEnabled: true)
     }
 
-    private var writingLimits: AgentRuntimeLimits {
+    fileprivate var writingLimits: AgentRuntimeLimits {
         AgentRuntimeLimits(AssistantRuntimeSettings(), agent: AgentSettings())
     }
 
@@ -185,19 +185,19 @@ final class AgentDurableSessionTests: XCTestCase {
         XCTAssertNotNil(keys.key, "the key lives in the Keychain")
 
         let reopened = makeArchive(folder, keys: keys)
-        reopened.load()
+        await reopened.load()
         let loaded = try XCTUnwrap(reopened.conversation(conversation.id))
         XCTAssertEqual(loaded.turns, conversation.turns)
         XCTAssertEqual(loaded.transcript, conversation.transcript, "thinking blocks replay byte-for-byte")
         XCTAssertEqual(loaded.contextFingerprint, conversation.contextFingerprint)
 
         let lostKey = makeArchive(folder, keys: FakeKeyStore())
-        lostKey.load()
+        await lostKey.load()
         XCTAssertEqual(lostKey.unreadable, 1)
         XCTAssertTrue(FileManager.default.fileExists(atPath: file.path), "an unreadable file is left in place")
 
         let later = makeArchive(folder, keys: keys, now: Date().addingTimeInterval(31 * 86_400))
-        later.load()
+        await later.load()
         XCTAssertTrue(later.conversations.isEmpty)
         XCTAssertFalse(FileManager.default.fileExists(atPath: file.path), "past retention it is deleted")
     }
@@ -297,5 +297,30 @@ final class AgentDurableSessionTests: XCTestCase {
         XCTAssertEqual(saved.lastRunAt, clock)
         XCTAssertNotEqual(saved.lastOutcome, "answered")
         XCTAssertFalse(saved.isDue(at: clock.addingTimeInterval(60)))
+    }
+}
+
+extension AgentDurableSessionTests {
+    func testARestartDraftNeverRunsAWriteTool() async throws {
+        let draftJSON = #"{"decision":"d","next_action":"n","notes":"","sources_read":[]}"#
+        let transport = FakeAgentTransport([
+            .success(
+                agentResponse(
+                    [toolCall("t1", "create_note", #"{"path":"00-inbox/x.md","text":"x","summary":"why"}"#)],
+                    stop: "tool_use")),
+            .success(agentResponse([.text(draftJSON)], stop: "end_turn")),
+        ])
+        let session = makeSession(transport)
+        let workspace = FakeAgentWorkspace()
+        session.setWorkspace(workspace)
+        session.applyRuntime(writingLimits)
+        let tools = session.tools
+
+        _ = try await session.draftRestartRecord(project: "alpha")
+
+        XCTAssertEqual(workspace.requests, [], "a draft reads; it never writes")
+        XCTAssertEqual(session.tools, tools, "the offered tools stay the same, so the cached prefix holds")
+        let result = try XCTUnwrap(transport.requests.last?.messages.last?.content.first)
+        XCTAssertTrue(utf8Text(result).contains("is_error"))
     }
 }
