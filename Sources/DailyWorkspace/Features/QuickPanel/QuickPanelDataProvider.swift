@@ -8,6 +8,7 @@ import Foundation
 /// Listing is read-only. The controller dispatches an action only after a user selects its row.
 enum QuickPanelDataAction: Equatable, Sendable {
     case focusAgent(UInt64)
+    case focusRexSession(String)
     case gotoSession(String)
     case closeSession(String)
     case openFile(String)
@@ -49,6 +50,7 @@ struct QuickPanelDataSnapshot: Sendable {
     var ssh: [QuickPanelDataRow] = []
     var desktop: [QuickPanelDataRow] = []
     var tmux: [QuickPanelDataRow] = []
+    var rex: [QuickPanelDataRow] = []
     var workspaces: [QuickPanelDataRow] = []
     var shortcutTools: [QuickPanelDataRow] = []
     var shortcutEntries: [String: [QuickPanelDataRow]] = [:]
@@ -62,7 +64,7 @@ struct QuickPanelDataSnapshot: Sendable {
         case .files: files
         case .projects: projects
         case .ssh: ssh
-        case .tmux: tmux
+        case .tmux: tmux + rex
         case .workspaces: workspaces
         case .shortcuts: shortcutTool.map { shortcutEntries[$0] ?? [] } ?? shortcutTools
         case .attention, .system, .music, .calendar: []  // Those routes have their own source owners.
@@ -71,7 +73,7 @@ struct QuickPanelDataSnapshot: Sendable {
 
     func searchRows(for route: QuickPanelRoute, shortcutTool: String? = nil) -> [QuickPanelDataRow] {
         if route == .home {
-            return agents + sessions + desktop + files + projects + ssh + tmux + workspaces
+            return agents + sessions + desktop + files + projects + ssh + tmux + rex + workspaces
         }
         if route == .shortcuts && shortcutTool == nil {
             return shortcutTools
@@ -114,6 +116,7 @@ final class QuickPanelDataProvider: ObservableObject {
     @Published private(set) var refreshState: QuickPanelDataRefreshState = .idle
     private let run: Run
     private let desktopDiscovery: @MainActor () -> [QuickPanelDataRow]
+    private let rexExecutable: URL?
     let home: URL
     let dotfiles: URL
     let bundledShortcuts: URL
@@ -127,6 +130,7 @@ final class QuickPanelDataProvider: ObservableObject {
         dotfiles: URL? = nil,
         bundledShortcuts: URL? = nil,
         desktopDiscovery: @escaping @MainActor () -> [QuickPanelDataRow] = { QuickPanelDataProvider.desktopRows() },
+        rexExecutable: URL? = QuickPanelRex.locate(),
         run: @escaping Run = { executable, arguments, environment in
             try await QuickPanelCommandRunner().run(
                 executable: executable, arguments: arguments, environment: environment)
@@ -147,6 +151,7 @@ final class QuickPanelDataProvider: ObservableObject {
                 FileManager.default.fileExists(atPath: $0.appendingPathComponent("index.json").path)
             }) ?? source
         self.desktopDiscovery = desktopDiscovery
+        self.rexExecutable = rexExecutable
         self.run = run
     }
 
@@ -236,6 +241,7 @@ final class QuickPanelDataProvider: ObservableObject {
         async let kittyResult = readCommand("scripts/macos/mac/agents/kitty_sessions.py", arguments: ["list"])
         async let targetsResult = readCommand("kitty/scripts/kitty-zoxide-session.sh", arguments: ["--targets"])
         async let workspacesResult = readCommand("scripts/macos/mac/agents/workspace.py", arguments: ["catalog"])
+        async let rexResult = readRex()
         var result = QuickPanelDataSnapshot()
         result.desktop = desktopDiscovery()
         let shortcuts = shortcutRows()
@@ -244,6 +250,7 @@ final class QuickPanelDataProvider: ObservableObject {
         let kitty = await kittyResult
         let targets = await targetsResult
         let workspaces = await workspacesResult
+        result.rex = QuickPanelRex.rows(executable: rexExecutable, output: await rexResult)
         guard !Task.isCancelled else { return result }
         switch kitty {
         case .success(let data): parseKitty(data, into: &result)
@@ -268,6 +275,14 @@ final class QuickPanelDataProvider: ObservableObject {
             result.workspaces = [.unavailable("Workspaces", "Workspace catalog helper unavailable")]
         }
         return result
+    }
+
+    /// Rex is listed independently, so its absence never hides tmux rows.
+    private func readRex() async -> Result<QuickPanelCommandOutput, Error>? {
+        guard let rexExecutable else { return nil }
+        do { return .success(try await run(rexExecutable, QuickPanelRex.listArguments, [:])) } catch {
+            return .failure(error)
+        }
     }
 
     private func readCommand(_ script: String, arguments: [String]) async -> Result<Data, Error> {

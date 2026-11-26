@@ -40,7 +40,7 @@ final class QuickPanelDataProviderTests: XCTestCase {
     private func provider(home: URL, bundled: URL, fake: PanelFakeRunner) -> QuickPanelDataProvider {
         QuickPanelDataProvider(
             home: home, dotfiles: home.appendingPathComponent("dotfiles"),
-            bundledShortcuts: bundled, desktopDiscovery: { [] },
+            bundledShortcuts: bundled, desktopDiscovery: { [] }, rexExecutable: nil,
             run: { executable, arguments, environment in
                 try await fake.run(executable, arguments, environment)
             })

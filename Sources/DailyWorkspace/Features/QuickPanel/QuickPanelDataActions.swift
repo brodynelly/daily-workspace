@@ -29,11 +29,15 @@ struct QuickPanelDataActions {
     typealias Run = @Sendable (URL, [String], [String: String]) async throws -> QuickPanelCommandOutput
 
     private let dotfiles: URL
+    private let rexExecutable: URL?
+    private let activateRex: @MainActor () -> Void
     private let run: Run
 
     init(
         home: URL = FileManager.default.homeDirectoryForCurrentUser,
         dotfiles: URL? = nil,
+        rexExecutable: URL? = QuickPanelRex.locate(),
+        activateRex: @escaping @MainActor () -> Void = { QuickPanelRex.activateApp() },
         run: @escaping Run = { executable, arguments, environment in
             try await QuickPanelCommandRunner().run(
                 executable: executable, arguments: arguments, environment: environment)
@@ -43,6 +47,8 @@ struct QuickPanelDataActions {
             dotfiles ?? ProcessInfo.processInfo.environment["DOTFILES_DIR"].map {
                 URL(fileURLWithPath: $0, isDirectory: true)
             } ?? home.appendingPathComponent("github/dotfiles-mac", isDirectory: true)
+        self.rexExecutable = rexExecutable
+        self.activateRex = activateRex
         self.run = run
     }
 
@@ -52,6 +58,8 @@ struct QuickPanelDataActions {
             return try activateDesktop(action)
         case .focusAgent, .gotoSession:
             return try await executeSession(action)
+        case .focusRexSession(let sessionID):
+            return try await focusRex(sessionID)
         case .openFile, .openTarget, .closeSession:
             return try await executeOpen(action)
         case .workspaceActions, .launch, .shortcutTool:
@@ -103,6 +111,15 @@ struct QuickPanelDataActions {
             return .hide
         }
         throw QuickPanelDataActionError.unavailable
+    }
+
+    private func focusRex(_ sessionID: String) async throws -> QuickPanelDataActionResult {
+        guard QuickPanelRex.validSessionID(sessionID) else { throw QuickPanelDataActionError.invalidInput }
+        guard let rexExecutable else { throw QuickPanelDataActionError.unavailable }
+        let output = try await run(rexExecutable, QuickPanelRex.selectArguments(sessionID: sessionID), [:])
+        guard output.exitStatus == 0 else { throw QuickPanelDataActionError.exited(output.exitStatus) }
+        activateRex()
+        return .hide
     }
 
     private func executeSession(_ action: QuickPanelDataAction) async throws -> QuickPanelDataActionResult {
