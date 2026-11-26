@@ -83,15 +83,9 @@ struct RecordRow<Content: View>: View {
             .background {
                 if rows {
                     Rectangle().fill(tint ? Theme.fill : .clear)
-                } else {
-                    RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
-                        .fill(tint ? Theme.fill : .clear)
-                        .overlay {
-                            RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
-                                .strokeBorder(Theme.separator, lineWidth: Metrics.borderWidth)
-                        }
                 }
             }
+            .surface(rows ? .clear : tint ? Theme.fill : .clear, edge: rows ? nil : Theme.separator)
             .overlay(alignment: .top) { if rows { Hairline() } }
             .contentShape(Rectangle())
     }

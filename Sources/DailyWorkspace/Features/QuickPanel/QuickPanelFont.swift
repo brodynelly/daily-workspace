@@ -19,7 +19,7 @@ private struct QuickPanelFontModifier: ViewModifier {
     let weight: Font.Weight?
 
     func body(content: Content) -> some View {
-        let font = QuickPanelPascalSkin.Typography.font(size, preferred: name)
+        let font = PascalType.font(size, preferred: name)
         content.font(weight.map { font.weight($0) } ?? font)
     }
 }

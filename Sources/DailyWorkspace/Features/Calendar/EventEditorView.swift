@@ -23,11 +23,7 @@ struct EventEditorView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Space.s4) {
-            Text(event == nil ? "New Event" : "Edit Event")
-                .textRole(.sectionTitle, lineBox: false)
-                .foregroundStyle(Theme.ink)
-                .accessibilityAddTraits(.isHeader)
+        FormSheet(event == nil ? "New Event" : "Edit Event") {
             LabeledField("Title") {
                 TextField("", text: $title, prompt: Text("Event title").foregroundStyle(Theme.inkMuted))
                     .focused($focus, equals: .title)
@@ -66,9 +62,6 @@ struct EventEditorView: View {
             }
             if event != nil { deleteRow }
         }
-        .padding(Space.s6)
-        .frame(width: 480)
-        .background(Theme.surfaceOverlay)
         .onAppear(perform: load)
         .confirmationDialog("Delete this event occurrence?", isPresented: $confirmDelete) {
             Button("Delete Event", role: .destructive, action: delete)

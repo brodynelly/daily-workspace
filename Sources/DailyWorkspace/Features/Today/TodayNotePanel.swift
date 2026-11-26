@@ -142,7 +142,7 @@ private struct PreviewBox: View {
         .textRole(.bodySmall, lineBox: false)
         .padding(Space.s3)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: Radius.md, style: .continuous).fill(Theme.surfaceMuted))
+        .mutedSurface()
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Preview of today's note")
     }

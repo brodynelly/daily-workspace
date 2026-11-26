@@ -78,20 +78,9 @@ struct RestartReviewSheet: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Space.s5) {
-            VStack(alignment: .leading, spacing: Space.s2) {
-                HStack(spacing: Space.s3) {
-                    Text("Review the restart record").textRole(.sectionTitle, lineBox: false).foregroundStyle(Theme.ink)
-                    Tag("project:\(draft.projectSlug)")
-                }
-                Text(
-                    "Edit anything, then accept. Nothing is saved until you do, and each source is hashed as it is on "
-                        + "disk at that moment."
-                )
-                .textRole(.bodySmall, lineBox: false)
-                .foregroundStyle(Theme.inkMuted)
-                .fixedSize(horizontal: false, vertical: true)
-            }
+        FormSheet("Review the restart record", description: Self.intro, width: .review, spacing: Space.s5) {
+            Tag("project:\(draft.projectSlug)")
+        } content: {
             ReviewField(title: "Decision", text: $draft.decision, editable: isEditable)
             ReviewField(title: "Next exact action", text: $draft.nextAction, editable: isEditable)
             ReviewField(title: "Notes", text: $draft.notes, editable: isEditable, height: 52)
@@ -99,10 +88,11 @@ struct RestartReviewSheet: View {
             outcome
             footer
         }
-        .padding(Space.s6)
-        .frame(width: 640)
-        .background(Theme.surfaceRaised)
     }
+
+    private static let intro =
+        "Edit anything, then accept. Nothing is saved until you do, and each source is hashed as it is on disk at "
+        + "that moment."
 
     private var isEditable: Bool {
         switch phase {
@@ -122,7 +112,7 @@ struct RestartReviewSheet: View {
             ForEach(draft.sources, id: \.path) { source in
                 HStack(alignment: .firstTextBaseline, spacing: Space.s2) {
                     Text(verbatim: source.path)
-                        .font(.system(size: TextRole.caption.size, design: .monospaced))
+                        .font(TextRole.monoCaption.font)
                         .foregroundStyle(Theme.inkBody)
                         .fixedSize(horizontal: false, vertical: true)
                         .textSelection(.enabled)
@@ -166,8 +156,7 @@ struct RestartReviewSheet: View {
     }
 
     private var footer: some View {
-        HStack(spacing: Space.s2) {
-            Spacer()
+        FormFooter {
             if case .saved = phase {
                 Button("Done") { dismiss() }
                     .buttonStyle(.primary)
@@ -213,28 +202,9 @@ private struct ReviewField: View {
     var editable: Bool
     var height: CGFloat = 64
 
-    @FocusState private var focused: Bool
-
     var body: some View {
-        VStack(alignment: .leading, spacing: Space.s1Half) {
-            Text(title).textRole(.label, lineBox: false).foregroundStyle(Theme.ink)
-            TextEditor(text: $text)
-                .font(TextRole.body.font)
-                .foregroundStyle(editable ? Theme.ink : Theme.inkDisabled)
-                .scrollContentBackground(.hidden)
-                .focused($focused)
-                .disabled(!editable)
-                .padding(Space.s2)
-                .frame(height: height)
-                .background(
-                    RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
-                        .fill(editable ? Theme.field : Theme.surfaceDisabled)
-                )
-                .overlay {
-                    RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
-                        .strokeBorder(focused ? Theme.focusRing : Theme.borderStrong, lineWidth: Metrics.borderWidth)
-                }
-                .accessibilityLabel(title)
+        LabeledField(title) {
+            TextArea(title, text: $text, height: height).disabled(!editable)
         }
     }
 }

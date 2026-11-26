@@ -109,7 +109,7 @@ struct AssistantQuestion: View {
         .padding(.horizontal, Space.s4)
         .padding(.vertical, Space.s3)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: Radius.md, style: .continuous).fill(Theme.surfaceMuted))
+        .mutedSurface()
     }
 }
 

@@ -11,8 +11,11 @@ struct VaultStatusView: View {
     var body: some View {
         switch style {
         case .inline:
-            VStack(alignment: .leading, spacing: 8) {
-                Text(copy.description).foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: Space.s2) {
+                Text(copy.description)
+                    .textRole(.bodySmall, lineBox: false)
+                    .foregroundStyle(Theme.inkMuted)
+                    .fixedSize(horizontal: false, vertical: true)
                 chooseButton
             }
         case .fullScreen:
@@ -27,7 +30,7 @@ struct VaultStatusView: View {
     }
 
     private var chooseButton: some View {
-        Button(AppCommand.chooseVault.title) { model.chooseVault() }
+        Button(AppCommand.chooseVault.title) { model.chooseVault() }.buttonStyle(.primary)
     }
 
     private struct Copy {

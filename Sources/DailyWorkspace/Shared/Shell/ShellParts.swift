@@ -15,7 +15,7 @@ struct NavItem: View {
         Button(action: action) {
             HStack(spacing: Space.s3) {
                 Image(systemName: symbol)
-                    .font(.system(size: 14, weight: current ? .semibold : .regular))
+                    .font(.system(size: TextRole.label.size, weight: current ? .semibold : .regular))
                     .frame(width: Metrics.iconSize, height: Metrics.iconSize)
                     .foregroundStyle(current ? Theme.accentText : Theme.inkMuted)
                 Text(title)
@@ -26,10 +26,7 @@ struct NavItem: View {
             }
             .padding(.horizontal, Space.s3)
             .padding(.vertical, Space.s2)
-            .background(
-                RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
-                    .fill(hovered && !current ? Theme.fill : .clear)
-            )
+            .surface(hovered && !current ? Theme.fill : .clear)
             .contentShape(RoundedRectangle(cornerRadius: Radius.md, style: .continuous))
         }
         .buttonStyle(.plain)
@@ -83,7 +80,7 @@ struct PaletteTrigger: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: Space.s2) {
-                Image(systemName: "magnifyingglass").font(.system(size: 13)).accessibilityHidden(true)
+                Image(systemName: "magnifyingglass").iconRole(.inline).accessibilityHidden(true)
                 Text(title).textRole(.body, lineBox: false)
                 Spacer(minLength: Space.s2)
                 Kbd(keys)
@@ -92,10 +89,7 @@ struct PaletteTrigger: View {
             .padding(.horizontal, Space.s3)
             .frame(height: Metrics.controlMd)
             .frame(maxWidth: Metrics.paletteTriggerMaxWidth)
-            .background(
-                RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
-                    .fill(hovered ? Theme.fillStrong : Theme.fill)
-            )
+            .surface(hovered ? Theme.fillStrong : Theme.fill)
             .contentShape(RoundedRectangle(cornerRadius: Radius.md, style: .continuous))
         }
         .buttonStyle(.plain)

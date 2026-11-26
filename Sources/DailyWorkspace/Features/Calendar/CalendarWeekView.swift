@@ -205,8 +205,11 @@ private struct CalendarEventBlock: View {
         .padding(Space.s1)
         .background(Theme.surfaceRaised)
         .overlay(alignment: .leading) { event.color.frame(width: Metrics.ruleWidth) }
-        .overlay { RoundedRectangle(cornerRadius: Radius.sm).strokeBorder(Theme.border) }
-        .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
+        .overlay {
+            RoundedRectangle(cornerRadius: Radius.sm, style: .continuous)
+                .strokeBorder(Theme.border, lineWidth: Metrics.borderWidth)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: Radius.sm, style: .continuous))
         .accessibilityElement(children: .combine)
         .accessibilityAction(named: "Edit Event") { editing = true }
         .onTapGesture(count: 2) { editing = true }

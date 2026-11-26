@@ -21,11 +21,11 @@ struct ShortId: View {
         Button(action: copy) {
             HStack(alignment: .firstTextBaseline, spacing: Space.s1) {
                 Text(verbatim: shown == value ? shown : shown + "…")
-                    .font(.system(size: TextRole.caption.size, design: .monospaced))
+                    .font(TextRole.monoCaption.font)
                     .foregroundStyle(hovered ? Theme.accentText : Theme.inkBody)
                     .padding(.horizontal, Space.s1Half)
                     .padding(.vertical, Space.sHalf)
-                    .background(RoundedRectangle(cornerRadius: Radius.sm, style: .continuous).fill(Theme.fill))
+                    .surface(Theme.fill, radius: Radius.sm)
                 if copied {
                     Text("copied").textRole(.caption, lineBox: false).foregroundStyle(Theme.inkMuted)
                 }

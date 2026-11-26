@@ -45,7 +45,7 @@ extension QuickPanelPascalSkin {
                         }
                         .frame(height: 28)
                         .padding(.horizontal, 6)
-                        .background(playlist.id == controller.music.selectedPlaylistID ? Ink.selection : .clear)
+                        .pascalSelection(playlist.id == controller.music.selectedPlaylistID)
                     }
                     .buttonStyle(.plain)
                 }
@@ -135,7 +135,7 @@ extension QuickPanelPascalSkin {
             }
             .frame(height: 28)
             .frame(maxWidth: .infinity)
-            .background(controller.selectedIndex == index ? Ink.selection : .clear)
+            .pascalSelection(controller.selectedIndex == index)
         }
         .buttonStyle(.plain)
         .simultaneousGesture(

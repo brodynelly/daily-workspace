@@ -159,12 +159,8 @@ struct AgentRoutinesSettings: View {
 
     private var editor: some View {
         VStack(alignment: .leading, spacing: Space.s2) {
-            TextField("Name, e.g. Morning brief", text: $name)
-            TextEditor(text: $prompt)
-                .font(.body)
-                .frame(minHeight: 70, maxHeight: 120)
-                .border(Theme.border)
-                .accessibilityLabel("What the routine asks")
+            BoxedTextField("Name, e.g. Morning brief", text: $name)
+            TextArea("What the routine asks", text: $prompt, prompt: "What should the routine ask?", height: 96)
             HStack {
                 Picker("Schedule", selection: $schedule.kind) {
                     Text("Daily").tag(RoutineSchedule.Kind.daily)

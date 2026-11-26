@@ -43,7 +43,7 @@ struct NoteEditorPane: View {
     private var metaLine: some View {
         HStack(alignment: .firstTextBaseline, spacing: Space.s4) {
             Text(verbatim: document.relativePath ?? "")
-                .font(.system(size: TextRole.caption.size, design: .monospaced))
+                .font(TextRole.monoCaption.font)
                 .foregroundStyle(Theme.inkBody)
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)

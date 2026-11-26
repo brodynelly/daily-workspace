@@ -18,7 +18,7 @@ struct SearchField: View {
     var body: some View {
         HStack(spacing: Space.s2) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 13))
+                .iconRole(.inline)
                 .foregroundStyle(Theme.inkMuted)
                 .accessibilityHidden(true)
             TextField(prompt, text: $text, prompt: Text(prompt).foregroundStyle(Theme.inkMuted))
@@ -39,11 +39,7 @@ struct SearchField: View {
         }
         .padding(.horizontal, Space.s3)
         .frame(height: Metrics.controlMd)
-        .background(RoundedRectangle(cornerRadius: Radius.md, style: .continuous).fill(Theme.field))
-        .overlay {
-            RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
-                .strokeBorder(focused ? Theme.focusRing : Theme.borderStrong, lineWidth: Metrics.borderWidth)
-        }
+        .fieldSurface(focused: focused)
         .onAppear { focused = true }
     }
 }
@@ -74,14 +70,10 @@ private struct QuietToggleBody: View {
                 .foregroundStyle(isEnabled ? (isOn ? Theme.ink : Theme.inkBody) : Theme.inkDisabled)
                 .padding(.horizontal, Space.s3)
                 .frame(minHeight: Metrics.controlMd)
-                .background {
-                    RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
-                        .fill(isOn ? Theme.surfaceRaised : hovered && isEnabled ? Theme.fill : .clear)
-                }
-                .overlay {
-                    RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
-                        .strokeBorder(isOn ? Theme.borderStrong : .clear, lineWidth: Metrics.borderWidth)
-                }
+                .surface(
+                    isOn ? Theme.surfaceRaised : hovered && isEnabled ? Theme.fill : .clear,
+                    edge: isOn ? Theme.borderStrong : nil
+                )
                 .contentShape(RoundedRectangle(cornerRadius: Radius.md, style: .continuous))
         }
         .buttonStyle(.plain)

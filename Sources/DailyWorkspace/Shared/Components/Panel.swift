@@ -102,7 +102,7 @@ struct Tray<Content: View>: View {
         VStack(alignment: .leading, spacing: Space.s3) { content }
             .padding(Space.s4)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: Radius.md, style: .continuous).fill(Theme.surfaceMuted))
+            .mutedSurface()
     }
 }
 

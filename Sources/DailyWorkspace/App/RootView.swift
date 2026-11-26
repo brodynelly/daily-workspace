@@ -124,8 +124,9 @@ struct RootView: View {
     private var wordmark: some View {
         HStack(spacing: Space.s2) {
             Image(systemName: "sun.max.fill")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(Theme.accent)
+                .iconRole(.leading)
+                .fontWeight(.semibold)
+                .foregroundStyle(Theme.accentText)
                 .accessibilityHidden(true)
             Text("Daily Workspace")
                 .textRole(.wordmark, lineBox: false)

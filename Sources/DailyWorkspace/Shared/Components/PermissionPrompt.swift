@@ -67,13 +67,16 @@ struct PermissionPrompt: View {
     let request: () async -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(explanation).foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: Space.s2) {
+            Text(explanation)
+                .textRole(.bodySmall, lineBox: false)
+                .foregroundStyle(Theme.inkMuted)
+                .fixedSize(horizontal: false, vertical: true)
             switch status {
             case .notRequested:
-                Button("Allow \(kind.name) Access…") { Task { await request() } }
+                Button("Allow \(kind.name) Access…") { Task { await request() } }.buttonStyle(.secondary)
             case .denied, .restricted:
-                Button("Open System Settings") { kind.pane.open() }
+                Button("Open System Settings") { kind.pane.open() }.buttonStyle(.secondary)
             case .authorized, .unavailable:
                 EmptyView()
             }

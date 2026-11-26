@@ -24,10 +24,10 @@ struct NoteLabel: View {
     var icon: String?
 
     var body: some View {
-        let content = HStack(spacing: 6) {
+        let content = HStack(spacing: Space.s1Half) {
             Text(NotePath.title(path)).lineLimit(1)
             if let folder = NotePath.folder(path) {
-                Text(folder).foregroundStyle(.secondary).lineLimit(1).truncationMode(.head)
+                Text(folder).foregroundStyle(Theme.inkMuted).lineLimit(1).truncationMode(.head)
             }
         }
         if let icon {

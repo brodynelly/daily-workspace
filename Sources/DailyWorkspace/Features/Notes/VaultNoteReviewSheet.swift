@@ -39,76 +39,85 @@ struct VaultNoteReviewSheet: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Space.s3) {
-            Text("Review vault note").textRole(.sectionTitle, lineBox: false)
-            Text("Only your final confirmation saves this exact change in the selected Obsidian vault.")
-                .textRole(.bodySmall, lineBox: false)
-            if case .assistant(let paths) = source {
-                VStack(alignment: .leading, spacing: Space.s1) {
-                    Text("Source paths returned by Assistant tools").textRole(.label, lineBox: false)
-                    ForEach(paths, id: \.self) { Text(verbatim: $0).textRole(.caption, lineBox: false) }
-                }
-            }
-            if case .quickNotes = source {
-                Text(verbatim: path).textRole(.bodySmall, lineBox: false).textSelection(.enabled)
-            } else {
-                TextField("Exact vault-relative Markdown path", text: $path)
-                    .textFieldStyle(.roundedBorder)
-                    .accessibilityLabel("Exact vault-relative Markdown path")
-                    .onChange(of: path) { _, _ in invalidate() }
-            }
-            if review == nil {
-                Text("Draft (edit before preview)").textRole(.label, lineBox: false)
-                TextEditor(text: $draft)
-                    .font(.body)
-                    .frame(minHeight: 110, maxHeight: 170)
-                    .border(Theme.border)
-                    .accessibilityLabel("Note draft")
-                if case .assistant = source {
-                    Toggle("Replace the whole existing note instead of appending", isOn: $replaceExisting)
-                        .onChange(of: replaceExisting) { _, _ in invalidate() }
-                }
-            } else if let review {
-                Text(verbatim: review.path).textRole(.label, lineBox: false).textSelection(.enabled)
+        FormSheet("Review vault note", description: Self.intro, width: .comparison) {
+            if case .assistant(let paths) = source { sourcePaths(paths) }
+            destination
+            if let review {
+                Text(verbatim: review.path)
+                    .font(TextRole.mono.font)
+                    .foregroundStyle(Theme.ink)
+                    .textSelection(.enabled)
                 HStack(alignment: .top, spacing: Space.s3) {
                     preview("Before", text: review.before ?? "New note — no existing text")
                     preview("After", text: review.after)
                 }
+            } else {
+                LabeledField("Draft", hint: "Edit before the preview; any later edit needs a new preview.") {
+                    TextArea("Note draft", text: $draft, height: 150)
+                }
+                if case .assistant = source {
+                    Toggle("Replace the whole existing note instead of appending", isOn: $replaceExisting)
+                        .toggleStyle(.checkbox)
+                        .textRole(.bodySmall, lineBox: false)
+                        .foregroundStyle(Theme.inkBody)
+                        .onChange(of: replaceExisting) { _, _ in invalidate() }
+                }
             }
             if let error { ReasonNote(error, tone: .danger) }
-            HStack {
-                Button("Cancel", role: .cancel) { dismiss() }.buttonStyle(.secondary)
-                Spacer()
+            FormFooter {
+                Button("Cancel", role: .cancel) { dismiss() }
+                    .buttonStyle(.secondary)
+                    .keyboardShortcut(.cancelAction)
                 if review != nil {
                     Button("Edit draft", action: invalidate).buttonStyle(.secondary)
-                    Button("Confirm save", action: commit).buttonStyle(.primary)
+                    Button("Confirm save", action: commit)
+                        .buttonStyle(.primary)
+                        .keyboardShortcut(.defaultAction)
                 } else {
-                    Button("Preview exact change", action: prepare).buttonStyle(.primary)
+                    Button("Preview exact change", action: prepare)
+                        .buttonStyle(.primary)
+                        .keyboardShortcut(.defaultAction)
                         .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
         }
-        .padding(Space.s5)
-        .frame(width: 720)
-        .background(Theme.surfaceOverlay)
         .onChange(of: draft) { _, updated in
             invalidate()
             onDraftChange(updated)
         }
     }
 
-    private func preview(_ label: String, text: String) -> some View {
+    private static let intro = "Only your final confirmation saves this exact change in the selected Obsidian vault."
+
+    private func sourcePaths(_ paths: [String]) -> some View {
         VStack(alignment: .leading, spacing: Space.s1) {
-            Text(label).textRole(.label, lineBox: false)
-            ScrollView {
-                Text(verbatim: text)
-                    .font(.system(size: 12, design: .monospaced))
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .topLeading)
+            Text("Source paths returned by Assistant tools")
+                .textRole(.label, lineBox: false)
+                .foregroundStyle(Theme.ink)
+            ForEach(paths, id: \.self) {
+                Text(verbatim: $0).font(TextRole.monoCaption.font).foregroundStyle(Theme.inkMuted)
             }
-            .frame(height: 200)
-            .padding(Space.s2)
-            .background(Theme.surfaceRaised)
+        }
+    }
+
+    /// The exact destination: fixed for Quick Notes, typed for Inbox and Assistant drafts.
+    @ViewBuilder private var destination: some View {
+        if case .quickNotes = source {
+            LabeledField("Destination") {
+                Text(verbatim: path).font(TextRole.mono.font).foregroundStyle(Theme.ink).textSelection(.enabled)
+            }
+        } else if review == nil {
+            LabeledField("Destination", hint: "The exact vault-relative Markdown path.") {
+                BoxedTextField("Exact vault-relative Markdown path", text: $path, monospaced: true)
+            }
+            .onChange(of: path) { _, _ in invalidate() }
+        }
+    }
+
+    private func preview(_ label: String, text: String) -> some View {
+        VStack(alignment: .leading, spacing: Space.s1Half) {
+            Text(label).textRole(.label, lineBox: false).foregroundStyle(Theme.ink)
+            CodePreview(text: text)
         }
         .frame(maxWidth: .infinity)
     }
