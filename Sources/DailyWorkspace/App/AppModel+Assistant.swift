@@ -65,6 +65,8 @@ extension AppModel {
             .sink { [weak self] root in
                 self?.assistantContext.invalidateNotes()
                 self?.syncAssistantVaultAgents(vaultRoot: root)
+                // A routine started in one vault must not carry its context into another.
+                self?.routines.cancelRunning()
             }
             .store(in: &assistantSubscriptions)
         syncAssistantVaultAgents()

@@ -20,6 +20,8 @@ extension QuickPanelAIPopup {
 extension QuickPanelController {
     /// Saved chats join CHATS; the open conversation stays out of the list.
     func fileSavedChats(from model: AppModel) {
+        // Delete all history also removes the copies this panel holds.
+        aiPopup.chats.removeAll { model.conversationArchive.wasDeleted($0) }
         for chat in model.conversationArchive.conversations where chat.id != model.assistant.conversationID {
             aiPopup.file(chat)
         }
@@ -50,11 +52,13 @@ extension QuickPanelController {
     }
 
     func openAIChat(_ id: AssistantConversation.ID) {
-        guard let assistant = model?.assistant, !assistant.isStreaming, let chosen = aiPopup.take(id) else { return }
+        guard let model, !model.assistant.isStreaming, let chosen = aiPopup.take(id) else { return }
+        let assistant = model.assistant
+        guard !model.conversationArchive.wasDeleted(chosen) else { return }
         if let current = assistant.archivedConversation() { aiPopup.file(current) }
         let resumed = assistant.restore(chosen)
         // A question the app quit or crashed on comes back as the draft, ready to ask again.
-        model?.navigation.assistantDraft = chosen.interruptedQuestion ?? ""
+        model.navigation.assistantDraft = chosen.interruptedQuestion ?? ""
         aiPopup.focusedTurn = nil
         aiPopup.chatIndex = 0
         aiPopup.section = .conversation

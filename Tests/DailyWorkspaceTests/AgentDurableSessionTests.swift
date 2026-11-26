@@ -212,8 +212,14 @@ final class AgentDurableSessionTests: XCTestCase {
         let archive = makeArchive(folder, keys: keys)
         archive.save(try XCTUnwrap(session.archivedConversation()))
         XCTAssertEqual(archive.conversations.count, 1)
+        var cleared = 0
+        archive.onDeleteAll = { cleared += 1 }
+        let conversation = try XCTUnwrap(session.archivedConversation())
         archive.deleteAll()
-        XCTAssertTrue(archive.conversations.isEmpty)
+        XCTAssertEqual(cleared, 1)
+        XCTAssertTrue(archive.wasDeleted(conversation))
+        archive.save(conversation)
+        XCTAssertTrue(archive.conversations.isEmpty, "a deleted conversation is never saved again")
         XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: folder.path), [])
         XCTAssertEqual(keys.key ?? "", "")
     }

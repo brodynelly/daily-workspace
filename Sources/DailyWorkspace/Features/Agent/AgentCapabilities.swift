@@ -31,15 +31,16 @@ struct AgentCapabilities: Equatable, Sendable {
 
     /// One sentence for the prompt on who approves changes.
     var approvalSentence: String {
+        let links = " Anything that adds a link or embed, wikilinks included, also waits."
         switch approval {
         case .review:
             return "Every change waits for Brody's review before it reaches the vault."
         case .autoApplyFolders:
             let folders = autoApplyFolders.isEmpty ? "no folders yet" : autoApplyFolders.joined(separator: ", ")
             return "New notes and appends inside the auto-apply folders (\(folders)) apply at once; edits to "
-                + "existing text and anything elsewhere wait for his review."
+                + "existing text and anything elsewhere wait for his review." + links
         case .autoApplyAll:
-            return "Changes apply at once and Brody can undo them, except ones that add links, which wait for review."
+            return "New notes and appends apply at once; edits to existing text wait for his review." + links
         }
     }
 }

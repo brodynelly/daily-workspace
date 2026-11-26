@@ -10,6 +10,10 @@ extension AppModel {
         assistant.setWorkspace(agentWorkspace, memoryIndex: { memory.index() })
         applyAssistantRuntime()
         assistant.onSave = { [weak self] conversation, _ in self?.conversationArchive.save(conversation) }
+        conversationArchive.onDeleteAll = { [weak self] in
+            guard let self, !self.assistant.isStreaming else { return }
+            self.assistant.clear()
+        }
         if preferences.agent.saveConversations { conversationArchive.load() }
         vaultChanges.onWrite = { [weak self] in self?.assistantContext.invalidateNotes() }
         routines.makeSession = { [weak self] origin in self?.makeRoutineSession(origin: origin) }

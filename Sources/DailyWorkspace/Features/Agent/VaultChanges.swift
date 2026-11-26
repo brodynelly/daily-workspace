@@ -80,7 +80,7 @@ final class VaultChanges: ObservableObject {
         let onDisk = try vault.exists(allowed.url) ? load(vault, allowed.url) : nil
         let vaultID = Self.identity(of: vault)
         var queued = pending.first { $0.path == allowed.path && $0.vault == vaultID }
-        if let stale = queued, stale.before != onDisk {
+        if let stale = queued, !Self.sameBytes(stale.before, onDisk) {
             fail(stale.id, reason: "The note changed in the vault after this change was proposed.")
             queued = nil
         }
@@ -89,7 +89,9 @@ final class VaultChanges: ObservableObject {
         guard after.utf8.count <= limits.maxNoteBytes else {
             throw ToolFailure("The note would exceed \(limits.maxNoteBytes) bytes. Split it into smaller notes.")
         }
-        guard after != base else { throw ToolFailure("That change leaves \(allowed.path) exactly as it is.") }
+        guard !Self.sameBytes(after, base) else {
+            throw ToolFailure("That change leaves \(allowed.path) exactly as it is.")
+        }
         let change: VaultChange
         let event: VaultJournalEntry.Event
         if var merged = queued {
@@ -229,9 +231,9 @@ final class VaultChanges: ObservableObject {
         }
         guard vault.exists(allowed.url) else { throw VaultError.missing }
         let loaded = try vault.load(allowed.url)
-        guard loaded.text == expected else { throw VaultError.conflict }
+        guard Self.sameBytes(loaded.text, expected) else { throw VaultError.conflict }
         if let editor, editor.relativePath == allowed.path {
-            guard !editor.hasUnsavedEdits, editor.text == expected else { throw VaultError.conflict }
+            guard !editor.hasUnsavedEdits, Self.sameBytes(editor.text, expected) else { throw VaultError.conflict }
             try editor.applyReviewed(text, expecting: loaded.snapshot)
         } else {
             _ = try vault.save(text, to: allowed.url, expecting: loaded.snapshot)
@@ -340,6 +342,27 @@ extension VaultChanges {
         return text.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\n", with: "\r\n")
     }
 
+    /// Markdown, Obsidian and HTML links or embeds: `[[note]]`, `![[note]]`, `[text](target)`, `[ref]: target`,
+    /// any `scheme://` or `scheme:` URL such as `mailto:`, and HTML tags that load or link something.
+    static func addsLinkOrEmbed(_ text: String) -> Bool {
+        let patterns = [
+            #"\[\["#, #"\]\("#, #"(?m)^\s*\[[^\]]+\]:\s*\S"#, #"(?i)\b[a-z][a-z0-9+.-]*://"#,
+            #"(?i)\b(mailto|data|javascript|file|obsidian|tel):"#,
+            #"(?i)<\s*(a|img|iframe|script|object|embed|link|video|audio|source|svg|style|form|meta)\b"#,
+        ]
+        return patterns.contains { text.range(of: $0, options: .regularExpression) != nil }
+    }
+
+    /// Exact text equality, by UTF-8 bytes: Swift `==` treats canonically equivalent text (NFC and NFD) as equal,
+    /// which would let a change overwrite a note whose bytes changed since it was read.
+    static func sameBytes(_ lhs: String?, _ rhs: String?) -> Bool {
+        switch (lhs, rhs) {
+        case (nil, nil): return true
+        case (let lhs?, let rhs?): return lhs.utf8.elementsEqual(rhs.utf8)
+        default: return false
+        }
+    }
+
     /// Which vault a change belongs to.
     static func identity(of vault: NoteVault) -> String { vault.root.standardizedFileURL.path }
 
@@ -356,21 +379,15 @@ extension VaultChanges {
         let added = LineDiff(before: change.before ?? "", after: change.after).lines.compactMap { line -> String? in
             if case .added(let text) = line { return text }
             return nil
-        }.joined(separator: "\n").lowercased()
-        switch limits.writeApproval {
-        case .review:
-            return "every change is reviewed"
-        case .autoApplyFolders:
-            if change.kind == .edit { return "edits to existing text are always reviewed" }
-            if !limits.isAutoApplyFolder(change.path) { return "it is outside the auto-apply folders" }
-        case .autoApplyAll:
-            // Nobody watches a routine, so it may add notes and appends but never rewrites existing text unreviewed.
-            if change.kind == .edit, run.origin.hasPrefix("routine") { return "a routine's edits are always reviewed" }
+        }.joined(separator: "\n")
+        if limits.writeApproval == .review { return "every change is reviewed" }
+        // In every mode a person reviews rewrites of existing text.
+        if change.kind == .edit { return "edits to existing text are always reviewed" }
+        if limits.writeApproval == .autoApplyFolders, !limits.isAutoApplyFolder(change.path) {
+            return "it is outside the auto-apply folders"
         }
-        // Links and embeds in model-written text can leak data when rendered, so a person checks them.
-        if ["http://", "https://", "<img", "<iframe", "<script"].contains(where: added.contains) {
-            return "it adds a link or embed"
-        }
+        // Links and embeds in model-written text can leak data or pull in other notes when rendered.
+        if Self.addsLinkOrEmbed(added) { return "it adds a link or embed" }
         if autoApplied[run.id, default: 0] >= limits.maxAutoWritesPerRun {
             return "this run reached its limit of \(limits.maxAutoWritesPerRun) automatic changes"
         }

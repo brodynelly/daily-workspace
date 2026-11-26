@@ -15,6 +15,11 @@ final class ConversationArchive: ObservableObject {
     /// Files that could not be opened (a lost key or a damaged file); they are left in place.
     @Published private(set) var unreadable = 0
     @Published private(set) var storageError: String?
+    /// When Delete all history last ran. Conversations archived before it are gone, including copies other views
+    /// hold in memory, which must drop them rather than reopen and save them again.
+    private(set) var clearedAt: Date?
+    /// Called after Delete all history, to clear the open conversation too.
+    var onDeleteAll: (() -> Void)?
 
     private let folder: URL
     private let keyStore: APIKeyStore
@@ -67,7 +72,7 @@ final class ConversationArchive: ObservableObject {
 
     /// Save `conversation`, replacing its earlier version. One with no turns and nothing running is removed.
     func save(_ conversation: AssistantConversation) {
-        guard isEnabled() else { return }
+        guard isEnabled(), !wasDeleted(conversation) else { return }
         conversations.removeAll { $0.id == conversation.id }
         guard !conversation.turns.isEmpty || conversation.interruptedQuestion != nil else {
             try? FileManager.default.removeItem(at: url(for: conversation.id))
@@ -82,6 +87,12 @@ final class ConversationArchive: ObservableObject {
             Log.assistant.error("A conversation could not be saved: \(Log.code(error), privacy: .public)")
             storageError = "Chat history could not be saved."
         }
+    }
+
+    /// True for a conversation that Delete all history removed (it started before the deletion).
+    func wasDeleted(_ conversation: AssistantConversation) -> Bool {
+        guard let clearedAt else { return false }
+        return conversation.startedAt <= clearedAt
     }
 
     func conversation(_ id: UUID) -> AssistantConversation? {
@@ -104,6 +115,8 @@ final class ConversationArchive: ObservableObject {
         cipher = nil
         conversations = []
         unreadable = 0
+        clearedAt = now()
+        onDeleteAll?()
     }
 
     private func url(for id: UUID) -> URL {

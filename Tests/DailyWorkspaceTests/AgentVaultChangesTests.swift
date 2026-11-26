@@ -211,6 +211,40 @@ final class AgentVaultChangesTests: XCTestCase {
         XCTAssertNotNil(changes.storageError)
     }
 
+    func testEveryLinkAndEmbedFormWaitsForReview() throws {
+        let links = [
+            "![[01-projects/private]]", "see [[Plan]]", "[Open](obsidian://open?vault=x)", "[ref]: ./other.md",
+            "mailto:someone", "ftp://host/file", "<a href=x>", "<IMG src=x>", "data:text/plain,hi",
+        ]
+        for text in links { XCTAssertTrue(VaultChanges.addsLinkOrEmbed(text), text) }
+        for text in ["Plain note", "- [ ] a task", "Time: 10:30", "[x] done", "a < b and c > d"] {
+            XCTAssertFalse(VaultChanges.addsLinkOrEmbed(text), text)
+        }
+        let changes = makeChanges()
+        let outcome = try changes.propose(
+            .create(path: "00-inbox/embed.md", text: "![[01-projects/plan]]"), summary: "", run: chat)
+        XCTAssertEqual(outcome.status, .awaitingReview)
+    }
+
+    func testChatEditsWaitForReviewEvenWhenEverythingElseAutoApplies() throws {
+        settings.writeApproval = .autoApplyAll
+        let changes = makeChanges()
+        let edit = try changes.propose(
+            .edit(path: "01-projects/plan.md", old: "one", new: "uno"), summary: "", run: chat)
+        XCTAssertEqual(edit.status, .awaitingReview)
+    }
+
+    func testAChangeInUnicodeNormalizationIsAConflict() throws {
+        let note = root.appendingPathComponent("01-projects/cafe.md")
+        try write("caf\u{e9}\n", to: note)
+        let changes = makeChanges()
+        _ = try changes.propose(.append(path: "01-projects/cafe.md", text: "more"), summary: "", run: chat)
+        let id = try XCTUnwrap(changes.pending.first?.id)
+        try write("cafe\u{301}\n", to: note)
+        XCTAssertThrowsError(try changes.apply(id))
+        XCTAssertEqual(try Data(contentsOf: note), Data("cafe\u{301}\n".utf8), "the decomposed bytes stay")
+    }
+
     func testAnOpenNoteWithUnsavedEditsIsLeftAlone() throws {
         let editor = FakeOpenNote(path: "01-projects/plan.md", text: "# Plan\n- one\n- typing", dirty: true)
         let changes = makeChanges(editor: editor)

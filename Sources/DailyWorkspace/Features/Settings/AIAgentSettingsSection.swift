@@ -43,13 +43,13 @@ struct AIAgentSettingsSection: View {
         }
         SettingsRow(
             "Approval",
-            description: "Every change is journaled and can be reviewed in Assistant → Changes. Changes that "
-                + "add links always wait for review."
+            description: "Every change is journaled and can be reviewed in Assistant → Changes. Edits to "
+                + "existing text and changes that add links or embeds always wait for review."
         ) {
             Picker("Approval", selection: $preferences.agent.writeApproval) {
                 Text("Review every change").tag(AgentSettings.WriteApproval.review)
                 Text("Auto-apply in chosen folders").tag(AgentSettings.WriteApproval.autoApplyFolders)
-                Text("Auto-apply everywhere").tag(AgentSettings.WriteApproval.autoApplyAll)
+                Text("Auto-apply new notes and appends everywhere").tag(AgentSettings.WriteApproval.autoApplyAll)
             }
             .labelsHidden()
             .fixedSize()

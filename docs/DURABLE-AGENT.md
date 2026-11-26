@@ -31,9 +31,9 @@ The tool result says `applied` or `awaiting_review`; the prompt tells the model 
 | --- | --- | --- |
 | `review` | nothing | everything |
 | `auto-folders` (default, folder `00-inbox`) | new notes and appends inside `autoApplyFolders` | edits; anything outside the folders |
-| `auto-all` | creates, appends and chat edits | edits made by a routine |
+| `auto-all` | new notes and appends anywhere | edits |
 
-In every mode a change that adds a link or embed (`http(s)://`, `<img`, `<iframe`, `<script`) and any change past `maxAutoWritesPerRun` (default 10) waits for review: model-written links are an exfiltration path when rendered, and the cap bounds a runaway loop. Review lives behind **Changes** on the Assistant page.
+In every mode these wait for review: edits to existing text; a change that adds a link or embed (wikilinks and `![[embeds]]`, `[text](target)`, reference links, any `scheme://` or `mailto:`/`data:`/`obsidian:` URL, and HTML tags that load or link something); and any change past `maxAutoWritesPerRun` (default 10). Model-written links are an exfiltration path when rendered, embeds pull other notes in, and the cap bounds a runaway loop. Conflict checks compare UTF-8 bytes, so a note re-saved in another Unicode normalization counts as changed. Review lives behind **Changes** on the Assistant page.
 
 ## Memory
 
@@ -41,11 +41,11 @@ The `memory` tool follows Anthropic's memory-tool commands (`view`, `create`, `s
 
 ## Saved conversations
 
-Every question is saved twice: before it runs (with `interruptedQuestion` set) and after it finishes or fails. A conversation is reopened from the Quick Panel's chat list; after a crash, the interrupted question returns as the draft. The transcript replays byte-for-byte only when the provider, model and `contextFingerprint` (vault identity, system prompt and tool definitions) match; otherwise its answers show and follow-ups start fresh context. Retention (default 180 days) runs at launch; Delete all history removes the files and the key. Turning saving off writes nothing new and deletes nothing.
+Every question is saved twice: before it runs (with `interruptedQuestion` set) and after it finishes or fails. A conversation is reopened from the Quick Panel's chat list; after a crash, the interrupted question returns as the draft. The transcript replays byte-for-byte only when the provider, model and `contextFingerprint` (vault identity, system prompt and tool definitions) match; otherwise its answers show and follow-ups start fresh context. Retention (default 180 days) runs at launch; Delete all history removes the files and the key, starts a new open conversation, and drops copies the Quick Panel holds, so a deleted conversation is never reopened or saved again. Turning saving off writes nothing new and deletes nothing.
 
 ## Routines
 
-`RoutineScheduler` checks once a minute while the app runs, starts at most one due routine at a time in a sibling session (same limits, tools and workspace, so the open chat is untouched), and records `lastRunAt` before the run so a failing routine cannot retry every minute. Turning the Assistant off stops a running routine's request at once. A routine's saved conversation appears in the Quick Panel's CHATS the next time the AI page opens. Missed slots collapse into one catch-up run. The prompt is framed as unattended; a routine follows the same approval policy, and its edits always wait for review. Routines do not run while the Mac sleeps or the app is closed; there is no background agent.
+`RoutineScheduler` checks once a minute while the app runs, starts at most one due routine at a time in a sibling session (same limits, tools and workspace, so the open chat is untouched), and records `lastRunAt` before the run so a failing routine cannot retry every minute. Turning the Assistant off or switching vaults stops a running routine's request at once. A routine's saved conversation appears in the Quick Panel's CHATS the next time the AI page opens. Missed slots collapse into one catch-up run. The prompt is framed as unattended; a routine follows the same approval policy, and its edits always wait for review. Routines do not run while the Mac sleeps or the app is closed; there is no background agent.
 
 ## Not adopted
 
