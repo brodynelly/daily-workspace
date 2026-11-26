@@ -125,7 +125,7 @@ final class QuickPanelHarness: ObservableObject {
             return
         }
         switch Self.read(file.id) {
-        case .success(let (text, digest)):
+        case .success((let text, let digest)):
             content = text
             contentNote = nil
             loadedDigest = digest
