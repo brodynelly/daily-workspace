@@ -109,7 +109,10 @@ final class AgentDurableSessionTests: XCTestCase {
         let transport = FakeAgentTransport([
             .success(
                 agentResponse(
-                    [toolCall("t1", "append_to_note", #"{"path":"00-inbox/log.md","text":"- done"}"#)],
+                    [
+                        toolCall(
+                            "t1", "append_to_note", #"{"path":"00-inbox/log.md","text":"- done","summary":"Log it."}"#)
+                    ],
                     stop: "tool_use")),
             .failure(AgentError(.incomplete, "The connection dropped.", shouldRetry: false)),
         ])
