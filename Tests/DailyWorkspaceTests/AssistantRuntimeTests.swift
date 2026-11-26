@@ -304,6 +304,19 @@ final class AssistantRuntimeSessionTests: XCTestCase {
         XCTAssertTrue(session.turns.isEmpty)
     }
 
+    func testAChatArchivedBeforeAToolChangeDoesNotReplayItsContext() async throws {
+        let transport = FakeAgentTransport([.success(agentResponse([.text("Ok.")], stop: "end_turn"))])
+        let session = makeSession(transport)
+        await ask(session, "Hi")
+        let archived = try XCTUnwrap(session.archivedConversation())
+        session.clear()
+
+        session.applyRuntime(AgentRuntimeLimits(AssistantRuntimeSettings(disabledTools: ["read_note"])))
+        XCTAssertFalse(session.restore(archived), "its tool calls were made against the old tool set")
+        XCTAssertTrue(session.transcript.isEmpty)
+        XCTAssertFalse(session.turns.isEmpty, "the answers stay visible")
+    }
+
     func testATransientFailureIsRetriedInsideTheTurnAndCounted() async {
         let transport = FakeAgentTransport([
             .failure(overloaded()), .success(agentResponse([.text("Back.")], stop: "end_turn")),

@@ -32,7 +32,8 @@ final class AssistantSession: ObservableObject {
     /// The messages sent to the model, oldest first. Only ever appended to.
     private(set) var transcript: [AgentMessage] = []
     private(set) var system: [JSONValue]
-    /// Bumped whenever `system` changes, so a restored conversation knows if its context still applies.
+    /// Bumped whenever `system` or the offered tools change, so a restored conversation knows if its context
+    /// still applies.
     private(set) var systemRevision = 0
     /// Definitions of the enabled tools, sorted so the cached prefix never changes within a conversation.
     var tools: [JSONValue] { AssistantTool.enabledDefinitions(configuration.enabledTools) }
@@ -44,7 +45,9 @@ final class AssistantSession: ObservableObject {
     /// Lifecycle hooks: called on the main actor for every run event. Events carry no content.
     private var runObservers: [@MainActor (AgentRunEvent) -> Void] = []
     /// The tool runner with the current limits.
-    var runner: AssistantToolRunner {
+    var runner: AssistantToolRunner { makeRunner(configuration) }
+
+    func makeRunner(_ configuration: Configuration) -> AssistantToolRunner {
         AssistantToolRunner(
             context: context, enabledTools: configuration.enabledTools, timeout: configuration.toolTimeout,
             maxResultBytes: configuration.maxToolResultBytes)
@@ -106,7 +109,10 @@ final class AssistantSession: ObservableObject {
     func applyRuntime(_ limits: AgentRuntimeLimits) {
         let toolsChanged = limits.enabledTools != configuration.enabledTools
         configuration.apply(limits)
-        if toolsChanged, !transcript.isEmpty || isStreaming { clear() }
+        guard toolsChanged else { return }
+        // Archived chats made with the old tools must not replay their tool calls against the new ones.
+        systemRevision += 1
+        if !transcript.isEmpty || isStreaming { clear() }
     }
 
     /// Register a lifecycle hook (logging, metrics, tests). It sees names, counts and timings, never content.

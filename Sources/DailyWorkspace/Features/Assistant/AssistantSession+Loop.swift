@@ -41,6 +41,10 @@ extension AssistantSession {
     func runLoop(
         base: [AgentMessage], opening: AgentMessage, apiKey: String, options: LoopOptions
     ) async throws -> LoopOutcome {
+        // One snapshot per run: a Settings change mid-answer applies from the next question, never mid-run.
+        let configuration = self.configuration
+        let tools = AssistantTool.enabledDefinitions(configuration.enabledTools)
+        let runner = makeRunner(configuration)
         var outcome = LoopOutcome(appended: [opening])
         var rounds = 0
         var continuations = 0
@@ -51,7 +55,7 @@ extension AssistantSession {
                 tools: tools, messages: base + outcome.appended, outputSchema: options.schema)
             let generation = options.showsProgress ? options.generation : nil
             let response = try await sendRequest(
-                request, apiKey: apiKey, generation: generation, trace: options.trace)
+                request, configuration: configuration, apiKey: apiKey, generation: generation, trace: options.trace)
             outcome.usage += response.usage
             outcome.contextTokens = response.usage.totalInputTokens
             try Task.checkCancellation()
@@ -72,7 +76,8 @@ extension AssistantSession {
                 rounds += 1
                 options.trace?.noteToolRound()
                 let results = await runTools(
-                    response.toolUses, earlier: outcome.toolCalls, generation: generation, trace: options.trace)
+                    response.toolUses, runner: runner, earlier: outcome.toolCalls, generation: generation,
+                    trace: options.trace)
                 outcome.toolCalls += results.map(\.call)
                 var blocks = results.map(\.block)
                 if rounds == configuration.maxToolRounds {
@@ -92,7 +97,8 @@ extension AssistantSession {
 
     /// One model request through the selected provider, with retries, reported to the trace and observers.
     private func sendRequest(
-        _ request: AgentRequest, apiKey: String, generation: Int?, trace: AgentRunTrace?
+        _ request: AgentRequest, configuration: Configuration, apiKey: String, generation: Int?,
+        trace: AgentRunTrace?
     ) async throws -> AgentResponse {
         let number = (trace?.summary.requests ?? 0) + 1
         record(.requestStarted(request: number), trace: trace)
@@ -148,7 +154,8 @@ extension AssistantSession {
 
     /// Run every tool call concurrently; results come back in the order the model asked for them.
     private func runTools(
-        _ uses: [AgentToolUse], earlier: [AssistantToolCall], generation: Int?, trace: AgentRunTrace?
+        _ uses: [AgentToolUse], runner: AssistantToolRunner, earlier: [AssistantToolCall], generation: Int?,
+        trace: AgentRunTrace?
     ) async -> [ToolRunResult] {
         for use in uses { record(.toolStarted(name: use.name), trace: trace) }
         if let generation {
@@ -159,7 +166,6 @@ extension AssistantSession {
             }
             showToolCalls(earlier + running, generation: generation)
         }
-        let runner = runner
         let results = await withTaskGroup(of: (Int, ToolRunResult).self) { group in
             for (index, use) in uses.enumerated() {
                 group.addTask { (index, await runner.run(use)) }

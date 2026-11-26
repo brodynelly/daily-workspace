@@ -29,7 +29,7 @@ The loop stays hand-written on purpose: Anthropic's guidance is to keep agents s
 | `maxRetries` | 2 | 0–5 | Retries of 408/409/429/5xx/529, timeouts and dropped connections. |
 | `toolTimeoutSeconds` | 30 | 2–300 | A slower tool call is answered with "source unknown right now, not empty". |
 | `maxToolResultBytes` | 100000 | 4096–400000 | Larger results are cut on a character boundary with a narrowing hint (about Claude Code's 25,000-token cap). |
-| `disabledTools` | `[]` | tool names | Removes tools from the request and refuses calls to them. Changing it starts a new conversation. |
+| `disabledTools` | `[]` | tool names | Removes tools from the request and refuses calls to them. Changing it starts a new conversation, and chats from before the change reopen without their model context. |
 
 ```json
 "assistantRuntime" : {
@@ -40,7 +40,7 @@ The loop stays hand-written on purpose: Anthropic's guidance is to keep agents s
 }
 ```
 
-Settings can only narrow what the app built in. There is no setting that adds a tool, a write or a command hook.
+Changes apply from the next question; a running answer keeps the limits it started with. Settings can only narrow what the app built in. There is no setting that adds a tool, a write or a command hook.
 
 ## Retries
 

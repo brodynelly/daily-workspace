@@ -166,7 +166,10 @@ struct AgentError: LocalizedError, Equatable {
     static func network(_ error: URLError, provider: String = "Anthropic") -> AgentError {
         switch error.code {
         case .timedOut: return AgentError(.timedOut, "\(provider) stopped responding for too long. Try again.")
-        case .notConnectedToInternet, .networkConnectionLost, .dataNotAllowed:
+        case .networkConnectionLost:
+            // A dropped connection is transient (and retried); being offline is not.
+            return AgentError(.network, "The connection to \(provider) dropped. Try again.")
+        case .notConnectedToInternet, .dataNotAllowed:
             return AgentError(.offline, "The Mac is offline. Connect to the internet and try again.")
         default: return AgentError(.network, "Couldn't reach \(provider). Check your connection and try again.")
         }
