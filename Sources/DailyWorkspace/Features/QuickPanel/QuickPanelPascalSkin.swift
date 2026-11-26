@@ -112,6 +112,12 @@ struct QuickPanelPascalSkin: View {
                 footer
                     .frame(width: width - 24, height: 24, alignment: .leading)
                     .offset(x: 12, y: height - 27)
+
+                if controller.palette.isVisible {
+                    QuickPanelCommandPaletteOverlay(controller: controller, palette: controller.palette)
+                        .frame(width: width, height: height)
+                        .background(Color.black.opacity(0.25))
+                }
             }
             .frame(width: width, height: height)
             .clipped()

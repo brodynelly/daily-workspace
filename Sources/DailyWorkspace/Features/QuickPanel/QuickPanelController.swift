@@ -113,6 +113,7 @@ final class QuickPanelController: NSObject, ObservableObject, NSWindowDelegate {
     var onErrorChange: ((String?) -> Void)?
     var onMusicAction: ((QuickPanelMusicAction) -> Void)?
     var openWorkspace: ((AppSection) -> Void)?
+    let palette = QuickPanelCommandPalette()
 
     var isVisible: Bool { panel.isVisible }
     /// The search pane stays hidden until `?`, Find or typing asks for it; a live query keeps it on screen.
@@ -237,6 +238,7 @@ final class QuickPanelController: NSObject, ObservableObject, NSWindowDelegate {
 
     func hide(restoreFocus: Bool) {
         guard isVisible else { return }
+        palette.close()
         dataProvider.stopWatching()
         dataProvider.cancelRefresh()
         refreshGeneration += 1

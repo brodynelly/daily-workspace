@@ -45,15 +45,6 @@ final class QuickPanelUIIntegrationTests: XCTestCase {
         XCTAssertEqual(panel.currentRoute, .home)
     }
 
-    func testCommandPaletteShortcutHandsOffToWorkspaceWindow() {
-        let panel = QuickPanelController()
-        var opened: AppSection?
-        panel.openWorkspace = { opened = $0 }
-        XCTAssertTrue(panel.handleKey(keyCode: 40, characters: "k", modifiers: .command))
-        XCTAssertEqual(opened, .today)
-        XCTAssertFalse(panel.panel.isVisible)
-    }
-
     func testEndShuffleMenuDispatchesMusicActionWithoutAutomation() throws {
         let panel = QuickPanelController()
         panel.currentRoute = .music

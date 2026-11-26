@@ -3,6 +3,10 @@ import DailyCore
 
 extension QuickPanelController {
     func handleKey(_ event: NSEvent) -> Bool {
+        if event.isARepeat, palette.isVisible {
+            return [125, 126, 51, 117].contains(event.keyCode)
+                ? handlePaletteKey(keyCode: event.keyCode, characters: "", modifiers: event.modifierFlags) : true
+        }
         if event.isARepeat {
             let modifiers = event.modifierFlags
             if isRepeatableVimKey(event) {
@@ -37,6 +41,16 @@ extension QuickPanelController {
         typedCharacters: String? = nil
     ) -> Bool {
         if let stroke = ShortcutStroke(keyCode: keyCode, characters: characters, modifierFlags: modifiers),
+            commandPaletteBinding?.strokes == [stroke]
+        {
+            toggleCommandPalette()
+            return true
+        }
+        if palette.isVisible {
+            return handlePaletteKey(
+                keyCode: keyCode, characters: typedCharacters ?? characters, modifiers: modifiers)
+        }
+        if let stroke = ShortcutStroke(keyCode: keyCode, characters: characters, modifierFlags: modifiers),
             handleConfiguredShortcut(stroke)
         {
             return true
@@ -47,12 +61,6 @@ extension QuickPanelController {
         let character = characters.lowercased()
         if command && character == "w" {
             hide(restoreFocus: true)
-            return true
-        }
-        if let stroke = ShortcutStroke(keyCode: keyCode, characters: characters, modifierFlags: modifiers),
-            commandPaletteBinding?.strokes == [stroke]
-        {
-            openCommandPalette()
             return true
         }
         if option,
@@ -100,14 +108,6 @@ extension QuickPanelController {
         query += characters
         focusedPane = "command"
         return true
-    }
-
-    /// The workspace Command Palette is a main-window sheet: close the panel and bring that window forward.
-    func openCommandPalette() {
-        let section = model?.navigation.section ?? .today
-        hide(restoreFocus: false)
-        model?.navigation.showCommandPalette = true
-        openWorkspace?(section)
     }
 
     private var commandPaletteBinding: ShortcutBinding? {
