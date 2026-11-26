@@ -125,19 +125,22 @@ struct QuickPanelCommandPaletteOverlay: View {
     var body: some View {
         let items = palette.filter(controller.paletteItems)
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 6) {
-                Text(">").foregroundStyle(Ink.gold)
-                Text(palette.query.isEmpty ? "Type a command" : palette.query)
+            HStack(spacing: 10) {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Ink.gold)
+                Text(palette.query.isEmpty ? "Type a command…" : palette.query)
                     .foregroundStyle(palette.query.isEmpty ? Ink.meta : Ink.primary)
-                Spacer(minLength: 0)
-                Text("esc").foregroundStyle(Ink.meta).font(.system(size: 10, design: .monospaced))
+                    .lineLimit(1)
+                Spacer(minLength: 12)
+                keyCap("esc")
             }
-            .padding(.horizontal, 10)
-            .frame(height: 30)
-            Rectangle().fill(Ink.idleRule).frame(height: 1)
+            .padding(.horizontal, 18)
+            .frame(height: 46)
+            Rectangle().fill(Ink.idleRule.opacity(0.6)).frame(height: 1).padding(.horizontal, 10)
             ScrollViewReader { proxy in
                 ScrollView {
-                    VStack(spacing: 0) {
+                    VStack(spacing: 2) {
                         ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                             row(item, selected: index == palette.selectedIndex)
                                 .id(item.id)
@@ -149,16 +152,30 @@ struct QuickPanelCommandPaletteOverlay: View {
                         if items.isEmpty {
                             Text("No matching command").foregroundStyle(Ink.meta)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(10)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 12)
                         }
                     }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 10)
                 }
                 .onChange(of: palette.selectedIndex) { _, index in
                     if items.indices.contains(index) { proxy.scrollTo(items[index].id) }
                 }
             }
+            Rectangle().fill(Ink.idleRule.opacity(0.6)).frame(height: 1).padding(.horizontal, 10)
+            HStack(spacing: 16) {
+                hint("↑↓", "Move")
+                hint("↵", "Run")
+                hint("⌘K", "Close")
+                Spacer(minLength: 0)
+                Text("\(items.count) commands").foregroundStyle(Ink.meta)
+            }
+            .font(.system(size: 11, design: .monospaced))
+            .padding(.horizontal, 18)
+            .frame(height: 32)
         }
-        .frame(width: 460, height: 340)
+        .frame(width: 600, height: 470)
         .background(Ink.titleBox)
         .overlay {
             Rectangle().strokeBorder(Ink.activeRule, lineWidth: 1).padding(0.5)
@@ -170,25 +187,48 @@ struct QuickPanelCommandPaletteOverlay: View {
                 .background(Ink.titleBox)
                 .offset(y: -8)
         }
-        .shadow(color: .black.opacity(0.45), radius: 18, y: 8)
+        .shadow(color: .black.opacity(0.5), radius: 24, y: 10)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Quick panel commands")
     }
 
     private func row(_ item: QuickPanelPaletteItem, selected: Bool) -> some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 14) {
             Image(systemName: item.symbol)
-                .font(.system(size: 11))
-                .frame(width: 16)
+                .font(.system(size: 13))
+                .frame(width: 20)
                 .foregroundStyle(selected ? Ink.gold : Ink.cyan)
             Text(item.title).lineLimit(1)
-            Spacer(minLength: 8)
-            Text(item.keys).foregroundStyle(Ink.gold)
+                .foregroundStyle(selected ? Ink.primary : Ink.footer)
+            Spacer(minLength: 16)
+            if !item.keys.isEmpty { keyCap(item.keys) }
         }
-        .padding(.horizontal, 10)
-        .frame(height: 26)
-        .background(selected ? Ink.selection : .clear)
+        .padding(.horizontal, 12)
+        .frame(height: 36)
+        .background(
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .fill(selected ? Ink.selection : .clear)
+        )
         .contentShape(Rectangle())
         .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    private func keyCap(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 11, weight: .medium, design: .monospaced))
+            .foregroundStyle(Ink.gold)
+            .padding(.horizontal, 7)
+            .frame(minWidth: 24, minHeight: 20)
+            .overlay(
+                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                    .strokeBorder(Ink.idleRule.opacity(0.7), lineWidth: 1)
+            )
+    }
+
+    private func hint(_ key: String, _ label: String) -> some View {
+        HStack(spacing: 5) {
+            Text(key).foregroundStyle(Ink.gold)
+            Text(label).foregroundStyle(Ink.meta)
+        }
     }
 }

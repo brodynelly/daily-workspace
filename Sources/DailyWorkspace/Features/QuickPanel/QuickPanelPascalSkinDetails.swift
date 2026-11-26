@@ -8,17 +8,17 @@ extension QuickPanelPascalSkin {
     var documentTable: some View {
         VStack(spacing: 0) {
             GeometryReader { geometry in
-                let columns: [CGFloat] = music ? [0.055, 0.40, 0.245, 0.215, 0.085] : [0.045, 0.30, 0.435, 0.22]
+                let columns = QuickPanelColumns.widths(for: geometry.size.width, music: music)
                 let headings =
                     music ? ["#", "Title", "Artist", "Album", "Time"] : ["#", "Name", "Context", "Keys / State"]
-                HStack(spacing: 0) {
+                HStack(spacing: QuickPanelColumns.gutter) {
                     ForEach(headings.indices, id: \.self) { index in
                         Text(headings[index])
-                            .frame(width: geometry.size.width * columns[index], alignment: .leading)
+                            .frame(width: columns[index], alignment: .leading)
                             .lineLimit(1)
                     }
                 }
-                .padding(.leading, 5)
+                .padding(.leading, QuickPanelColumns.leading)
                 .frame(width: geometry.size.width, height: geometry.size.height, alignment: .leading)
             }
             .frame(height: 27)
@@ -63,40 +63,43 @@ extension QuickPanelPascalSkin {
                             controller.selectResultFromPointer(index)
                         } label: {
                             GeometryReader { geometry in
-                                HStack(spacing: 0) {
+                                let columns = QuickPanelColumns.widths(for: geometry.size.width, music: music)
+                                HStack(spacing: QuickPanelColumns.gutter) {
                                     if music {
                                         Text("\(index + 1)").foregroundStyle(Ink.meta)
-                                            .frame(width: geometry.size.width * 0.055, alignment: .leading)
-                                        Text(row.title).frame(width: geometry.size.width * 0.40, alignment: .leading)
+                                            .frame(width: columns[0], alignment: .leading)
+                                        Text(row.title).frame(width: columns[1], alignment: .leading)
                                             .lineLimit(1)
                                         Text(row.musicArtist).foregroundStyle(Ink.meta)
-                                            .frame(width: geometry.size.width * 0.245, alignment: .leading)
+                                            .frame(width: columns[2], alignment: .leading)
                                             .lineLimit(1)
                                         Text(row.musicAlbum).foregroundStyle(Ink.meta)
-                                            .frame(width: geometry.size.width * 0.215, alignment: .leading)
+                                            .frame(width: columns[3], alignment: .leading)
                                             .lineLimit(1)
                                         Text(row.badge).foregroundStyle(Ink.cyan)
-                                            .frame(width: geometry.size.width * 0.085, alignment: .leading)
+                                            .frame(width: columns[4], alignment: .leading)
                                             .lineLimit(1)
                                     } else {
                                         Text("\(index + 1)").foregroundStyle(Ink.meta)
-                                            .frame(width: geometry.size.width * 0.045, alignment: .leading)
+                                            .frame(width: columns[0], alignment: .leading)
                                         HStack(spacing: 0) {
                                             if route == .attention && controller.attentionIdentities[row.id] != nil {
                                                 Text("! ").foregroundStyle(Ink.coral)
                                             }
                                             Text(row.title)
                                         }
-                                        .frame(width: geometry.size.width * 0.30, alignment: .leading)
+                                        .frame(width: columns[1], alignment: .leading)
                                         .lineLimit(1)
                                         Text(row.detail).foregroundStyle(Ink.meta)
-                                            .frame(width: geometry.size.width * 0.435, alignment: .leading)
                                             .lineLimit(1)
+                                            .truncationMode(QuickPanelColumns.isPath(row.detail) ? .middle : .tail)
+                                            .frame(width: columns[2], alignment: .leading)
                                         Text(row.keys.isEmpty ? (row.badge.isEmpty ? row.status : row.badge) : row.keys)
                                             .foregroundStyle(Ink.cyan).lineLimit(1)
+                                            .frame(width: columns[3], alignment: .leading)
                                     }
                                 }
-                                .padding(.leading, 5)
+                                .padding(.leading, QuickPanelColumns.leading)
                                 // GeometryReader pins content top-leading; centre it in the 28pt band.
                                 .frame(width: geometry.size.width, height: geometry.size.height, alignment: .leading)
                             }
@@ -268,4 +271,20 @@ extension QuickPanelPascalSkin {
         .minimumScaleFactor(0.75)
         .accessibilityLabel("Keyboard hints")
     }
+}
+
+/// Column widths shared by the results header and rows, with a fixed gutter between columns.
+enum QuickPanelColumns {
+    static let leading: CGFloat = 8
+    static let trailing: CGFloat = 12
+    static let gutter: CGFloat = 20
+    static let number: CGFloat = 30
+
+    static func widths(for total: CGFloat, music: Bool) -> [CGFloat] {
+        let shares: [CGFloat] = music ? [0.38, 0.25, 0.25, 0.12] : [0.25, 0.56, 0.19]
+        let available = max(0, total - leading - trailing - number - gutter * CGFloat(shares.count))
+        return [number] + shares.map { (available * $0).rounded(.down) }
+    }
+
+    static func isPath(_ text: String) -> Bool { text.hasPrefix("~/") || text.hasPrefix("/") }
 }
