@@ -97,4 +97,25 @@ final class QuickPanelAIPopupTests: XCTestCase {
                 .code(language: "swift", text: "let x = 1"), .rule,
             ])
     }
+
+    func testControlHJKLMovesBetweenAISections() {
+        let model = AppModel(dependencies: .test())
+        let panel = QuickPanelController()
+        panel.model = model
+        panel.toggleAIPopup()
+        XCTAssertEqual(panel.aiPopup.section, .ask)
+        XCTAssertTrue(panel.handleKey(keyCode: 4, characters: "h", modifiers: .control))
+        XCTAssertEqual(panel.aiPopup.section, .questions)
+        XCTAssertTrue(panel.handleKey(keyCode: 37, characters: "l", modifiers: .control))
+        XCTAssertEqual(panel.aiPopup.section, .conversation)
+        XCTAssertTrue(panel.handleKey(keyCode: 38, characters: "j", modifiers: .control))
+        XCTAssertEqual(panel.aiPopup.section, .ask)
+        XCTAssertTrue(panel.handleKey(keyCode: 40, characters: "k", modifiers: .control))
+        XCTAssertEqual(panel.aiPopup.section, .conversation)
+        XCTAssertTrue(panel.handleKey(keyCode: 38, characters: "j"), "j reads, it does not type, outside ASK")
+        XCTAssertEqual(model.navigation.assistantDraft, "")
+        XCTAssertTrue(panel.handleKey(keyCode: 4, characters: "H", modifiers: .shift))
+        XCTAssertEqual(panel.aiPopup.section, .ask)
+        XCTAssertEqual(model.navigation.assistantDraft, "H", "Other letters start a question in ASK")
+    }
 }

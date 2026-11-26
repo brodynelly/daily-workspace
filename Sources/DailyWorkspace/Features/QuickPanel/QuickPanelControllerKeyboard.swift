@@ -14,9 +14,6 @@ extension QuickPanelController {
                     keyCode: event.keyCode, characters: event.charactersIgnoringModifiers ?? "",
                     modifiers: event.modifierFlags)
         }
-        if event.isARepeat, focusedPane == "assistant" {
-            return false
-        }
         if event.isARepeat {
             let modifiers = event.modifierFlags
             if isRepeatableVimKey(event) {
@@ -125,9 +122,6 @@ extension QuickPanelController {
             return handlePaletteKey(
                 keyCode: keyCode, characters: typedCharacters ?? characters, modifiers: modifiers)
         }
-        if focusedPane == "assistant" {
-            return handleAssistantKey(keyCode: keyCode, characters: characters, modifiers: modifiers)
-        }
         return nil
     }
 
@@ -136,7 +130,7 @@ extension QuickPanelController {
             return true
         }
         if characters == "?", !command, !option, focusedPane != "command" {
-            toggleAssistantPane()
+            toggleAIPopup()
             return true
         }
         guard !command, !option, !characters.isEmpty,

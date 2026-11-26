@@ -98,7 +98,7 @@ final class QuickPanelController: NSObject, ObservableObject, NSWindowDelegate {
     var onErrorChange: ((String?) -> Void)?
     var onMusicAction: ((QuickPanelMusicAction) -> Void)?
     var openWorkspace: ((AppSection) -> Void)?
-    let palette = QuickPanelCommandPalette(), assistantPane = QuickPanelAssistantPane()
+    let palette = QuickPanelCommandPalette()
     let insights = QuickPanelWorkspaceInsights(), monitor = QuickPanelMonitor()
     let aiPopup = QuickPanelAIPopup()
 

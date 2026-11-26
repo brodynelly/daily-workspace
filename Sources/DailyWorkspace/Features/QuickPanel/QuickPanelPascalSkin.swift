@@ -55,11 +55,10 @@ struct QuickPanelPascalSkin: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let scale = controller.zoomScale
+            let scale = controller.zoomScale(for: controller.zoomKey)
             let width = geometry.size.width / scale
             let height = geometry.size.height / scale
-            let ai = controller.assistantVisible
-            let musicSidebar = (music || ai) && !controller.zoomed ? round(width * (ai ? 0.36 : 0.28)) : 0
+            let musicSidebar = music && !controller.zoomed ? round(width * 0.28) : 0
             let x = musicSidebar > 0 ? musicSidebar + 15 : 7.0
             let contentWidth = max(0, width - x - 7)
             let commandY = height - 122
@@ -81,58 +80,53 @@ struct QuickPanelPascalSkin: View {
                 QuickPanelStatsBar(controller: controller, attention: controller.attention)
                     .frame(width: width, height: 29)
 
-                if musicSidebar > 0 {
-                    Group {
-                        if ai, let model = controller.model {
-                            pane("AI CHAT", active: controller.focusedPane == "assistant") {
-                                QuickPanelAssistantPaneView(
-                                    controller: controller, assistant: model.assistant, key: model.assistantKey,
-                                    navigation: model.navigation, preferences: model.preferences)
-                            }
-                        } else if ai {
-                            pane("AI CHAT", active: true) {
-                                Text("The Assistant is unavailable.").foregroundStyle(Ink.meta)
-                            }
-                        } else {
-                            pane("PLAYLISTS", active: controller.focusedPane == "playlists") {
-                                playlistList
-                            }
-                        }
+                if controller.aiPopup.isVisible {
+                    aiPage(width: width, height: height)
+                }
+
+                if musicSidebar > 0 && !controller.aiPopup.isVisible {
+                    pane("PLAYLISTS", active: controller.focusedPane == "playlists") {
+                        playlistList
                     }
                     .frame(width: musicSidebar, height: max(0, height - 78))
                     .offset(x: 7, y: 40)
                 }
 
-                pane(documentTitle, active: controller.focusedPane == "document") {
-                    VStack(spacing: 12) {
-                        if controller.workspacePath != nil {
-                            QuickPanelWorkspaceInsightsView(controller: controller, insights: controller.insights)
-                                .padding(.top, 6)
-                        } else if route == .monitor {
-                            QuickPanelMonitorView(controller: controller, monitor: controller.monitor)
-                                .frame(height: max(220, documentHeight * 0.5))
-                                .padding(.top, 8)
+                if !controller.aiPopup.isVisible {
+                    pane(documentTitle, active: controller.focusedPane == "document") {
+                        VStack(spacing: 12) {
+                            if controller.workspacePath != nil {
+                                QuickPanelWorkspaceInsightsView(controller: controller, insights: controller.insights)
+                                    .padding(.top, 6)
+                            }
+                            if route == .monitor && controller.workspacePath == nil {
+                                QuickPanelMonitorView(controller: controller, monitor: controller.monitor)
+                                    .frame(height: max(240, documentHeight * 0.54))
+                                    .padding(.top, 8)
+                                QuickPanelProcessTable(controller: controller, monitor: controller.monitor)
+                            } else {
+                                documentTable
+                            }
                         }
-                        documentTable
                     }
-                }
-                .frame(width: contentWidth, height: documentHeight)
-                .offset(x: x, y: 40)
+                    .frame(width: contentWidth, height: documentHeight)
+                    .offset(x: x, y: 40)
 
-                if showsPreview {
-                    pane(previewTitle, active: controller.focusedPane == "preview") {
-                        ScrollView { preview }
+                    if showsPreview {
+                        pane(previewTitle, active: controller.focusedPane == "preview") {
+                            ScrollView { preview }
+                        }
+                        .frame(width: contentWidth, height: previewHeight)
+                        .offset(x: x, y: previewY)
                     }
-                    .frame(width: contentWidth, height: previewHeight)
-                    .offset(x: x, y: previewY)
-                }
 
-                if controller.searchVisible {
-                    pane("FIND IN \(route.title.uppercased())", active: controller.focusedPane == "command") {
-                        command
+                    if controller.searchVisible {
+                        pane("FIND IN \(route.title.uppercased())", active: controller.focusedPane == "command") {
+                            command
+                        }
+                        .frame(width: contentWidth, height: 84)
+                        .offset(x: x, y: commandY)
                     }
-                    .frame(width: contentWidth, height: 84)
-                    .offset(x: x, y: commandY)
                 }
 
                 footer
@@ -150,13 +144,6 @@ struct QuickPanelPascalSkin: View {
             .scaleEffect(scale, anchor: .topLeading)
             .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
             .clipped()
-            .overlay {
-                if controller.aiPopup.isVisible, let model = controller.model {
-                    QuickPanelAIPopupView(
-                        controller: controller, popup: controller.aiPopup, assistant: model.assistant,
-                        key: model.assistantKey, navigation: model.navigation, preferences: model.preferences)
-                }
-            }
             .font(Typography.font(13, preferred: controller.panelFont))
             .foregroundStyle(Ink.primary)
             .transaction { transaction in
@@ -173,11 +160,11 @@ struct QuickPanelPascalSkin: View {
         let name =
             controller.shortcutTool ?? controller.workspacePath.map { ($0 as NSString).lastPathComponent }
             ?? (route == .home
-                ? "WORKSPACE" : route == .music ? "LIBRARY" : route == .monitor ? "PROC" : route.rawValue)
+                ? "WORKSPACE" : route == .music ? "LIBRARY" : route == .monitor ? "MONITOR" : route.rawValue)
         return "\(name.uppercased()).PAS"
     }
 
-    private func pane<Content: View>(
+    func pane<Content: View>(
         _ title: String, active: Bool, @ViewBuilder content: () -> Content
     ) -> some View {
         ZStack(alignment: .top) {

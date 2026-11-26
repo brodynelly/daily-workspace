@@ -11,8 +11,26 @@ final class QuickPanelMonitor: ObservableObject {
     @Published private(set) var cpuHistory: [Double] = []
     @Published private(set) var inHistory: [Double] = []
     @Published private(set) var outHistory: [Double] = []
+    @Published private(set) var memoryHistory: [Double] = []
     @Published private(set) var processes: [QuickPanelProcess] = []
     @Published private(set) var processError: String?
+    @Published private(set) var sort: Sort = .cpu
+    @Published private(set) var descending = true
+    @Published private(set) var sessionIn: Double = 0
+    @Published private(set) var sessionOut: Double = 0
+
+    enum Sort: String, CaseIterable {
+        case pid, name, memory, cpu
+
+        var title: String {
+            switch self {
+            case .pid: "pid"
+            case .name: "program"
+            case .memory: "mem"
+            case .cpu: "cpu%"
+            }
+        }
+    }
 
     private var sampler = QuickPanelMonitorSampler()
     private var task: Task<Void, Never>?
@@ -27,7 +45,7 @@ final class QuickPanelMonitor: ObservableObject {
         if processes.isEmpty {
             return [.unavailable("Processes", processError ?? "Reading processes…")]
         }
-        return processes.map { process in
+        return sortedProcesses.map { process in
             var row = QuickPanelDataRow(
                 id: "process:\(process.pid)", title: process.name,
                 detail: "pid \(process.pid) · \(Self.bytes(process.residentKB * 1024))", group: "Processes")
@@ -35,6 +53,32 @@ final class QuickPanelMonitor: ObservableObject {
             row.keywords = "\(process.pid)"
             return row
         }
+    }
+
+    var sortedProcesses: [QuickPanelProcess] {
+        let ascending: [QuickPanelProcess]
+        switch sort {
+        case .pid: ascending = processes.sorted { $0.pid < $1.pid }
+        case .name:
+            ascending = processes.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        case .memory: ascending = processes.sorted { $0.residentKB < $1.residentKB }
+        case .cpu: ascending = processes.sorted { $0.cpu < $1.cpu }
+        }
+        return descending ? ascending.reversed() : ascending
+    }
+
+    /// `<` / `>` move the sort column like btop; `i` reverses it.
+    func cycleSort(by offset: Int) {
+        let all = Sort.allCases
+        let index = all.firstIndex(of: sort) ?? 0
+        sort = all[(index + offset + all.count) % all.count]
+        descending = sort != .name && sort != .pid
+        owner?.updateRows()
+    }
+
+    func reverseSort() {
+        descending.toggle()
+        owner?.updateRows()
     }
 
     func start(owner: QuickPanelController) {
@@ -57,6 +101,11 @@ final class QuickPanelMonitor: ObservableObject {
         }
     }
 
+    func apply(processes: [QuickPanelProcess]) {
+        self.processes = processes
+        processError = nil
+    }
+
     func stop() {
         task?.cancel()
         task = nil
@@ -68,11 +117,16 @@ final class QuickPanelMonitor: ObservableObject {
             let (received, sent) = previous.bytes
             let seconds = max(0.25, now.timeIntervalSince(previous.at))
             // 32-bit interface counters wrap; the wrapping difference is still the bytes moved.
-            append(&inHistory, Double(UInt32(truncatingIfNeeded: next.bytesIn &- received)) / seconds)
-            append(&outHistory, Double(UInt32(truncatingIfNeeded: next.bytesOut &- sent)) / seconds)
+            let inBytes = Double(UInt32(truncatingIfNeeded: next.bytesIn &- received))
+            let outBytes = Double(UInt32(truncatingIfNeeded: next.bytesOut &- sent))
+            sessionIn += inBytes
+            sessionOut += outBytes
+            append(&inHistory, inBytes / seconds)
+            append(&outHistory, outBytes / seconds)
         }
         previousNetwork = ((next.bytesIn, next.bytesOut), now)
         append(&cpuHistory, next.totalLoad)
+        append(&memoryHistory, Double(next.memoryUsed) / Double(max(1, next.memoryTotal)))
         reading = next
     }
 
@@ -81,8 +135,8 @@ final class QuickPanelMonitor: ObservableObject {
             let output = try await runner.run(
                 executable: URL(fileURLWithPath: "/bin/ps"), arguments: QuickPanelMonitorSampler.processArguments)
             guard output.exitStatus == 0 else { throw QuickPanelCommandError.exited(output.exitStatus) }
-            processes = QuickPanelMonitorSampler.parseProcesses(String(bytes: output.stdout, encoding: .utf8) ?? "")
-            processError = nil
+            apply(
+                processes: QuickPanelMonitorSampler.parseProcesses(String(bytes: output.stdout, encoding: .utf8) ?? ""))
         } catch {
             processError = "Process list unavailable"
         }
@@ -114,7 +168,7 @@ final class QuickPanelMonitor: ObservableObject {
     }
 }
 
-/// btop-style boxes above the process table: CPU graph and cores, memory, network, disk and battery.
+/// btop-style boxes above the process table: CPU graph and cores, memory, network and battery.
 @MainActor
 struct QuickPanelMonitorView: View {
     @ObservedObject var controller: QuickPanelController
@@ -125,14 +179,14 @@ struct QuickPanelMonitorView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let left = (geometry.size.width - 10) * 0.58
-            HStack(alignment: .top, spacing: 10) {
-                cpuBox.frame(width: left)
-                VStack(spacing: 10) {
-                    memoryBox
+            let left = (geometry.size.width - 12) * 0.56
+            HStack(alignment: .top, spacing: 12) {
+                cpuBox.frame(width: left, height: geometry.size.height)
+                VStack(spacing: 12) {
+                    memoryBox.frame(maxHeight: .infinity)
                     networkBox
                 }
-                .frame(maxWidth: .infinity)
+                .frame(maxWidth: .infinity, maxHeight: geometry.size.height)
             }
         }
         .font(.system(size: 11, design: .monospaced))
@@ -143,35 +197,42 @@ struct QuickPanelMonitorView: View {
     }
 
     private var cpuBox: some View {
-        QuickPanelMonitorBox(title: "cpu", trailing: String(format: "%3.0f%%", reading.totalLoad * 100)) {
+        QuickPanelMonitorBox(
+            title: "cpu",
+            trailing: "load \(reading.loadAverage.map { String(format: "%.2f", $0) }.joined(separator: " "))"
+                + "  up \(QuickPanelMonitor.duration(reading.uptime))", fill: true
+        ) {
             VStack(alignment: .leading, spacing: 8) {
-                QuickPanelSparkGraph(values: monitor.cpuHistory, maximum: 1, length: QuickPanelMonitor.historyLength)
-                    .frame(height: 64)
-                let cores = reading.coreLoads
-                let half = (cores.count + 1) / 2
-                HStack(alignment: .top, spacing: 14) {
-                    coreColumn(Array(cores.prefix(half).enumerated()))
-                    coreColumn(Array(cores.dropFirst(half).enumerated()).map { ($0.offset + half, $0.element) })
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(String(format: "%.0f%%", reading.totalLoad * 100))
+                        .font(.system(size: 22, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(QuickPanelMeter.color(reading.totalLoad))
+                    Text("total · \(reading.coreLoads.count) cores").foregroundStyle(Ink.meta)
                 }
-                HStack(spacing: 14) {
-                    label(
-                        "load",
-                        reading.loadAverage.map { String(format: "%.2f", $0) }.joined(separator: " "))
-                    label("up", QuickPanelMonitor.duration(reading.uptime))
-                    label("cores", "\(cores.count)")
-                }
+                QuickPanelAreaGraph(values: monitor.cpuHistory, maximum: 1, length: QuickPanelMonitor.historyLength)
+                    .frame(minHeight: 40, maxHeight: .infinity)
+                cores
             }
         }
     }
 
-    private func coreColumn(_ cores: [(offset: Int, element: Double)]) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            ForEach(cores, id: \.offset) { core in
-                HStack(spacing: 6) {
-                    Text(String(format: "C%-2d", core.offset)).foregroundStyle(Ink.meta)
-                    QuickPanelMeter(fraction: core.element).frame(height: 7)
-                    Text(String(format: "%3.0f%%", core.element * 100)).foregroundStyle(Ink.primary)
-                        .frame(width: 34, alignment: .trailing)
+    private var cores: some View {
+        let cores = reading.coreLoads
+        let columns = cores.count > 8 ? 2 : 1
+        let perColumn = max(1, (cores.count + columns - 1) / columns)
+        return HStack(alignment: .top, spacing: 16) {
+            ForEach(0..<columns, id: \.self) { column in
+                VStack(alignment: .leading, spacing: 3) {
+                    let slice = Array(cores.enumerated().dropFirst(column * perColumn).prefix(perColumn))
+                    ForEach(slice, id: \.offset) { core in
+                        HStack(spacing: 6) {
+                            Text(String(format: "C%-2d", core.offset)).foregroundStyle(Ink.meta)
+                            QuickPanelMeter(fraction: core.element).frame(height: 6)
+                            Text(String(format: "%3.0f%%", core.element * 100))
+                                .foregroundStyle(QuickPanelMeter.color(core.element))
+                                .frame(width: 34, alignment: .trailing)
+                        }
+                    }
                 }
             }
         }
@@ -180,138 +241,71 @@ struct QuickPanelMonitorView: View {
     private var memoryBox: some View {
         let total = Double(max(1, reading.memoryTotal))
         let free = reading.memoryTotal &- reading.memoryUsed &- reading.memoryCached
-        return QuickPanelMonitorBox(title: "mem", trailing: QuickPanelMonitor.bytes(reading.memoryTotal)) {
-            VStack(spacing: 5) {
+        let diskUsed = max(0, reading.diskTotal - reading.diskFree)
+        return QuickPanelMonitorBox(title: "mem", trailing: QuickPanelMonitor.bytes(reading.memoryTotal), fill: true) {
+            VStack(spacing: 7) {
                 meterRow("used", Double(reading.memoryUsed) / total, QuickPanelMonitor.bytes(reading.memoryUsed))
                 meterRow(
-                    "cached", Double(reading.memoryCached) / total, QuickPanelMonitor.bytes(reading.memoryCached))
-                meterRow("free", Double(free) / total, QuickPanelMonitor.bytes(free), inverted: true)
+                    "cached", Double(reading.memoryCached) / total, QuickPanelMonitor.bytes(reading.memoryCached),
+                    tint: Ink.cyan)
+                meterRow("free", Double(free) / total, QuickPanelMonitor.bytes(free), tint: Ink.cyan)
                 meterRow(
                     "swap", reading.swapTotal == 0 ? 0 : Double(reading.swapUsed) / Double(reading.swapTotal),
                     QuickPanelMonitor.bytes(reading.swapUsed))
-                let diskUsed = max(0, reading.diskTotal - reading.diskFree)
+                Rectangle().fill(Ink.idleRule.opacity(0.3)).frame(height: 1)
                 meterRow(
                     "disk /", reading.diskTotal == 0 ? 0 : Double(diskUsed) / Double(reading.diskTotal),
                     "\(QuickPanelMonitor.bytes(reading.diskFree)) free")
+                if let battery = reading.battery {
+                    meterRow(
+                        battery.charging ? "bat ⚡" : "bat", Double(battery.percent) / 100,
+                        "\(battery.percent)%\(battery.onAC && !battery.charging ? " ac" : "")",
+                        tint: battery.percent < 20 ? Ink.coral : Ink.cyan)
+                }
+                QuickPanelAreaGraph(
+                    values: monitor.memoryHistory, maximum: 1, length: QuickPanelMonitor.historyLength, tint: Ink.gold
+                )
+                .frame(minHeight: 18, maxHeight: .infinity)
             }
         }
     }
 
     private var networkBox: some View {
-        QuickPanelMonitorBox(title: "net", trailing: batteryText) {
+        QuickPanelMonitorBox(
+            title: "net",
+            trailing: "session ▼\(QuickPanelMonitor.bytes(Int64(monitor.sessionIn))) "
+                + "▲\(QuickPanelMonitor.bytes(Int64(monitor.sessionOut)))"
+        ) {
             VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 8) {
-                    Text("▼").foregroundStyle(Ink.cyan)
-                    Text(QuickPanelMonitor.rate(monitor.rateIn)).foregroundStyle(Ink.primary)
-                        .frame(width: 92, alignment: .leading)
-                    QuickPanelSparkGraph(
-                        values: monitor.inHistory, maximum: max(1, monitor.inHistory.max() ?? 1),
-                        length: QuickPanelMonitor.historyLength)
-                }
-                .frame(height: 22)
-                HStack(spacing: 8) {
-                    Text("▲").foregroundStyle(Ink.gold)
-                    Text(QuickPanelMonitor.rate(monitor.rateOut)).foregroundStyle(Ink.primary)
-                        .frame(width: 92, alignment: .leading)
-                    QuickPanelSparkGraph(
-                        values: monitor.outHistory, maximum: max(1, monitor.outHistory.max() ?? 1),
-                        length: QuickPanelMonitor.historyLength)
-                }
-                .frame(height: 22)
+                netRow("▼", Ink.cyan, monitor.rateIn, monitor.inHistory)
+                netRow("▲", Ink.gold, monitor.rateOut, monitor.outHistory)
             }
         }
     }
 
-    private var batteryText: String {
-        guard let battery = reading.battery else { return "" }
-        return "bat \(battery.percent)%" + (battery.charging ? " ⚡" : battery.onAC ? " ac" : "")
+    private func netRow(_ arrow: String, _ color: Color, _ rate: Double, _ history: [Double]) -> some View {
+        HStack(spacing: 8) {
+            Text(arrow).foregroundStyle(color)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(QuickPanelMonitor.rate(rate)).foregroundStyle(Ink.primary)
+                Text("peak \(QuickPanelMonitor.rate(history.max() ?? 0))").foregroundStyle(Ink.meta)
+                    .font(.system(size: 9.5, design: .monospaced))
+            }
+            .frame(width: 104, alignment: .leading)
+            QuickPanelAreaGraph(
+                values: history, maximum: max(1, history.max() ?? 1), length: QuickPanelMonitor.historyLength,
+                tint: color)
+        }
+        .frame(height: 28)
     }
 
-    private func meterRow(_ name: String, _ fraction: Double, _ value: String, inverted: Bool = false) -> some View {
+    private func meterRow(
+        _ name: String, _ fraction: Double, _ value: String, tint: Color? = nil
+    ) -> some View {
         HStack(spacing: 8) {
             Text(name).foregroundStyle(Ink.meta).frame(width: 50, alignment: .leading)
-            QuickPanelMeter(fraction: fraction, inverted: inverted).frame(height: 8)
+            QuickPanelMeter(fraction: fraction, tint: tint).frame(height: 7)
             Text(value).foregroundStyle(Ink.primary).lineLimit(1).frame(width: 112, alignment: .trailing)
         }
-    }
-
-    private func label(_ name: String, _ value: String) -> some View {
-        HStack(spacing: 5) {
-            Text(name).foregroundStyle(Ink.meta)
-            Text(value).foregroundStyle(Ink.primary)
-        }
-    }
-}
-
-/// A thin titled box in the panel's palette, like btop's panes.
-struct QuickPanelMonitorBox<Content: View>: View {
-    let title: String
-    var trailing = ""
-    @ViewBuilder let content: Content
-    private typealias Ink = QuickPanelPascalSkin.Ink
-
-    var body: some View {
-        content
-            .padding(.horizontal, 10)
-            .padding(.top, 14)
-            .padding(.bottom, 8)
-            .frame(maxWidth: .infinity, alignment: .topLeading)
-            .overlay(
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .strokeBorder(Ink.idleRule.opacity(0.8), lineWidth: 1)
-            )
-            .overlay(alignment: .topLeading) {
-                Text(" \(title) ").foregroundStyle(Ink.title).background(Ink.titleBox).offset(x: 10, y: -7)
-            }
-            .overlay(alignment: .topTrailing) {
-                if !trailing.isEmpty {
-                    Text(" \(trailing) ").foregroundStyle(Ink.cyan).background(Ink.titleBox).offset(x: -10, y: -7)
-                }
-            }
-    }
-}
-
-/// A horizontal meter coloured cool → warm → hot by how full it is.
-struct QuickPanelMeter: View {
-    let fraction: Double
-    var inverted = false
-    private typealias Ink = QuickPanelPascalSkin.Ink
-
-    static func color(_ value: Double) -> Color {
-        value < 0.5 ? Ink.cyan : value < 0.8 ? Ink.gold : Ink.coral
-    }
-
-    var body: some View {
-        GeometryReader { geometry in
-            let value = min(1, max(0, fraction))
-            ZStack(alignment: .leading) {
-                Capsule().fill(Ink.header)
-                Capsule()
-                    .fill(inverted ? Ink.cyan : Self.color(value))
-                    .frame(width: max(value > 0 ? 3 : 0, geometry.size.width * value))
-            }
-        }
-    }
-}
-
-/// A bar graph of recent samples, newest on the right, like btop's history graphs.
-struct QuickPanelSparkGraph: View {
-    let values: [Double]
-    let maximum: Double
-    let length: Int
-
-    var body: some View {
-        Canvas { context, size in
-            let step = size.width / CGFloat(max(1, length))
-            let start = length - values.count
-            for (index, value) in values.enumerated() {
-                let fraction = min(1, max(0, value / max(maximum, .leastNonzeroMagnitude)))
-                let height = max(1, size.height * fraction)
-                let rect = CGRect(
-                    x: CGFloat(start + index) * step, y: size.height - height, width: max(1, step - 1), height: height)
-                context.fill(Path(rect), with: .color(QuickPanelMeter.color(fraction).opacity(0.85)))
-            }
-        }
-        .background(QuickPanelPascalSkin.Ink.header.opacity(0.6))
     }
 }

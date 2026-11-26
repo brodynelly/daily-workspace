@@ -13,18 +13,25 @@ struct QuickPanelModelOption: Identifiable, Equatable, Sendable {
 @MainActor
 final class QuickPanelAIPopup: ObservableObject {
     enum Layer: Equatable { case chat, actions, models }
+    /// The AI page's panes; ⌃h/⌃j/⌃k/⌃l move between them.
+    enum Section: Equatable { case questions, conversation, ask }
 
     @Published private(set) var isVisible = false
     @Published var layer: Layer = .chat
+    @Published var section: Section = .ask
     @Published var listQuery = "" { didSet { listIndex = 0 } }
     @Published var listIndex = 0
     @Published private(set) var models: [QuickPanelModelOption] = []
     @Published private(set) var modelsStatus: String?
     @Published var notice: String?
+    /// The question the conversation is scrolled to (⌘[ / ⌘] or a click in QUESTIONS).
+    @Published var focusedTurn: Int?
     private var modelsProvider: AssistantProvider?
 
     func open() {
         layer = .chat
+        section = .ask
+        focusedTurn = nil
         listQuery = ""
         notice = nil
         isVisible = true
@@ -141,11 +148,6 @@ extension QuickPanelController {
             .init(id: "actual", title: "Actual Size", symbol: "1.magnifyingglass", keys: "⌘0") { [weak self] in
                 self?.resetZoom()
             },
-            .init(id: "sidebar", title: "Show in Sidebar", symbol: "sidebar.left", keys: "?") { [weak self] in
-                guard let self else { return }
-                self.toggleAIPopup()
-                if !self.assistantVisible { self.toggleAssistantPane() }
-            },
             .init(id: "workspace", title: "Open in Daily Workspace", symbol: "macwindow") { [weak self] in
                 self?.open(.assistant)
             },
@@ -164,7 +166,7 @@ extension QuickPanelController {
         let typed = draft.dropFirst().lowercased()
         let commands: [(String, String)] = [
             ("new", "new"), ("model", "model"), ("copy", "copy"), ("stop", "stop"), ("zoom-in", "zoomIn"),
-            ("zoom-out", "zoomOut"), ("reset-zoom", "actual"), ("sidebar", "sidebar"), ("open", "workspace"),
+            ("zoom-out", "zoomOut"), ("reset-zoom", "actual"), ("open", "workspace"),
         ]
         let byID = Dictionary(uniqueKeysWithValues: aiActions.map { ($0.id, $0) })
         return commands.compactMap { name, id in
@@ -271,10 +273,18 @@ extension QuickPanelController {
         if aiPopup.layer != .chat {
             return handleAIListKey(keyCode: keyCode, characters: characters, modifiers: modifiers)
         }
-        return handleAIChatKey(keyCode: keyCode, key: key, modifiers: modifiers)
+        return handleAIChatKey(keyCode: keyCode, characters: characters, modifiers: modifiers)
     }
 
-    private func handleAIChatKey(keyCode: UInt16, key: String, modifiers: NSEvent.ModifierFlags) -> Bool {
+    private func handleAIChatKey(keyCode: UInt16, characters: String, modifiers: NSEvent.ModifierFlags) -> Bool {
+        let key = characters.lowercased()
+        if modifiers.contains(.control), let next = Self.sectionMoves[key] {
+            aiPopup.section = next(aiPopup.section)
+            return true
+        }
+        if aiPopup.section != .ask {
+            return handleAIReadingKey(keyCode: keyCode, key: characters, modifiers: modifiers)
+        }
         let slash = aiSlashActions
         if !slash.isEmpty, [125, 126].contains(keyCode) {
             moveAIList(by: keyCode == 125 ? 1 : -1, count: slash.count)
@@ -298,19 +308,55 @@ extension QuickPanelController {
     }
 
     private func handleAIPopupCommand(_ key: String, shift: Bool) -> Bool? {
-        switch (key, shift) {
-        case ("m", true): showModelPicker()
-        case ("k", false): aiPopup.show(.actions)
-        case ("j", false): toggleAIPopup()
-        case ("n", false): newAIChat()
-        case ("c", true): copyLastAnswer()
-        case ("=", _), ("+", _): zoom(by: 1)
-        case ("-", false): zoom(by: -1)
-        case ("0", false): resetZoom()
-        case (".", false): model?.assistant.stop()
-        default: return nil
+        let commands: [String: (QuickPanelController) -> Void] = [
+            "⇧m": { $0.showModelPicker() }, "k": { $0.aiPopup.show(.actions) }, "j": { $0.toggleAIPopup() },
+            "[": { $0.focusAITurn(by: -1) }, "]": { $0.focusAITurn(by: 1) }, "n": { $0.newAIChat() },
+            "⇧c": { $0.copyLastAnswer() }, "=": { $0.zoom(by: 1) }, "+": { $0.zoom(by: 1) },
+            "⇧+": { $0.zoom(by: 1) }, "-": { $0.zoom(by: -1) }, "0": { $0.resetZoom() },
+            ".": { $0.model?.assistant.stop() },
+        ]
+        guard let command = commands[(shift ? "⇧" : "") + key] else { return nil }
+        command(self)
+        return true
+    }
+
+    /// ⌃h left to QUESTIONS, ⌃l right to the chat, ⌃k up to the chat, ⌃j down to ASK.
+    private static let sectionMoves: [String: (QuickPanelAIPopup.Section) -> QuickPanelAIPopup.Section] = [
+        "h": { _ in .questions },
+        "l": { $0 == .questions ? .conversation : $0 },
+        "k": { $0 == .ask ? .conversation : $0 },
+        "j": { _ in .ask },
+    ]
+
+    /// QUESTIONS and AI CHAT: j/k step through questions, g/G jump to the ends, Return reads the selected
+    /// answer, and any other letter starts typing in ASK.
+    private func handleAIReadingKey(keyCode: UInt16, key: String, modifiers: NSEvent.ModifierFlags) -> Bool {
+        let count = model?.assistant.turns.count ?? 0
+        switch key {
+        case "j": focusAITurn(by: 1)
+        case "k": focusAITurn(by: -1)
+        case "g": if count > 0 { aiPopup.focusedTurn = 0 }
+        case "G": if count > 0 { aiPopup.focusedTurn = count - 1 }
+        default:
+            if [36, 76].contains(keyCode) {
+                aiPopup.section = .conversation
+            } else if !modifiers.contains(.command), !modifiers.contains(.control), !key.isEmpty,
+                key.unicodeScalars.allSatisfy({ $0.value >= 32 && $0.value < 0xF700 })
+            {
+                aiPopup.section = .ask
+                model?.navigation.assistantDraft += key
+            } else {
+                return false
+            }
         }
         return true
+    }
+
+    func focusAITurn(by offset: Int) {
+        let count = model?.assistant.turns.count ?? 0
+        guard count > 0 else { return }
+        let current = aiPopup.focusedTurn ?? count
+        aiPopup.focusedTurn = min(count - 1, max(0, current + offset))
     }
 
     private func runSelectedAIListRow() {

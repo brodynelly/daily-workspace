@@ -13,8 +13,8 @@ struct QuickPanelStatsBar: View {
     var body: some View {
         HStack(spacing: 18) {
             HStack(spacing: 7) {
-                Image(systemName: route.symbol).foregroundStyle(Ink.cyan)
-                Text(route.title.uppercased()).foregroundStyle(Ink.title)
+                Image(systemName: controller.aiPopup.isVisible ? "sparkles" : route.symbol).foregroundStyle(Ink.cyan)
+                Text(controller.aiPopup.isVisible ? "AI CHAT" : route.title.uppercased()).foregroundStyle(Ink.title)
             }
             if let error = controller.error {
                 Text(error).foregroundStyle(Ink.notice)

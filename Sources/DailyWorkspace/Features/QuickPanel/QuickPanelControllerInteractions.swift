@@ -200,7 +200,7 @@ extension QuickPanelController {
             return
         }
         let panes =
-            (assistantVisible ? ["assistant"] : currentRoute == .music ? ["playlists"] : [])
+            (currentRoute == .music ? ["playlists"] : [])
             + ["document", "command"]
         let position = panes.firstIndex(of: focusedPane) ?? 0
         focusedPane = panes[(position + (reverse ? panes.count - 1 : 1)) % panes.count]

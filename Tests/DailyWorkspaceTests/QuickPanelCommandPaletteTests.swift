@@ -43,7 +43,7 @@ final class QuickPanelCommandPaletteTests: XCTestCase {
         XCTAssertTrue(panel.visiblePaletteItems.allSatisfy { $0.group == "File" })
     }
 
-    func testQuestionMarkOpensAIPaneAndSlashOpensSearch() {
+    func testQuestionMarkOpensAIPageAndSlashOpensSearch() {
         let panel = QuickPanelController()
         XCTAssertTrue(panel.handleKey(keyCode: 44, characters: "/"))
         XCTAssertEqual(panel.focusedPane, "command")
@@ -51,18 +51,34 @@ final class QuickPanelCommandPaletteTests: XCTestCase {
         XCTAssertEqual(panel.focusedPane, "document")
 
         XCTAssertTrue(panel.handleKey(keyCode: 44, characters: "?", modifiers: .shift))
-        XCTAssertTrue(panel.assistantVisible)
-        XCTAssertEqual(panel.focusedPane, "assistant")
+        XCTAssertTrue(panel.aiPopup.isVisible)
         // Typing, including vim letters and `?`, belongs to the AI field.
         XCTAssertFalse(panel.handleKey(keyCode: 38, characters: "j"))
         XCTAssertFalse(panel.handleKey(keyCode: 44, characters: "?", modifiers: .shift))
-        XCTAssertTrue(panel.assistantVisible)
         XCTAssertEqual(panel.query, "")
+        XCTAssertEqual(panel.vimHints.first?.1, "Ask")
+        XCTAssertTrue(panel.handleKey(keyCode: 53))
+        XCTAssertFalse(panel.aiPopup.isVisible)
+    }
 
-        XCTAssertTrue(panel.handleKey(keyCode: 48))
-        XCTAssertEqual(panel.focusedPane, "document")
-        XCTAssertTrue(panel.handleKey(keyCode: 44, characters: "?", modifiers: .shift))
-        XCTAssertFalse(panel.assistantVisible)
+    func testMonitorSortKeys() {
+        let panel = QuickPanelController()
+        panel.navigate(to: .monitor)
+        panel.monitor.apply(processes: [
+            .init(pid: 5, cpu: 1, memoryPercent: 0, residentKB: 900, name: "beta"),
+            .init(pid: 9, cpu: 40, memoryPercent: 0, residentKB: 100, name: "Alpha"),
+        ])
+        panel.updateRows()
+        XCTAssertEqual(panel.monitor.sortedProcesses.map(\.pid), [9, 5], "CPU, highest first")
+        XCTAssertTrue(panel.handleKey(keyCode: 47, characters: ">", modifiers: .shift))
+        XCTAssertEqual(panel.monitor.sort, .pid)
+        XCTAssertEqual(panel.monitor.sortedProcesses.map(\.pid), [5, 9])
+        XCTAssertTrue(panel.handleKey(keyCode: 43, characters: "<", modifiers: .shift))
+        XCTAssertTrue(panel.handleKey(keyCode: 43, characters: "<", modifiers: .shift))
+        XCTAssertEqual(panel.monitor.sort, .memory)
+        XCTAssertEqual(panel.rows.map(\.id), ["process:5", "process:9"])
+        XCTAssertTrue(panel.handleKey(keyCode: 34, characters: "i"))
+        XCTAssertEqual(panel.rows.map(\.id), ["process:9", "process:5"])
     }
 
     func testKeyCapsSplitStrokesAndShowControl() {

@@ -69,9 +69,6 @@ extension QuickPanelController {
             .init(id: "find", title: "Find in panel", symbol: "magnifyingglass", keys: "/") { [weak self] in
                 self?.focusSearch()
             },
-            .init(id: "ai", title: "Ask AI in sidebar", symbol: "sidebar.left", keys: "?") { [weak self] in
-                self?.toggleAssistantPane()
-            },
             .init(id: "aiChat", title: "AI Chat", symbol: "sparkles", keys: "⌘J") { [weak self] in
                 self?.toggleAIPopup()
             },

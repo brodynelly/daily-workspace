@@ -21,6 +21,13 @@ extension QuickPanelController {
 
     /// Footer hints; the panel advertises no function keys.
     var vimHints: [(String, String)] {
+        if aiPopup.isVisible {
+            return [
+                ("↵", "Ask"), ("/", "Commands"), ("⌘K", "Actions"), ("⇧⌘M", "Model"), ("⌘[ ⌘]", "Questions"),
+                ("⌃h ⌃l", "Sections"),
+                ("⌘N", "New"), ("⌘+ ⌘-", "Zoom"), ("esc", "Close"),
+            ]
+        }
         if focusedPane == "command" {
             return [("↑/↓", " Select  "), ("↵", " Open  "), ("Esc", query.isEmpty ? " Close search" : " Clear search")]
         }
@@ -75,6 +82,11 @@ extension QuickPanelController {
             return true
         }
         if currentRoute == .music, handleVimMusicKey(key) { return true }
+        if currentRoute == .monitor, ["<", ">", "i"].contains(key) {
+            if key == "i" { monitor.reverseSort() } else { monitor.cycleSort(by: key == ">" ? 1 : -1) }
+            updateRows()
+            return true
+        }
         // Swallow other printable keys so a stray letter neither beeps nor starts a search.
         return key.unicodeScalars.allSatisfy { $0.value >= 32 && $0.value < 0xF700 }
     }
@@ -108,7 +120,7 @@ extension QuickPanelController {
         case "o": activateSelected()
         case "a": activateSelected(alternate: true)
         case "/": focusSearch()
-        case "?": toggleAssistantPane()
+        case "?": toggleAIPopup()
         case "[", "]": cycleRoute(reverse: key == "[")
         case "r", "R": refresh()
         case "z": zoomed.toggle()
@@ -128,6 +140,8 @@ extension QuickPanelController {
         case "b": moveVimSelection(by: -page)
         case "e": moveVimSelection(by: 1)
         case "y": moveVimSelection(by: -1)
+        case "h", "k": cyclePane(reverse: true)
+        case "l", "j": cyclePane()
         default: return false
         }
         return true
