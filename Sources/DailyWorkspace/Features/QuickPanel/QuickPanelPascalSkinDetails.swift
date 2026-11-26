@@ -94,9 +94,15 @@ extension QuickPanelPascalSkin {
                                             .lineLimit(1)
                                             .truncationMode(QuickPanelColumns.isPath(row.detail) ? .middle : .tail)
                                             .frame(width: columns[2], alignment: .leading)
-                                        Text(row.keys.isEmpty ? (row.badge.isEmpty ? row.status : row.badge) : row.keys)
-                                            .foregroundStyle(Ink.cyan).lineLimit(1)
-                                            .frame(width: columns[3], alignment: .leading)
+                                        Group {
+                                            if row.keys.isEmpty {
+                                                Text(row.badge.isEmpty ? row.status : row.badge)
+                                                    .foregroundStyle(Ink.cyan).lineLimit(1)
+                                            } else {
+                                                QuickPanelKeyCaps(keys: row.keys)
+                                            }
+                                        }
+                                        .frame(width: columns[3], alignment: .leading)
                                     }
                                 }
                                 .padding(.leading, QuickPanelColumns.leading)
@@ -258,17 +264,15 @@ extension QuickPanelPascalSkin {
     }
 
     var footer: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 14) {
             let hints = controller.vimHints
             ForEach(hints.indices, id: \.self) { index in
-                Text(hints[index].0).foregroundStyle(Ink.gold)
-                Text(hints[index].1).foregroundStyle(Ink.footer)
+                QuickPanelKeyCaps(keys: hints[index].0, label: hints[index].1)
             }
             Spacer(minLength: 0)
         }
         .font(Typography.font(11, preferred: controller.panelFont))
         .lineLimit(1)
-        .minimumScaleFactor(0.75)
         .accessibilityLabel("Keyboard hints")
     }
 }
