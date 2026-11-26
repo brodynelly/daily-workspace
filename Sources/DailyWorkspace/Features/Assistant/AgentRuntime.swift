@@ -89,7 +89,9 @@ struct AgentRuntimeLimits: Equatable, Sendable {
     /// Largest `tool_result` sent to the model, in UTF-8 bytes (about a quarter as many tokens).
     var maxToolResultBytes = AssistantRuntimeSettings.defaultMaxToolResultBytes
     /// The tools offered to the model. Calls to any other tool are refused.
-    var enabledTools: Set<AssistantTool> = Set(AssistantTool.allCases)
+    var enabledTools: Set<AssistantTool> = Set(AssistantTool.readOnly)
+    /// What the prompt says the Assistant may change.
+    var capabilities = AgentCapabilities.readOnly
 
     init() {}
 
@@ -103,7 +105,7 @@ struct AgentRuntimeLimits: Equatable, Sendable {
         toolTimeout = settings.toolTimeoutSeconds
         maxToolResultBytes = settings.maxToolResultBytes
         let disabled = Set(settings.disabledTools)
-        enabledTools = Set(AssistantTool.allCases.filter { !disabled.contains($0.rawValue) })
+        enabledTools = Set(AssistantTool.readOnly.filter { !disabled.contains($0.rawValue) })
     }
 }
 

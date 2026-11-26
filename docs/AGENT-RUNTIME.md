@@ -1,6 +1,6 @@
 # Assistant agent runtime
 
-How the Assistant runs a question: the loop, its limits, how to configure them and how to extend it. Read with [SYSTEM-INVENTORY.md](SYSTEM-INVENTORY.md) §4–§10; the rules there (read-only tools, statuses from adapters, no logged content) are unchanged.
+How the Assistant runs a question: the loop, its limits, how to configure them and how to extend it. Read with [SYSTEM-INVENTORY.md](SYSTEM-INVENTORY.md) §4–§10; the rules there (statuses from adapters, no logged content) are unchanged. Vault writes, memory, saved conversations and routines are described in [DURABLE-AGENT.md](DURABLE-AGENT.md).
 
 ## Shape
 
@@ -57,8 +57,8 @@ Changes apply from the next question; a running answer keeps the limits it start
 3. Add its branch to `AssistantToolRunner.execute`, returning cited paths or record IDs.
 4. Add golden-set cases. Deadlines, result budgets, `disabledTools`, Settings toggles and run events apply automatically.
 
-The tool must be read-only. A write needs an approved T00 row and a separate reviewed UI action, never a model tool.
+A read tool must be read-only. A vault write goes through `AgentWorkspace` and `VaultChanges` (see DURABLE-AGENT.md), never straight to `NoteVault`; writes to any other owner need the owner's approval first.
 
 ## Deliberately not adopted
 
-Permission modes and user command hooks (no write tools to gate), model-based tool routing (six tools), client-side history pruning or summarisation (breaks replayed thinking), dollar-cost estimates (prices change; tokens are shown instead), and server-side context editing or compaction (beta; revisit if long chats hit the context window). The research behind these choices is summarised in the PR that introduced this layer.
+User command hooks (the approval policy in DURABLE-AGENT.md gates writes), model-based tool routing (six tools), client-side history pruning or summarisation (breaks replayed thinking), dollar-cost estimates (prices change; tokens are shown instead), and server-side context editing or compaction (beta; revisit if long chats hit the context window). The research behind these choices is summarised in the PR that introduced this layer.

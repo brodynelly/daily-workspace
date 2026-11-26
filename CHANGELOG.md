@@ -4,6 +4,9 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+- **Durable Assistant:** the Assistant can now write into the vault (`create_note`, `edit_note`, `append_to_note`) through a reviewed change queue with before/after diffs, apply, reject and undo, and a hash-only audit journal. Settings → AI → Agent chooses the approval policy (review everything, auto-apply new notes and appends in chosen folders, or auto-apply all except edits made by routines); links, embeds and anything past the per-run cap always wait for review. It keeps long-term memory in small app-owned Markdown files, saves conversations encrypted under a Keychain key (resumed after a quit or crash, with retention and Delete all history), and runs scheduled routines while the app is open. Org and Luuna stay read-only.
+- CRLF notes keep CRLF when text is appended (`NoteVault.appending` checked a Character, which a `\r\n` ending never matches).
+
 - Quick Panel now finishes handling pending socket activity before releasing its listener during shutdown.
 
 - Today groups the agenda and due items beside capture and the daily note. The preview starts below the note properties. Project blockers follow the daily work.

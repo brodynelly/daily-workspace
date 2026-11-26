@@ -29,6 +29,8 @@ extension AppModel {
         var autosaveDelay: Duration
         /// System notifications and the external-change poll. Off in tests.
         var observesSystem: Bool
+        /// The Keychain entry holding the key that seals saved conversations.
+        var agentHistoryKeyStore: APIKeyStore = KeychainAPIKeyStore(service: ConversationArchive.keyService)
 
         @MainActor static var live: Dependencies {
             let directory = WorkspaceDirectory.standard()

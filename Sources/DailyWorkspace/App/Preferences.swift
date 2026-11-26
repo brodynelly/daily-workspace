@@ -48,6 +48,14 @@ final class Preferences: ObservableObject {
             persist()
         }
     }
+    /// Saved chats, memory, routines and vault-write approval. Stored validated.
+    @Published var agent: AgentSettings {
+        didSet {
+            let valid = agent.validated
+            if valid != agent { agent = valid }
+            persist()
+        }
+    }
     @Published var mailEnabled: Bool { didSet { persist() } }
     @Published var quickPanelClipboardEnabled: Bool { didSet { persist() } }
     @Published var quickPanelTerminalBorderEnabled: Bool { didSet { persist() } }
@@ -93,6 +101,7 @@ final class Preferences: ObservableObject {
         assistantModel = settings.assistantModel
         openRouterModel = settings.openRouterModel
         assistantRuntime = settings.assistantRuntime.validated
+        agent = settings.agent.validated
         mailEnabled = settings.mailEnabled
         quickPanelClipboardEnabled = settings.quickPanelClipboardEnabled
         quickPanelTerminalBorderEnabled = settings.quickPanelTerminalBorderEnabled
@@ -156,7 +165,8 @@ final class Preferences: ObservableObject {
             quickPanelTerminalBorderEnabled: quickPanelTerminalBorderEnabled,
             quickPanelZoom: quickPanelZoom,
             shortcutOverrides: shortcutOverrides,
-            assistantRuntime: assistantRuntime
+            assistantRuntime: assistantRuntime,
+            agent: agent
         )
     }
 

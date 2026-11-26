@@ -29,6 +29,8 @@ extension AssistantSession {
         var showsProgress: Bool
         /// Collects the run's content-free summary.
         var trace: AgentRunTrace?
+        /// Where the run's vault changes say they came from.
+        var run = AgentRunContext(origin: "chat", conversationID: nil)
     }
 
     /// Appended after the results of the last allowed tool round.
@@ -44,7 +46,7 @@ extension AssistantSession {
         // One snapshot per run: a Settings change mid-answer applies from the next question, never mid-run.
         let configuration = self.configuration
         let tools = AssistantTool.enabledDefinitions(configuration.enabledTools)
-        let runner = makeRunner(configuration)
+        let runner = makeRunner(configuration, run: options.run)
         var outcome = LoopOutcome(appended: [opening])
         var rounds = 0
         var continuations = 0

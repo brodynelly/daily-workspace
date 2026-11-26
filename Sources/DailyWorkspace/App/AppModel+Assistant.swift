@@ -11,11 +11,11 @@ extension AppModel {
         assistant.setEnabled(preferences.assistantEnabled)
         assistant.setProvider(preferences.assistantProvider, model: preferences.selectedAssistantModel)
         assistantKey.setProvider(preferences.assistantProvider)
-        assistant.applyRuntime(AgentRuntimeLimits(preferences.assistantRuntime))
+        applyAssistantRuntime()
         preferences.$assistantRuntime
             .dropFirst()
             .removeDuplicates()
-            .sink { [weak self] runtime in self?.assistant.applyRuntime(AgentRuntimeLimits(runtime)) }
+            .sink { [weak self] runtime in self?.applyAssistantRuntime(runtime: runtime) }
             .store(in: &assistantSubscriptions)
         preferences.$assistantEnabled
             .dropFirst()
@@ -80,7 +80,7 @@ extension AppModel {
         let fingerprint = "\(canonical?.path ?? "no vault")#\(hash)"
         guard fingerprint != assistantAgentsFingerprint else { return }
         assistantAgentsFingerprint = fingerprint
-        assistant.startNewConversation(vaultAgents: agents)
+        assistant.startNewConversation(vaultAgents: agents, identity: fingerprint)
     }
 
     /// The vault's root `AGENTS.md`, read through `NoteVault` and never written. Nil when absent or unreadable.

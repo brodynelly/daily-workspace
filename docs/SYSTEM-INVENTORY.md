@@ -90,7 +90,7 @@ There is no vector store in phase 1. About 2,700 notes with lexical search plus 
 
 ## 7. Tools
 
-### Assistant tools (all read-only)
+### Assistant tools (read-only except the vault change and memory tools)
 
 | Tool | What it does | Blast radius if it misfires | Gate |
 | --- | --- | --- | --- |
@@ -100,6 +100,8 @@ There is no vector store in phase 1. About 2,700 notes with lexical search plus 
 | `list_projects()` | Bounded eligible vault hub inventory with citeable paths and source state | Hub metadata leaves the Mac for the API provider | Requires an available selected vault |
 | `get_project(slug)` | Hub summary, checkouts, native project records, latest restart record | Read-only | — |
 | `get_agenda(day)` | EventKit events for a day | Event titles leave the Mac | Needs Calendar permission |
+| `create_note` / `edit_note` / `append_to_note` (2026-11-26) | Propose a vault Markdown change through `VaultChanges` | One visible, in-scope note in an existing folder; never a delete, rename or move | Approval policy in Settings → AI → Agent; edits, links and anything past the per-run cap always reviewed; conflict-checked; undo; hash-only journal. See docs/DURABLE-AGENT.md |
+| `memory` (2026-11-26) | Anthropic memory-tool commands over app-owned `/memories` | Files in `~/.config/daily-workspace/agent/memories` only | Settings → AI → Agent → Memory |
 
 ### App adapters (deterministic, no model)
 
