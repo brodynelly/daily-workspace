@@ -39,15 +39,16 @@ struct PageHeader<Actions: View>: View {
             if !breadcrumbs.isEmpty {
                 Breadcrumbs(items: breadcrumbs).padding(.bottom, Space.s2 - Space.sHalf)
             }
-            // Actions keep their natural width and sit on the title's bottom edge; the title wraps first.
-            HStack(alignment: .bottom, spacing: Space.s4) {
-                Text(title)
-                    .textRole(.pageTitle)
-                    .foregroundStyle(Theme.ink)
-                    .accessibilityAddTraits(.isHeader)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                HStack(spacing: Space.s2) { actions }.fixedSize()
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .center, spacing: Space.s4) {
+                    heading.fixedSize()
+                    Spacer(minLength: 0)
+                    HStack(spacing: Space.s2) { actions }.fixedSize()
+                }
+                VStack(alignment: .leading, spacing: Space.s2) {
+                    heading
+                    ChipFlow { actions }
+                }
             }
             if let description {
                 Text(description)
@@ -66,6 +67,13 @@ struct PageHeader<Actions: View>: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
+    private var heading: some View {
+        Text(title)
+            .textRole(.pageTitle)
+            .foregroundStyle(Theme.ink)
+            .accessibilityAddTraits(.isHeader)
+    }
+
 }
 
 extension PageHeader where Actions == EmptyView {

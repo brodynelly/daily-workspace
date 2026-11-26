@@ -7,12 +7,11 @@ struct TodayAgendaSection: View {
     @EnvironmentObject private var calendar: CalendarService
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Space.s3) {
-            SectionHeading("Agenda", description: updated) {
-                Button("Calendar") { model.navigation.section = .calendar }
-                    .buttonStyle(.text)
-                    .accessibilityLabel("Open Calendar")
-            }
+        Panel("Agenda", description: updated) {
+            Button("Calendar") { model.navigation.section = .calendar }
+                .buttonStyle(.text)
+                .accessibilityLabel("Open Calendar")
+        } content: {
             if calendar.status == .authorized {
                 let events = Self.events(of: calendar)
                 if events.isEmpty {
@@ -76,7 +75,7 @@ private struct CalendarConnect: View {
     let request: () async -> Void
 
     var body: some View {
-        EmptyState(title, description: description, systemImage: "calendar", boxed: true) {
+        EmptyState(title, description: description, systemImage: "calendar") {
             switch status {
             case .notRequested:
                 Button("Allow Calendar Access…") { Task { await request() } }.buttonStyle(.primary)

@@ -32,8 +32,11 @@ struct TodayNotePreview: Equatable {
     let isTruncated: Bool
 
     init(text: String, limit: Int = Self.lineLimit) {
-        var all = text.split(separator: "\n", omittingEmptySubsequences: false).map {
-            String($0.hasSuffix("\r") ? $0.dropLast() : $0)
+        let normalized = text.replacingOccurrences(of: "\r\n", with: "\n")
+        let bodyStart = Frontmatter.split(markdown: normalized)?.bodyStart ?? 0
+        var all = Array(normalized.components(separatedBy: "\n").dropFirst(bodyStart))
+        if bodyStart > 0 {
+            all = Array(all.drop(while: { $0.trimmingCharacters(in: .whitespaces).isEmpty }))
         }
         while all.last?.trimmingCharacters(in: .whitespaces).isEmpty == true { all.removeLast() }
         lines = Array(all.prefix(limit))
@@ -55,27 +58,28 @@ struct TodayNotePanel: View {
 
     var body: some View {
         Panel("Today's note") {
+            if case .resolved(_, let exists) = location {
+                Button(exists ? "Open note" : "Create note") { model.openToday(create: !exists, navigate: true) }
+                    .buttonStyle(.text)
+                    .accessibilityLabel(exists ? "Open today's note" : "Create today's note")
+            }
+        } content: {
             switch location {
             case .refused(let reason):
                 ReasonNote(reason, tone: .attention, next: "Set where daily notes go in Settings → Vault")
             case .resolved(let path, let exists):
                 Text(verbatim: path)
-                    .font(TextRole.mono.font)
-                    .foregroundStyle(Theme.ink)
+                    .font(TextRole.caption.font.monospaced())
+                    .foregroundStyle(Theme.inkMuted)
                     .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityLabel("Path \(path)")
                 if exists {
                     preview(path: path)
-                    Button("Open") { model.openToday(create: false, navigate: true) }
-                        .buttonStyle(.primary)
-                        .accessibilityLabel("Open today's note")
                 } else {
                     Text("Today's note does not exist yet.")
                         .textRole(.bodySmall, lineBox: false)
                         .foregroundStyle(Theme.inkMuted)
-                    Button("Create today's note") { model.openToday(create: true, navigate: true) }
-                        .buttonStyle(.primary)
                 }
             }
         }
@@ -124,14 +128,14 @@ private struct PreviewBox: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Space.s2) {
             if preview.lines.isEmpty {
-                Text("This note is empty.").foregroundStyle(Theme.inkMuted)
+                Text("No note text to preview.").foregroundStyle(Theme.inkMuted)
             } else {
                 Text(verbatim: preview.lines.joined(separator: "\n"))
                     .foregroundStyle(Theme.inkBody)
                     .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
                 if preview.isTruncated {
-                    Text("Showing the first \(TodayNotePreview.lineLimit) lines.").foregroundStyle(Theme.inkMuted)
+                    Text("Preview · first \(TodayNotePreview.lineLimit) lines").foregroundStyle(Theme.inkMuted)
                 }
             }
         }

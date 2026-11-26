@@ -29,33 +29,16 @@ struct TodayContent: View {
     var body: some View {
         let day = model.today
         let location = hasVault ? TodayNoteLocation.current(in: model) : nil
-        PageHeader(title: Self.title(for: day), description: "Your agenda, what's due, and today's note.") {
-            Button {
-                model.navigation.showQuickCapture = true
-            } label: {
-                HStack(spacing: Space.s2) {
-                    Text("Quick Capture")
-                    Kbd("⌘N")
-                }
-            }
-            .buttonStyle(.workspace(.quiet, size: .large))
-            .accessibilityLabel("Quick Capture, Command N")
-            Button("Open today's note") { model.openToday(navigate: true) }
-                .buttonStyle(.workspace(.secondary, size: .large))
-                .disabled(!Self.canOpen(location))
-        }
+        PageHeader(title: Self.title(for: day))
         if !hasVault { VaultConnect(state: vaultSession.state) }
         stats(day: day)
-        luunaHome
-        if hasVault {
-            let notices = TodayDue.notices(from: openLoops)
-            if !notices.isEmpty {
-                Callout(tone: .attention) { ForEach(notices, id: \.self) { Text($0) } }
-                    .accessibilityLabel("Some sources could not be read")
-            }
-        }
         TodayColumns {
-            VStack(alignment: .leading, spacing: Space.s6) {
+            VStack(alignment: .leading, spacing: Space.s5) {
+                let notices = TodayDue.notices(from: openLoops)
+                if !notices.isEmpty {
+                    Callout(tone: .attention) { ForEach(notices, id: \.self) { Text($0) } }
+                        .accessibilityLabel("Some sources could not be read")
+                }
                 TodayDueSection(day: day)
                 TodayAgendaSection()
             }
@@ -64,16 +47,17 @@ struct TodayContent: View {
                 if let location { TodayNotePanel(location: location, revision: noteRevision) }
             }
         }
-        .task(id: day) { calendar.show(day: Date()) }
+        luunaHome
+            .task(id: day) { calendar.show(day: Date()) }
     }
 
     private var luunaHome: some View {
         Panel(
-            "Luuna Home",
-            description: "All-project blockers reported by Luuna; undated issues are not assigned to today.",
+            "Project blockers",
+            description: "Reported by Luuna across all projects.",
             variant: .subpanel
         ) {
-            Button("Refresh Home") { Task { await luunaWork.refreshGlobalHome() } }
+            Button("Refresh") { Task { await luunaWork.refreshGlobalHome() } }
                 .buttonStyle(.workspace(.secondary, size: .small))
         } content: {
             if let home = luunaWork.globalHome.value {
@@ -83,7 +67,7 @@ struct TodayContent: View {
                 ForEach(Array(home.blockers.enumerated()), id: \.offset) { _, blocker in
                     VStack(alignment: .leading, spacing: Space.sHalf) {
                         Text(verbatim: blocker.title ?? blocker.kind.rawValue).textRole(.bodyStrong, lineBox: false)
-                        HStack(spacing: Space.s2) {
+                        ChipFlow {
                             Tag(blocker.kind.rawValue)
                             if let state = blocker.state { StatusBadge(state.rawValue, tone: nil) }
                             if let project = blocker.projectID { ShortId(project, kind: "project id") }
@@ -116,10 +100,6 @@ struct TodayContent: View {
         (day.date() ?? Date()).formatted(.dateTime.weekday(.wide).month(.wide).day())
     }
 
-    private static func canOpen(_ location: TodayNoteLocation?) -> Bool {
-        if case .resolved = location { return true }
-        return false
-    }
 }
 
 /// No usable vault: what is missing, then the one control that adds it.
@@ -157,8 +137,8 @@ private struct VaultConnect: View {
 /// identity across the switch, so a capture draft survives a window resize.
 private struct TodayColumns: Layout {
     private static let gap = Space.s6
-    /// Below this width the columns stack (Luuna stacks its two-column workspaces at 920 pt).
-    private static let minimumSideBySide: CGFloat = 840
+    /// Leave enough room for the destination picker and save button in the smaller column.
+    private static let minimumSideBySide: CGFloat = 760
 
     private func widths(_ total: CGFloat) -> (CGFloat, CGFloat)? {
         guard total >= Self.minimumSideBySide else { return nil }

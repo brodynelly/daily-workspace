@@ -50,11 +50,15 @@ struct TodayCaptureSection: View {
         Panel("Capture") {
             field
             HStack(alignment: .center, spacing: Space.s3) {
-                SegmentedControl(
-                    "Save as", selection: $state.destination,
-                    options: AppModel.CaptureDestination.allCases.map { ($0, $0.title) })
+                Picker("Save to", selection: $state.destination) {
+                    ForEach(AppModel.CaptureDestination.allCases) { destination in
+                        Text(destination.title).tag(destination)
+                    }
+                }
+                .pickerStyle(.menu)
+                .fixedSize()
                 Spacer(minLength: 0)
-                Button("Capture", action: commit)
+                Button(state.requiresVaultReview ? "Review…" : "Capture", action: commit)
                     .buttonStyle(.primary)
                     .disabled(!state.canCapture)
             }

@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+- Today groups the agenda and due items beside capture and the daily note. The preview starts below the note properties. Project blockers follow the daily work.
+- Page actions wrap in smaller windows. Calendar keeps its month picker in a popover when space is tight. Projects and Assistant give the current selection more room. Recent note names and folders have separate lines.
+- Quick Panel menus have visible names and share their actions with the keyboard menus. The footer shows search controls while typing.
+
 - **Calendar layout:** seven-day hourly grid with pinned day headers, an all-day row and overlapping event lanes; a right-side month picker selects a day and shows its agenda. Week arrows move seven days; existing EventKit editing and theme remain unchanged.
 
 ### Added

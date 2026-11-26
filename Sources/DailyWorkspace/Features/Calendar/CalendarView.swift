@@ -6,14 +6,20 @@ struct CalendarView: View {
     @EnvironmentObject private var preferences: Preferences
     @State private var creating = false
 
+    @State private var showingMonth = false
+
+    private static let minimumWeekWidth: CGFloat = 640
+    private static let monthPopoverHeight: CGFloat = 440
+
     private var authorized: Bool { calendar.status == .authorized }
     private var week: DateInterval? { Calendar.current.dateInterval(of: .weekOfYear, for: calendar.selectedDay) }
 
     var body: some View {
-        VStack(spacing: 0) {
+        GeometryReader { geometry in
+            let inlineMonth = geometry.size.width >= Self.minimumWeekWidth + Metrics.sidebarWidth
             HStack(spacing: 0) {
                 VStack(spacing: 0) {
-                    toolbar
+                    toolbar(inlineMonth: inlineMonth)
                     if authorized, let week {
                         CalendarWeekView(week: week, events: calendar.weekEvents, selectedDay: calendar.selectedDay) {
                             calendar.show(day: $0)
@@ -26,9 +32,10 @@ struct CalendarView: View {
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                VerticalHairline()
-                CalendarMonthRail()
-                    .frame(width: Metrics.sidebarWidth)
+                if inlineMonth {
+                    VerticalHairline()
+                    CalendarMonthRail().frame(width: Metrics.sidebarWidth)
+                }
             }
         }
         .navigationTitle(AppSection.calendar.title)
@@ -40,8 +47,25 @@ struct CalendarView: View {
         .onDisappear { calendar.stopWeekObservation() }
     }
 
-    private var toolbar: some View {
+    private func toolbar(inlineMonth: Bool) -> some View {
         HStack(spacing: Space.s3) {
+            if inlineMonth {
+                monthTitle
+            } else {
+                Button {
+                    showingMonth.toggle()
+                } label: {
+                    HStack(spacing: Space.s2) {
+                        monthTitle
+                        Image(systemName: "chevron.down")
+                    }
+                }
+                .accessibilityHint("Choose a date or see its agenda")
+                .popover(isPresented: $showingMonth) {
+                    CalendarMonthRail().frame(width: Metrics.sidebarWidth, height: Self.monthPopoverHeight)
+                }
+            }
+            Spacer(minLength: 0)
             Button("Today") { calendar.show(day: Date()) }
                 .disabled(Calendar.current.isDateInToday(calendar.selectedDay))
             Button {
@@ -62,10 +86,6 @@ struct CalendarView: View {
             .help(shortcutHelp("Next week", id: "calendar.nextWeek"))
             .keyboardShortcut(
                 KeyboardShortcutCatalog.binding(for: "calendar.nextWeek", preferences: preferences)?.menuShortcut)
-            Text(calendar.selectedDay, format: .dateTime.month(.wide).year())
-                .textRole(.sectionTitle, lineBox: false)
-                .foregroundStyle(Theme.ink)
-                .frame(maxWidth: .infinity, alignment: .leading)
             Button("New Event", systemImage: "plus") { creating = true }
                 .buttonStyle(WorkspaceButtonStyle(variant: authorized ? .primary : .secondary, size: .large))
                 .disabled(!authorized)
@@ -73,6 +93,12 @@ struct CalendarView: View {
         .buttonStyle(.quiet)
         .padding(.horizontal, Space.s5)
         .frame(height: Space.s12 + Space.s4)
+    }
+
+    private var monthTitle: some View {
+        Text(calendar.selectedDay, format: .dateTime.month(.wide).year())
+            .textRole(.sectionTitle, lineBox: false)
+            .foregroundStyle(Theme.ink)
     }
 
     private func shortcutHelp(_ title: String, id: String) -> String {

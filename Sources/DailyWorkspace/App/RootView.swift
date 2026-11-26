@@ -312,18 +312,29 @@ private struct RecentNoteRow: View {
 
     var body: some View {
         Button(action: action) {
-            NoteLabel(path: path)
-                .textRole(.bodySmall, lineBox: false)
-                .foregroundStyle(hovered ? Theme.ink : Theme.inkMuted)
-                .padding(.horizontal, Space.s3)
-                .padding(.vertical, Space.s1Half)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(
-                    RoundedRectangle(cornerRadius: Radius.md, style: .continuous).fill(hovered ? Theme.fill : .clear)
-                )
-                .contentShape(Rectangle())
+            VStack(alignment: .leading, spacing: Space.sHalf) {
+                Text(verbatim: NotePath.title(path))
+                    .textRole(.bodySmall, lineBox: false)
+                    .foregroundStyle(hovered ? Theme.ink : Theme.inkBody)
+                    .lineLimit(1)
+                if let folder = NotePath.folder(path) {
+                    Text(verbatim: folder)
+                        .textRole(.caption, lineBox: false)
+                        .foregroundStyle(Theme.inkMuted)
+                        .lineLimit(1)
+                        .truncationMode(.head)
+                }
+            }
+            .padding(.horizontal, Space.s3)
+            .padding(.vertical, Space.s1Half)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: Radius.md, style: .continuous).fill(hovered ? Theme.fill : .clear)
+            )
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .help(path)
         .onHover { hovered = $0 }
     }
 }

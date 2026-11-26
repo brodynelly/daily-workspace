@@ -136,7 +136,7 @@ struct CaptureForm: View {
                 Button("Cancel", role: .cancel) { dismiss() }
                     .buttonStyle(.secondary)
                     .keyboardShortcut(.cancelAction)
-                Button("Capture", action: commit)
+                Button(destination == .quickNotes || destination == .inbox ? "Review…" : "Capture", action: commit)
                     .buttonStyle(.primary)
                     .keyboardShortcut(.defaultAction)
                     .disabled(isEmpty)

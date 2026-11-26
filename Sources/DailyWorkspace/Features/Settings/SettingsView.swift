@@ -42,19 +42,25 @@ struct SettingsView: View {
                                 .foregroundStyle(navigation.settingsTab == tab ? Theme.accent : Theme.inkBody)
                         }
                         .buttonStyle(.quiet)
+                        .background(
+                            navigation.settingsTab == tab ? Theme.accentSoft : .clear,
+                            in: RoundedRectangle(cornerRadius: Radius.md)
+                        )
                         .accessibilityAddTraits(navigation.settingsTab == tab ? .isSelected : [])
                     }
                 }
-                .padding(.horizontal, Space.s6)
+                .padding(.horizontal, Space.s8)
                 .padding(.vertical, Space.s2)
             }
-            .scrollIndicators(.hidden)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .scrollIndicators(.automatic)
             Hairline()
             page
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(Theme.surface)
         .tint(Theme.accent)
+        .navigationTitle("Settings")
     }
 
     @ViewBuilder private var page: some View {
@@ -78,7 +84,8 @@ struct SettingsPage<Content: View>: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Space.s8) { content }
-                .padding(Space.s6)
+                .padding(Metrics.pagePadding)
+                .frame(maxWidth: Metrics.contentMaxWidth, alignment: .leading)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .background(Theme.surface)

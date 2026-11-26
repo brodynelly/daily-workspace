@@ -26,13 +26,13 @@ enum AppSection: String, CaseIterable, Identifiable {
         case .projects:
             return "Each project's purpose, decisions and latest restart record, read from the vault."
         case .openLoops:
-            return "Every open item across its owners, shown with its source and the owner's own status."
+            return "Review tasks, reminders and mail from your connected sources."
         case .notes:
             return "Write in your vault's Markdown notes, and search their names and contents."
         case .calendar:
-            return "One day of Apple Calendar events, to review and edit."
+            return "Browse your week and select a day to see its events."
         case .assistant:
-            return "Ask about your notes, open loops, projects and calendar; read-only, it cites what it read."
+            return "Ask about your workspace and see the records behind each answer."
         }
     }
 

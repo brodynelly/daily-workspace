@@ -87,13 +87,14 @@ struct StatTile: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Space.s1) {
-            Text(term).textRole(.bodyStrong, lineBox: false).foregroundStyle(Theme.ink)
+            Text(term).textRole(.label, lineBox: false).foregroundStyle(Theme.inkBody)
             Text(verbatim: value).textRole(.metric, lineBox: false).foregroundStyle(Theme.ink).monospacedDigit()
             if let comparison {
-                Text(comparison).textRole(.body, lineBox: false).foregroundStyle(Theme.inkMuted).monospacedDigit()
+                Text(comparison).textRole(.caption, lineBox: false).foregroundStyle(Theme.inkMuted).monospacedDigit()
             }
         }
-        .padding(Space.s4)
+        .padding(.horizontal, Space.s4)
+        .padding(.vertical, Space.s3)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .cardSurface()
         .accessibilityElement(children: .combine)

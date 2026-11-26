@@ -83,6 +83,19 @@ final class QuickPanelVimKeysTests: XCTestCase {
         XCTAssertEqual(panel.focusedPane, "document")
     }
 
+    func testMusicSearchKeepsCursorKeysAndShowsSearchHints() {
+        let panel = makePanel(rows: 3)
+        panel.currentRoute = .music
+        panel.focusSearch()
+        for code: UInt16 in [123, 124] {
+            XCTAssertFalse(panel.handleKey(keyCode: code))
+            XCTAssertEqual(panel.focusedPane, "command")
+        }
+        XCTAssertEqual(panel.vimHints.last?.1, " Close search")
+        panel.query = "piano"
+        XCTAssertEqual(panel.vimHints.last?.1, " Clear search")
+    }
+
     func testPlainLettersCannotBeBoundAsPanelShortcuts() {
         let letter = ShortcutBinding(ShortcutStroke("j"))
         XCTAssertEqual(KeyboardShortcutCatalog.validate(letter, context: .quickPanel), .reservedStroke)

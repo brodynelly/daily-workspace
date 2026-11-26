@@ -71,7 +71,7 @@ extension QuickPanelController {
         if let section = currentRoute.workspaceSection {
             items.append(
                 .init(
-                    id: "workspace", title: "Open \(currentRoute.title) in Daily Workspace", symbol: "macwindow"
+                    id: "workspace", title: "Open \(section.title) in Daily Workspace", symbol: "macwindow"
                 ) { [weak self] in self?.open(section) })
         }
         items.append(
@@ -133,7 +133,13 @@ struct QuickPanelCommandPaletteOverlay: View {
                     .foregroundStyle(palette.query.isEmpty ? Ink.meta : Ink.primary)
                     .lineLimit(1)
                 Spacer(minLength: 12)
-                keyCap("esc")
+                Button {
+                    controller.toggleCommandPalette()
+                } label: {
+                    keyCap("esc")
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Close command palette")
             }
             .padding(.horizontal, 18)
             .frame(height: 46)
@@ -167,7 +173,7 @@ struct QuickPanelCommandPaletteOverlay: View {
             HStack(spacing: 16) {
                 hint("↑↓", "Move")
                 hint("↵", "Run")
-                hint("⌘K", "Close")
+                hint("Esc", "Close")
                 Spacer(minLength: 0)
                 Text("\(items.count) commands").foregroundStyle(Ink.meta)
             }
@@ -175,7 +181,7 @@ struct QuickPanelCommandPaletteOverlay: View {
             .padding(.horizontal, 18)
             .frame(height: 32)
         }
-        .frame(width: 600, height: 470)
+        .frame(maxWidth: 600, maxHeight: 470)
         .background(Ink.titleBox)
         .overlay {
             Rectangle().strokeBorder(Ink.activeRule, lineWidth: 1).padding(0.5)

@@ -20,7 +20,6 @@ struct OpenLoopsView: View {
             }
             stats
             sources
-            filters
             feedback
             list
         }
@@ -103,11 +102,10 @@ struct OpenLoopsView: View {
     // MARK: Filters
 
     private var filters: some View {
-        HStack(spacing: Space.s3) {
+        ChipFlow(spacing: Space.s3) {
             SegmentedControl(
                 "Source", selection: $filter.source, options: LoopSourceFilter.allCases.map { ($0, $0.title) })
             ProjectFilterMenu(projects: OpenLoopsFilter.projects(in: loops.loops), selection: $filter.project)
-            Spacer(minLength: Space.s3)
             Toggle(isOn: $filter.showDone) { Text("Show done") }.toggleStyle(.quiet)
         }
     }
@@ -136,6 +134,8 @@ struct OpenLoopsView: View {
         return Panel(filter.showDone ? "All items" : "Open items") {
             Text(verbatim: shown.count.formatted()).textRole(.bodySmall, lineBox: false).foregroundStyle(Theme.inkMuted)
         } content: {
+            filters
+            Hairline()
             if shown.isEmpty {
                 emptyList
             } else {

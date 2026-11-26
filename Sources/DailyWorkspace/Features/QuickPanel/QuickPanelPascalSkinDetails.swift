@@ -5,29 +5,29 @@ extension QuickPanelPascalSkin {
         route == .attention && controller.attentionIdentities[row.id] != nil ? "! \(row.title)" : row.title
     }
 
-    var documentTable: some View {
-        VStack(spacing: 0) {
-            GeometryReader { geometry in
-                let columns = QuickPanelColumns.widths(for: geometry.size.width, music: music)
-                let headings =
-                    music ? ["#", "Title", "Artist", "Album", "Time"] : ["#", "Name", "Context", "Keys / State"]
-                HStack(spacing: QuickPanelColumns.gutter) {
-                    ForEach(headings.indices, id: \.self) { index in
-                        Text(headings[index])
-                            .frame(width: columns[index], alignment: .leading)
-                            .lineLimit(1)
-                    }
+    private var tableHeader: some View {
+        GeometryReader { geometry in
+            let columns = QuickPanelColumns.widths(for: geometry.size.width, music: music)
+            let headings =
+                music
+                ? ["#", "Title", "Artist", "Album", "Time"]
+                : route == .shortcuts && controller.shortcutTool != nil
+                    ? ["#", "Action", "Group", "Shortcut"] : ["#", "Name", "Context", "Keys / State"]
+            HStack(spacing: QuickPanelColumns.gutter) {
+                ForEach(headings.indices, id: \.self) { index in
+                    Text(headings[index])
+                        .frame(width: columns[index], alignment: .leading)
+                        .lineLimit(1)
                 }
-                .padding(.leading, QuickPanelColumns.leading)
-                .frame(width: geometry.size.width, height: geometry.size.height, alignment: .leading)
             }
-            .frame(height: 27)
-            .foregroundStyle(Ink.cyan)
-            .background(Ink.header)
-            .accessibilityAddTraits(.isHeader)
-            resultList
+            .padding(.leading, QuickPanelColumns.leading)
+            .frame(width: geometry.size.width, height: geometry.size.height, alignment: .leading)
         }
-        .accessibilityLabel(music ? "Music library results" : "\(route.title) results")
+        .frame(height: 27)
+        .foregroundStyle(Ink.cyan)
+        .background(Ink.header.background(Ink.titleBox))
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
     }
 
     var playlistList: some View {
@@ -54,68 +54,16 @@ extension QuickPanelPascalSkin {
         .accessibilityLabel("Music playlists")
     }
 
-    private var resultList: some View {
+    var documentTable: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(spacing: 0) {
-                    ForEach(Array(controller.rows.enumerated()), id: \.element.id) { index, row in
-                        Button {
-                            controller.selectResultFromPointer(index)
-                        } label: {
-                            GeometryReader { geometry in
-                                let columns = QuickPanelColumns.widths(for: geometry.size.width, music: music)
-                                HStack(spacing: QuickPanelColumns.gutter) {
-                                    if music {
-                                        Text("\(index + 1)").foregroundStyle(Ink.meta)
-                                            .frame(width: columns[0], alignment: .leading)
-                                        Text(row.title).frame(width: columns[1], alignment: .leading)
-                                            .lineLimit(1)
-                                        Text(row.musicArtist).foregroundStyle(Ink.meta)
-                                            .frame(width: columns[2], alignment: .leading)
-                                            .lineLimit(1)
-                                        Text(row.musicAlbum).foregroundStyle(Ink.meta)
-                                            .frame(width: columns[3], alignment: .leading)
-                                            .lineLimit(1)
-                                        Text(row.badge).foregroundStyle(Ink.cyan)
-                                            .frame(width: columns[4], alignment: .leading)
-                                            .lineLimit(1)
-                                    } else {
-                                        Text("\(index + 1)").foregroundStyle(Ink.meta)
-                                            .frame(width: columns[0], alignment: .leading)
-                                        HStack(spacing: 0) {
-                                            if route == .attention && controller.attentionIdentities[row.id] != nil {
-                                                Text("! ").foregroundStyle(Ink.coral)
-                                            }
-                                            Text(row.title)
-                                        }
-                                        .frame(width: columns[1], alignment: .leading)
-                                        .lineLimit(1)
-                                        Text(row.detail).foregroundStyle(Ink.meta)
-                                            .lineLimit(1)
-                                            .truncationMode(QuickPanelColumns.isPath(row.detail) ? .middle : .tail)
-                                            .frame(width: columns[2], alignment: .leading)
-                                        Text(row.keys.isEmpty ? (row.badge.isEmpty ? row.status : row.badge) : row.keys)
-                                            .foregroundStyle(Ink.cyan).lineLimit(1)
-                                            .frame(width: columns[3], alignment: .leading)
-                                    }
-                                }
-                                .padding(.leading, QuickPanelColumns.leading)
-                                // GeometryReader pins content top-leading; centre it in the 28pt band.
-                                .frame(width: geometry.size.width, height: geometry.size.height, alignment: .leading)
-                            }
-                            .frame(height: 28)
-                            .frame(maxWidth: .infinity)
-                            .background(controller.selectedIndex == index ? Ink.selection : .clear)
+                LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+                    Section {
+                        ForEach(Array(controller.rows.enumerated()), id: \.element.id) { index, row in
+                            resultRow(row, at: index)
                         }
-                        .buttonStyle(.plain)
-                        .simultaneousGesture(
-                            TapGesture(count: 2).onEnded {
-                                controller.selectResultFromPointer(index)
-                                controller.activateSelected()
-                            }
-                        )
-                        .id(row.id)
-                        .accessibilityLabel("\(displayTitle(for: row)), \(row.detail), \(row.group), \(row.status)")
+                    } header: {
+                        tableHeader
                     }
                 }
             }
@@ -131,6 +79,72 @@ extension QuickPanelPascalSkin {
             }
         }
         .accessibilityLabel("\(route.title) results")
+    }
+
+    private func resultRow(_ row: QuickPanelDataRow, at index: Int) -> some View {
+        Button {
+            controller.selectResultFromPointer(index)
+        } label: {
+            GeometryReader { geometry in
+                let columns = QuickPanelColumns.widths(for: geometry.size.width, music: music)
+                HStack(spacing: QuickPanelColumns.gutter) {
+                    if music {
+                        Text("\(index + 1)").foregroundStyle(Ink.meta)
+                            .frame(width: columns[0], alignment: .leading)
+                        Text(row.title).frame(width: columns[1], alignment: .leading)
+                            .lineLimit(1)
+                        Text(row.musicArtist).foregroundStyle(Ink.meta)
+                            .frame(width: columns[2], alignment: .leading)
+                            .lineLimit(1)
+                        Text(row.musicAlbum).foregroundStyle(Ink.meta)
+                            .frame(width: columns[3], alignment: .leading)
+                            .lineLimit(1)
+                        Text(row.badge).foregroundStyle(Ink.cyan)
+                            .frame(width: columns[4], alignment: .leading)
+                            .lineLimit(1)
+                    } else {
+                        Text("\(index + 1)").foregroundStyle(Ink.meta)
+                            .frame(width: columns[0], alignment: .leading)
+                        HStack(spacing: 0) {
+                            if route == .attention && controller.attentionIdentities[row.id] != nil {
+                                Text("! ").foregroundStyle(Ink.coral)
+                            }
+                            Text(row.title)
+                        }
+                        .frame(width: columns[1], alignment: .leading)
+                        .lineLimit(1)
+                        Text(row.detail).foregroundStyle(Ink.meta)
+                            .lineLimit(1)
+                            .truncationMode(QuickPanelColumns.isPath(row.detail) ? .middle : .tail)
+                            .frame(width: columns[2], alignment: .leading)
+                        Text(
+                            row.keys.isEmpty
+                                ? (row.badge.isEmpty ? row.status : row.badge) : row.keys
+                        )
+                        .foregroundStyle(Ink.cyan).lineLimit(1)
+                        .frame(width: columns[3], alignment: .leading)
+                    }
+                }
+                .padding(.leading, QuickPanelColumns.leading)
+                // GeometryReader pins content top-leading; centre it in the 28pt band.
+                .frame(
+                    width: geometry.size.width, height: geometry.size.height, alignment: .leading)
+            }
+            .frame(height: 28)
+            .frame(maxWidth: .infinity)
+            .background(controller.selectedIndex == index ? Ink.selection : .clear)
+        }
+        .buttonStyle(.plain)
+        .simultaneousGesture(
+            TapGesture(count: 2).onEnded {
+                controller.selectResultFromPointer(index)
+                controller.activateSelected()
+            }
+        )
+        .id(row.id)
+        .help([row.title, row.detail, row.keys].filter { !$0.isEmpty }.joined(separator: " · "))
+        .accessibilityAddTraits(controller.selectedIndex == index ? .isSelected : [])
+        .accessibilityLabel("\(displayTitle(for: row)), \(row.detail), \(row.group), \(row.status)")
     }
 
     private var emptyMessage: String {
@@ -153,7 +167,7 @@ extension QuickPanelPascalSkin {
     var preview: some View {
         VStack(alignment: .leading, spacing: 12) {
             if let text = controller.attentionPreview {
-                ScrollView { Text(text).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading) }
+                Text(text).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
                 HStack {
                     Button("Focus agent ↵") { controller.activateSelected() }
                     Button("Dismiss ⌘⌫") { controller.activateSelected(remove: true) }
@@ -269,7 +283,8 @@ extension QuickPanelPascalSkin {
         .font(Typography.font(11, preferred: controller.panelFont))
         .lineLimit(1)
         .minimumScaleFactor(0.75)
-        .accessibilityLabel("Keyboard hints")
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(controller.vimHints.map { $0.0 + $0.1 }.joined(separator: ", "))
     }
 }
 

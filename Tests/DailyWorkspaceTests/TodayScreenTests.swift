@@ -109,6 +109,11 @@ final class TodayScreenTests: XCTestCase {
         XCTAssertEqual(TodayNotePreview(text: "# Today\n\n- one\n\n").lines, ["# Today", "", "- one"])
     }
 
+    func testPreviewSkipsOnlyClosedFrontmatter() {
+        XCTAssertEqual(TodayNotePreview(text: "---\r\ntype: daily\r\n---\r\n\r\n# Today").lines, ["# Today"])
+        XCTAssertEqual(TodayNotePreview(text: "---\ntype: daily").lines, ["---", "type: daily"])
+    }
+
     func testCaptureKeepsTheDraftOnFailureAndSaysCapturedOnlyAfterASave() {
         let persistence = InMemoryTaskPersistence()
         persistence.failSaves = true

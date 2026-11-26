@@ -21,7 +21,10 @@ extension QuickPanelController {
 
     /// Footer hints; the panel advertises no function keys.
     var vimHints: [(String, String)] {
-        currentRoute == .music
+        if focusedPane == "command" {
+            return [("↑/↓", " Select  "), ("↵", " Open  "), ("Esc", query.isEmpty ? " Close search" : " Clear search")]
+        }
+        return currentRoute == .music
             ? [
                 ("j/k", " Move  "), ("h/l", " Panes  "), ("␣", " Play  "), ("n/p", " Next/Prev  "),
                 ("-/+", " Vol  "), ("s", " Shuffle  "), ("S", " Random  "), ("/", " Find  "),

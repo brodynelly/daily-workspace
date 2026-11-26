@@ -11,7 +11,11 @@ struct AssistantView: View {
     @EnvironmentObject private var preferences: Preferences
     @EnvironmentObject private var navigation: AppNavigation
 
+    @State private var showingDetails = false
     @State private var reveal: UUID?
+
+    private static let minimumChatWidth: CGFloat = 520
+    private static let detailsPopoverHeight: CGFloat = 440
 
     var body: some View {
         Page(scrolls: false) {
@@ -21,23 +25,42 @@ struct AssistantView: View {
                 if isConnected { actions }
             }
             if isConnected {
-                HStack(alignment: .top, spacing: Space.s6) {
-                    AssistantRail(reveal: $reveal).frame(width: 280)
-                    VerticalHairline()
-                    VStack(alignment: .leading, spacing: Space.s3) {
-                        AssistantTranscript(reveal: $reveal).frame(maxHeight: .infinity)
-                        if let error = assistant.error { AssistantErrorNote(message: error) }
-                        if !navigation.showingAssistantPanel {
-                            AssistantComposer(text: $navigation.assistantDraft)
+                GeometryReader { geometry in
+                    let inlineDetails = geometry.size.width >= Metrics.sidebarWidth + Space.s5 + Self.minimumChatWidth
+                    HStack(alignment: .top, spacing: Space.s5) {
+                        if inlineDetails {
+                            AssistantRail(reveal: $reveal).frame(width: Metrics.sidebarWidth)
+                            VerticalHairline()
                         }
+                        VStack(alignment: .leading, spacing: Space.s3) {
+                            if !inlineDetails {
+                                Button("Conversation details", systemImage: "sidebar.left") { showingDetails.toggle() }
+                                    .buttonStyle(.secondary)
+                                    .popover(isPresented: $showingDetails) {
+                                        AssistantRail(reveal: $reveal)
+                                            .padding(Space.s4)
+                                            .frame(
+                                                width: Metrics.assistantInspectorWidth,
+                                                height: Self.detailsPopoverHeight
+                                            )
+                                            .onChange(of: reveal) { showingDetails = false }
+                                    }
+                            }
+                            AssistantTranscript(reveal: $reveal).frame(maxHeight: .infinity)
+                            if let error = assistant.error { AssistantErrorNote(message: error) }
+                            if !navigation.showingAssistantPanel {
+                                AssistantComposer(text: $navigation.assistantDraft)
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
                     }
-                    .frame(maxWidth: .infinity)
                 }
-                .frame(maxHeight: .infinity)
             } else {
-                VStack(alignment: .leading, spacing: Space.s3) {
-                    AssistantConnect()
-                    ScrollView { AssistantNativeRuns() }
+                ScrollView {
+                    VStack(alignment: .leading, spacing: Space.s5) {
+                        AssistantConnect()
+                        AssistantNativeRuns()
+                    }
                 }
             }
         }
@@ -95,9 +118,7 @@ struct AssistantConnect: View {
                 ReasonNote(readError, tone: .danger, next: "Unlock the login keychain, then open this screen again.")
             }
         }
-        .frame(maxWidth: 560)
         .frame(maxWidth: .infinity)
-        .padding(.top, Space.s6)
     }
 
     private var disclosure: String {

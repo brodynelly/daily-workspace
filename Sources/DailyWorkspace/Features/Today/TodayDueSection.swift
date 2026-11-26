@@ -14,12 +14,11 @@ struct TodayDueSection: View {
 
     var body: some View {
         let items = items
-        VStack(alignment: .leading, spacing: Space.s3) {
-            SectionHeading("Due today") {
-                Button("Open Loops") { model.navigation.section = .openLoops }
-                    .buttonStyle(.text)
-                    .accessibilityLabel("Show every open loop")
-            }
+        Panel("Due today") {
+            Button("Open Loops") { model.navigation.section = .openLoops }
+                .buttonStyle(.text)
+                .accessibilityLabel("Show every open loop")
+        } content: {
             if items.isEmpty {
                 Text(emptyText)
                     .textRole(.bodySmall, lineBox: false)
@@ -37,7 +36,11 @@ struct TodayDueSection: View {
     }
 
     private var emptyText: String {
-        openLoops.isRefreshing && openLoops.loops.isEmpty ? "Reading your sources…" : "Nothing is due today."
+        if openLoops.isRefreshing && openLoops.loops.isEmpty { return "Reading your sources…" }
+        let readable = TodayDue.datedAuthorities.filter { openLoops.observations[$0]?.state.isReadable == true }
+        if readable == [.local] { return "No local tasks are due today." }
+        if readable == [.reminders] { return "No reminders are due today." }
+        return readable.isEmpty ? "No dated sources are available." : "Nothing is due today."
     }
 }
 

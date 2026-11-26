@@ -95,14 +95,14 @@ struct QuickPanelPascalSkin: View {
 
                 if showsPreview {
                     pane(previewTitle, active: controller.focusedPane == "preview") {
-                        preview
+                        ScrollView { preview }
                     }
                     .frame(width: contentWidth, height: previewHeight)
                     .offset(x: x, y: previewY)
                 }
 
                 if controller.searchVisible {
-                    pane(music ? "MUSIC.APP" : "SEARCH / COMMAND", active: controller.focusedPane == "command") {
+                    pane("FIND IN \(route.title.uppercased())", active: controller.focusedPane == "command") {
                         command
                     }
                     .frame(width: contentWidth, height: 84)
@@ -115,6 +115,7 @@ struct QuickPanelPascalSkin: View {
 
                 if controller.palette.isVisible {
                     QuickPanelCommandPaletteOverlay(controller: controller, palette: controller.palette)
+                        .padding(Space.s5)
                         .frame(width: width, height: height)
                         .background(Color.black.opacity(0.25))
                 }
@@ -127,6 +128,7 @@ struct QuickPanelPascalSkin: View {
                 if reduceMotion { transaction.disablesAnimations = true }
             }
         }
+        .accessibilityElement(children: .contain)
         .accessibilityLabel("Daily Workspace Pascal panel, \(route.title)")
         .onChange(of: controller.focusedPane) { _, pane in searchFocused = pane == "command" }
         .onChange(of: controller.searchRequest) { _, _ in searchFocused = true }
@@ -169,56 +171,12 @@ struct QuickPanelPascalSkin: View {
 
     private var menuStrip: some View {
         HStack(spacing: 4) {
-            menu("File") {
-                Button("Open \(route.title) in Daily Workspace") {
-                    if let section = route.workspaceSection { controller.open(section) }
-                }
-                .disabled(route.workspaceSection == nil)
-                Button("Quick AI Chat") { controller.open(.assistant) }
-                    .accessibilityLabel("Quick AI Chat, open shared Assistant")
-                Button("Open selection ↵") { controller.activateSelected() }
-                Button("Workspace actions ⌘↵") { controller.activateSelected(alternate: true) }
-                Button("Refresh ⌘R") { controller.refresh() }
-                Button("Close panel") { controller.hide(restoreFocus: true) }
-            }
-            menu("Edit") {
-                Button("Select Home") { controller.navigate(to: .home) }
-                Button("Clear search") { controller.query = "" }
-                Button("Dismiss / Close session ⌘⌫") { controller.activateSelected(remove: true) }
-            }
-            if music {
-                menu("Play") {
-                    Button("Play / Pause F8") { controller.performMusic(.playPause) }
-                    Button("Stop") { controller.performMusic(.stop) }
-                    Button("Previous F7") { controller.performMusic(.previous) }
-                    Button("Next F9") { controller.performMusic(.next) }
-                    Button("Volume down F5") { controller.performMusic(.volume(-5)) }
-                    Button("Volume up F6") { controller.performMusic(.volume(5)) }
-                }
-                menu("Shuffle") {
-                    Button("Shuffle songs F4") {
-                        controller.performMusic(
-                            .shuffle(
-                                filteredTrackIDs: controller.rows.map {
-                                    String($0.id.dropFirst("music:".count))
-                                }))
-                    }
-                    Button("End Shuffle") { controller.performMusic(.endShuffle) }
-                }
-            } else {
-                menu("View") {
-                    ForEach(QuickPanelRoute.allCases) { destination in
-                        Button(destination.title) { controller.navigate(to: destination) }
+            ForEach(controller.menuHeadings, id: \.self) { name in
+                QuickPanelMenuIcon(name: name, font: controller.panelFont) {
+                    ForEach(controller.menuChoices(named: name), id: \.command) { item in
+                        Button(item.title) { controller.performMenuCommand(item.command) }
                     }
                 }
-            }
-            menu("Window") {
-                ForEach(QuickPanelRoute.allCases) { destination in
-                    Button(destination.title) { controller.navigate(to: destination) }
-                }
-            }
-            menu("Help") {
-                Button("Help F1") { controller.showHelp() }
             }
             Spacer(minLength: 0)
             // While search is hidden, its status line (count, music state, errors) moves here.
@@ -230,17 +188,14 @@ struct QuickPanelPascalSkin: View {
         .padding(.horizontal, 12)
     }
 
-    private func menu<Items: View>(_ name: String, @ViewBuilder items: () -> Items) -> some View {
-        QuickPanelMenuIcon(name: name, items: items())
-    }
-
 }
 
 /// A menu-strip entry drawn as an SF Symbol; the name stays in its accessibility label and tooltip.
 @MainActor
 struct QuickPanelMenuIcon<Items: View>: View {
     let name: String
-    let items: Items
+    let font: String
+    @ViewBuilder let items: Items
     @State private var hovered = false
 
     static func symbol(for name: String) -> String {
@@ -265,10 +220,11 @@ struct QuickPanelMenuIcon<Items: View>: View {
                     .symbolRenderingMode(.hierarchical)
                     .font(.system(size: 12, weight: .regular))
                     .frame(width: 16, height: 16)
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 7, weight: .semibold))
-                    .opacity(hovered ? 0.9 : 0.45)
+                Text(name)
+                    .font(QuickPanelPascalSkin.Typography.font(11, preferred: font))
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(name)
             .foregroundStyle(hovered ? QuickPanelPascalSkin.Ink.gold : QuickPanelPascalSkin.Ink.footer)
             .padding(.horizontal, 7)
             .frame(height: 21)
