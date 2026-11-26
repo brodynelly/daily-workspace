@@ -50,7 +50,7 @@ Sources/DailyWorkspace/
     Calendar/       CalendarService (selected-day and week EventKit reads), CalendarStore (+ EventKitCalendarStore),
                     CalendarView, CalendarWeekView (hour grid), CalendarMonthRail (month and day agenda),
                     AgendaList (+ EventRow), EventEditorView
-    Assistant/      AssistantSession (+Loop), AnthropicClient and OpenRouterClient (AgentTransport),
+    Assistant/      AssistantSession (+Loop, +Runtime), AnthropicClient and OpenRouterClient (AgentTransport),
                     RetryingAgentTransport, AgentRuntime (limits, run events, deadlines), AgentUsage,
                     AgentStream (+Accumulator), AssistantTools, AssistantToolRunner, AssistantPrompt,
                     WorkspaceAssistantContext, AssistantKey, RestartRecords, RestartPanel,
