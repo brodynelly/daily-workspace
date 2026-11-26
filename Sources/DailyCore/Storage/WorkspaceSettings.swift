@@ -36,6 +36,8 @@ public struct WorkspaceSettings: Codable, Equatable {
     public var openRouterModel: String
     /// Limits and tool choices for the Assistant's tool loop. See `AssistantRuntimeSettings`.
     public var assistantRuntime: AssistantRuntimeSettings
+    /// Saved chats, memory, routines and vault-write approval for the durable Assistant. See `AgentSettings`.
+    public var agent: AgentSettings
     /// External Mail access requires explicit opt-in.
     public var mailEnabled: Bool
     /// Quick Panel clipboard access requires explicit opt-in.
@@ -68,7 +70,8 @@ public struct WorkspaceSettings: Codable, Equatable {
         quickPanelTerminalBorderEnabled: Bool = false,
         quickPanelZoom: [String: Double] = [:],
         shortcutOverrides: [String: ShortcutOverride] = [:],
-        assistantRuntime: AssistantRuntimeSettings = AssistantRuntimeSettings()
+        assistantRuntime: AssistantRuntimeSettings = AssistantRuntimeSettings(),
+        agent: AgentSettings = AgentSettings()
     ) {
         self.vaultBookmark = vaultBookmark
         self.vaultPath = vaultPath
@@ -88,6 +91,7 @@ public struct WorkspaceSettings: Codable, Equatable {
         self.quickPanelZoom = quickPanelZoom
         self.shortcutOverrides = shortcutOverrides
         self.assistantRuntime = assistantRuntime.validated
+        self.agent = agent.validated
     }
 
     public init(from decoder: Decoder) throws {
@@ -115,6 +119,7 @@ public struct WorkspaceSettings: Codable, Equatable {
         assistantRuntime =
             (try? c.decodeIfPresent(AssistantRuntimeSettings.self, forKey: .assistantRuntime))
             ?? fallback.assistantRuntime
+        agent = (try? c.decodeIfPresent(AgentSettings.self, forKey: .agent)) ?? fallback.agent
         // Malformed consent values cannot opt into external sources or integrations.
         mailEnabled = (try? c.decodeIfPresent(Bool.self, forKey: .mailEnabled)) ?? fallback.mailEnabled
         quickPanelClipboardEnabled =

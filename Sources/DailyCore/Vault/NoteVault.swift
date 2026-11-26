@@ -154,7 +154,8 @@ public struct NoteVault {
     /// `body` followed by `block` on its own line.
     public static func appending(_ block: String, to body: String) -> String {
         var result = body
-        if !result.isEmpty && !result.hasSuffix("\n") { result += "\n" }
+        // Scalars, not Characters: "\r\n" is one Character, so `hasSuffix("\n")` misses a CRLF ending.
+        if !result.isEmpty && result.unicodeScalars.last != "\n" { result += "\n" }
         return result + block
     }
 

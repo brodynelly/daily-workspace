@@ -24,6 +24,14 @@ final class AppModel: ObservableObject {
     let assistantKey: AssistantKey
     let restarts: RestartRecords
     let assistantContext: WorkspaceAssistantContext
+    /// The Assistant's vault changes: review queue, history, audit journal and undo (`AppModel+Agent.swift`).
+    let vaultChanges: VaultChanges
+    let agentWorkspace: WorkspaceAgent
+    /// The Assistant's long-term memory folder (app-owned, not the vault).
+    let agentMemory: AgentMemory
+    /// Saved, encrypted conversations.
+    let conversationArchive: ConversationArchive
+    let routines: RoutineScheduler
 
     /// A problem with the saved Luuna settings (an unreadable token or host file), for Settings to show. Cleared by
     /// a successful `connectLuuna`.
@@ -87,11 +95,25 @@ final class AppModel: ObservableObject {
             openRouterTransport: dependencies.openRouterTransport,
             openRouterKeyStore: dependencies.openRouterKeyStore)
         restarts = RestartRecords(ledger: ledger, vaultRoot: vaultRoot)
+        let prefs = preferences
+        let memory = AgentMemory(root: dependencies.directory.agentMemoryFolder)
+        agentMemory = memory
+        vaultChanges = VaultChanges(
+            store: VaultChangeStore(directory: dependencies.directory), vault: { session.vault }, editor: document,
+            settings: { prefs.agent })
+        agentWorkspace = WorkspaceAgent(changes: vaultChanges, memory: { memory }, settings: { prefs.agent })
+        conversationArchive = ConversationArchive(
+            folder: dependencies.directory.agentConversationsFolder, keyStore: dependencies.agentHistoryKeyStore,
+            isEnabled: { prefs.agent.saveConversations }, retentionDays: { prefs.agent.conversationRetentionDays })
+        routines = RoutineScheduler(
+            store: RoutineStore(url: dependencies.directory.routinesURL),
+            isEnabled: { prefs.agent.routines && prefs.assistantEnabled })
 
         vaultSession.resolve()
         document.attach(vaultSession.vault)
         if vaultSession.vault != nil { openToday(create: false) }
         observeAssistant()
+        observeAgent(startRoutines: dependencies.observesSystem)
         observeVault(refreshNow: dependencies.observesSystem)
         if dependencies.observesSystem {
             startObserving()

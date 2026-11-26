@@ -58,7 +58,7 @@ struct AIRuntimeSettingsSection: View {
                 divider: false
             ) {
                 VStack(alignment: .leading, spacing: Space.s2) {
-                    ForEach(AssistantTool.allCases, id: \.self) { tool in
+                    ForEach(AssistantTool.readOnly, id: \.self) { tool in
                         Toggle(isOn: isOffered(tool)) {
                             Text(tool.rawValue).font(TextRole.mono.font)
                         }

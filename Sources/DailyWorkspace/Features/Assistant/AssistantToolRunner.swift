@@ -38,7 +38,11 @@ struct ToolFailure: Error, Equatable {
 struct AssistantToolRunner: Sendable {
     let context: AssistantContext
     /// Tools the model was offered. A call to any other tool is refused without running.
-    var enabledTools: Set<AssistantTool> = Set(AssistantTool.allCases)
+    var enabledTools: Set<AssistantTool> = Set(AssistantTool.readOnly)
+    /// Where vault-write and memory tools act; nil refuses them.
+    var workspace: AgentWorkspace?
+    /// The run the calls belong to: where changes say they came from and whose auto-apply budget they use.
+    var run = AgentRunContext(origin: "chat", conversationID: nil)
     /// Seconds a call may take, or nil for no deadline.
     var timeout: TimeInterval?
     /// Largest result sent back, in UTF-8 bytes, or nil for no cap.
@@ -66,7 +70,9 @@ struct AssistantToolRunner: Sendable {
             }
             let parsed = try ToolArguments(object, for: tool)
             let output: ToolOutput
-            if let timeout {
+            // Writes are not raced against a deadline: an abandoned write could still land, so the model must never
+            // be told its outcome is unknown. They are local and bounded by the note size cap instead.
+            if let timeout, tool.isReadOnly {
                 output = try await AgentDeadline.run(seconds: timeout) { [self] in
                     let (json, citations) = try await execute(tool, parsed)
                     return ToolOutput(json: json, citations: citations)
@@ -147,6 +153,8 @@ struct AssistantToolRunner: Sendable {
 
     private func execute(_ tool: AssistantTool, _ args: ToolArguments) async throws -> (String, [ToolCitation]) {
         switch tool {
+        case .createNote, .editNote, .appendToNote, .memory:
+            return try await executeAgentTool(tool, args)
         case .searchNotes:
             let limit = args.integer("limit", default: 8, in: AssistantTool.searchLimit)
             let hits = try await Array(context.searchNotes(query: args.string("query"), limit: limit).prefix(limit))
@@ -211,7 +219,7 @@ struct AssistantToolRunner: Sendable {
         let events: [ToolEvent]
     }
 
-    private static func encode<T: Encodable>(_ value: T) throws -> String {
+    static func encode<T: Encodable>(_ value: T) throws -> String {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
         encoder.keyEncodingStrategy = .convertToSnakeCase
@@ -265,6 +273,22 @@ struct ToolArguments: @unchecked Sendable {
     func optionalString(_ name: String) -> String? {
         let text = (values[name] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
         return text?.isEmpty == false ? text : nil
+    }
+
+    /// A string exactly as sent (not trimmed), or nil when absent. For note and memory text.
+    func text(_ name: String) -> String? {
+        values[name] as? String
+    }
+
+    /// A required string exactly as sent.
+    func requiredText(_ name: String) throws -> String {
+        guard let text = text(name) else { throw ToolFailure("Missing required argument \"\(name)\".") }
+        return text
+    }
+
+    /// A whole number, or nil when absent.
+    func optionalInteger(_ name: String) -> Int? {
+        (values[name] as? NSNumber)?.intValue
     }
 
     /// A whole number clamped to `range`.

@@ -29,6 +29,26 @@ extension AssistantSession {
         var showsProgress: Bool
         /// Collects the run's content-free summary.
         var trace: AgentRunTrace?
+        /// Where the run's vault changes say they came from.
+        var run = AgentRunContext(origin: "chat", conversationID: nil)
+        /// Holds what the run completed so far, for a run that fails after a tool changed something.
+        var progress: LoopProgress?
+        /// Run only read-only tools. The tool definitions stay the same, so the cached prefix and the conversation
+        /// stay valid, but a write or memory call is refused rather than run.
+        var readOnly = false
+    }
+
+    /// The loop's outcome up to its last complete tool round.
+    @MainActor
+    final class LoopProgress {
+        var outcome: LoopOutcome?
+
+        /// True when a completed tool call may have changed the vault or memory.
+        var changedSomething: Bool {
+            outcome?.toolCalls.contains { call in
+                !call.isError && AssistantTool(rawValue: call.name).map { !$0.isReadOnly } == true
+            } ?? false
+        }
     }
 
     /// Appended after the results of the last allowed tool round.
@@ -44,7 +64,9 @@ extension AssistantSession {
         // One snapshot per run: a Settings change mid-answer applies from the next question, never mid-run.
         let configuration = self.configuration
         let tools = AssistantTool.enabledDefinitions(configuration.enabledTools)
-        let runner = makeRunner(configuration)
+        var runnerConfiguration = configuration
+        if options.readOnly { runnerConfiguration.enabledTools.formIntersection(AssistantTool.readOnly) }
+        let runner = makeRunner(runnerConfiguration, run: options.run)
         var outcome = LoopOutcome(appended: [opening])
         var rounds = 0
         var continuations = 0
@@ -84,6 +106,7 @@ extension AssistantSession {
                     blocks.append(AgentContentBlock.text(Self.lastRoundNote).raw)
                 }
                 outcome.appended.append(AgentMessage(role: .user, content: blocks))
+                options.progress?.outcome = outcome
             case "pause_turn":
                 guard continuations < configuration.maxContinuations else {
                     throw AgentError(.incomplete, "The answer kept pausing and was stopped. Try again.")

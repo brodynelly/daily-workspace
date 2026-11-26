@@ -1,19 +1,24 @@
 import DailyCore
 import Foundation
 
-/// One finished exchange, as the UI shows it.
-/// A finished conversation held in memory only (never written to disk).
+/// A conversation: its turns for the UI and its transcript for the model. Saved encrypted by
+/// `ConversationArchive` when the user keeps chat history on.
 struct AssistantConversation: Identifiable, Sendable {
     let id: UUID
     let turns: [AssistantTurn]
     let transcript: [AgentMessage]
     let provider: AssistantProvider
     let model: String
-    let systemRevision: Int
+    /// `AssistantSession.contextFingerprint` when it was built; the transcript replays only into the same one.
+    let contextFingerprint: String
     let startedAt: Date
     let archivedAt: Date
+    /// `chat` or `routine: <name>`.
+    var origin = "chat"
+    /// A question that was running when this was last saved: the app quit or crashed before it was answered.
+    var interruptedQuestion: String?
 
-    var title: String { turns.first?.question ?? "Chat" }
+    var title: String { turns.first?.question ?? interruptedQuestion ?? "Chat" }
 }
 
 struct AssistantTurn: Identifiable, Equatable, Sendable {
@@ -60,7 +65,11 @@ extension AssistantSession {
         /// Largest tool result sent to the model, in UTF-8 bytes; nil for no cap.
         var maxToolResultBytes: Int? = AssistantRuntimeSettings.defaultMaxToolResultBytes
         /// Tools offered to the model; others are refused.
-        var enabledTools: Set<AssistantTool> = Set(AssistantTool.allCases)
+        var enabledTools: Set<AssistantTool> = Set(AssistantTool.readOnly)
+        /// What the Assistant may change; shapes the system prompt.
+        var capabilities = AgentCapabilities.readOnly
+        /// The memory folder's file list for the start of each message, or nil without memory.
+        var memoryIndex: @Sendable () -> String? = { nil }
         var now: @Sendable () -> Date = { Date() }
         var timeZone: @Sendable () -> TimeZone = { TimeZone.current }
         /// How retries wait (tests replace it).
@@ -76,34 +85,42 @@ extension AssistantSession {
             toolTimeout = limits.toolTimeout
             maxToolResultBytes = limits.maxToolResultBytes
             enabledTools = limits.enabledTools
+            capabilities = limits.capabilities
         }
     }
 
     /// The current conversation, kept in memory so the Quick Panel can list it with earlier chats.
     /// Nil while a turn is running or when nothing has been asked.
     func archivedConversation(now: Date = Date()) -> AssistantConversation? {
-        guard !isStreaming, let first = turns.first else { return nil }
-        return AssistantConversation(
-            id: UUID(), turns: turns, transcript: transcript, provider: configuration.provider,
-            model: configuration.model, systemRevision: systemRevision, startedAt: first.askedAt, archivedAt: now)
+        guard !isStreaming, !turns.isEmpty else { return nil }
+        return snapshot(now: now, running: nil)
+    }
+
+    /// The conversation as it stands, with `running` marking a question still being answered.
+    func snapshot(now: Date = Date(), running: String?) -> AssistantConversation {
+        var conversation = AssistantConversation(
+            id: conversationID, turns: turns, transcript: transcript, provider: configuration.provider,
+            model: configuration.model, contextFingerprint: contextFingerprint,
+            startedAt: turns.first?.askedAt ?? now, archivedAt: now)
+        conversation.origin = origin
+        conversation.interruptedQuestion = running
+        return conversation
+    }
+
+    /// Hand the conversation to `onSave`. With no turns and nothing running it has nothing to keep, so the
+    /// archive drops any file a failed first question left.
+    func save(running: String?) {
+        onSave?(snapshot(now: configuration.now(), running: running), running)
     }
 
     func userMessage(_ question: String, pageFocus: AssistantPageFocus? = nil) -> AgentMessage {
-        guard let pageFocus else {
-            return AgentMessage(
-                role: .user,
-                content: [
-                    AssistantPrompt.contextBlock(now: configuration.now(), timeZone: configuration.timeZone()),
-                    AgentContentBlock.text(question).raw,
-                ])
+        var content = [AssistantPrompt.contextBlock(now: configuration.now(), timeZone: configuration.timeZone())]
+        if configuration.capabilities.memory, let index = configuration.memoryIndex() {
+            content.append(AgentContentBlock.text("<memory_index>\n\(index)\n</memory_index>").raw)
         }
-        return AgentMessage(
-            role: .user,
-            content: [
-                AssistantPrompt.contextBlock(now: configuration.now(), timeZone: configuration.timeZone()),
-                AgentContentBlock.text(pageFocus.contextText).raw,
-                AgentContentBlock.text(question).raw,
-            ])
+        if let pageFocus { content.append(AgentContentBlock.text(pageFocus.contextText).raw) }
+        content.append(AgentContentBlock.text(question).raw)
+        return AgentMessage(role: .user, content: content)
     }
 
     /// `model` when a server-side fallback served the turn instead of the configured model.
@@ -128,7 +145,7 @@ extension AssistantSession {
                 base: transcript, opening: opening, apiKey: apiKey,
                 options: LoopOptions(
                     effort: configuration.draftEffort, schema: AssistantPrompt.restartSchema, generation: generation,
-                    showsProgress: false, trace: trace))
+                    showsProgress: false, trace: trace, readOnly: true))
             finishRun(trace, error: nil, generation: generation)
         } catch {
             finishRun(trace, error: error, generation: generation)

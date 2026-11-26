@@ -268,6 +268,7 @@ final class QuickPanelController: NSObject, ObservableObject, NSWindowDelegate {
     func configure(model: AppModel, configuration: QuickPanelControlConfiguration = .init()) {
         self.model = model
         self.configuration = configuration
+        fileSavedChats(from: model)
         let dotfiles = URL(fileURLWithPath: configuration.dotfiles, isDirectory: true)
         dataProvider = QuickPanelDataProvider(dotfiles: dotfiles)
         actions = QuickPanelDataActions(dotfiles: dotfiles)

@@ -1,9 +1,10 @@
 import Foundation
 
-/// Earlier AI chats for this app run. They live in memory only (saving chats to disk was declined) and are
+/// Earlier AI chats: this run's, plus saved ones when chat history is on (Settings → AI → Agent). They are
 /// opened explicitly from CHATS, ⌘[ / ⌘] or Return; opening the AI page always starts a fresh chat.
 extension QuickPanelAIPopup {
     func file(_ conversation: AssistantConversation) {
+        chats.removeAll { $0.id == conversation.id }
         chats.append(conversation)
         chats.sort { $0.startedAt > $1.startedAt }
     }
@@ -17,11 +18,23 @@ extension QuickPanelAIPopup {
 }
 
 extension QuickPanelController {
+    /// Saved chats join CHATS; the open conversation stays out of the list.
+    func fileSavedChats(from model: AppModel) {
+        // Delete all history also removes the copies this panel holds.
+        aiPopup.chats.removeAll { model.conversationArchive.wasDeleted($0) }
+        for chat in model.conversationArchive.conversations where chat.id != model.assistant.conversationID {
+            aiPopup.file(chat)
+        }
+    }
+
     /// Files the current conversation (if any and not mid-answer) and clears it. Returns false while answering.
     @discardableResult
     func fileCurrentChat() -> Bool {
-        guard let assistant = model?.assistant, !assistant.isStreaming else { return false }
+        guard let model, !model.assistant.isStreaming else { return false }
+        let assistant = model.assistant
         if let current = assistant.archivedConversation() { aiPopup.file(current) }
+        // Routines save while the panel is closed, so pick up what the archive gained since.
+        fileSavedChats(from: model)
         assistant.clear()
         return true
     }
@@ -39,10 +52,13 @@ extension QuickPanelController {
     }
 
     func openAIChat(_ id: AssistantConversation.ID) {
-        guard let assistant = model?.assistant, !assistant.isStreaming, let chosen = aiPopup.take(id) else { return }
+        guard let model, !model.assistant.isStreaming, let chosen = aiPopup.take(id) else { return }
+        let assistant = model.assistant
+        guard !model.conversationArchive.wasDeleted(chosen) else { return }
         if let current = assistant.archivedConversation() { aiPopup.file(current) }
         let resumed = assistant.restore(chosen)
-        model?.navigation.assistantDraft = ""
+        // A question the app quit or crashed on comes back as the draft, ready to ask again.
+        model.navigation.assistantDraft = chosen.interruptedQuestion ?? ""
         aiPopup.focusedTurn = nil
         aiPopup.chatIndex = 0
         aiPopup.section = .conversation
@@ -81,7 +97,9 @@ extension QuickPanelController {
         case "x":
             let row = aiPopup.chatIndex
             if row > 0, aiPopup.chats.indices.contains(row - 1) {
-                aiPopup.discard(aiPopup.chats[row - 1].id)
+                let id = aiPopup.chats[row - 1].id
+                aiPopup.discard(id)
+                model?.conversationArchive.delete(id)
                 aiPopup.chatIndex = min(row, aiChatRowCount - 1)
             }
         default:

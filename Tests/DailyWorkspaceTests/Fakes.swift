@@ -254,7 +254,8 @@ extension AppModel.Dependencies {
             agentTransport: agentTransport,
             assistantKeyStore: assistantKeys,
             autosaveDelay: .seconds(60),
-            observesSystem: false
+            observesSystem: false,
+            agentHistoryKeyStore: FakeKeyStore()
         )
     }
 }

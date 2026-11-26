@@ -5,8 +5,8 @@ import Foundation
 ///
 /// The transcript is append-only. Assistant blocks (thinking included) are stored as the raw JSON they arrived as
 /// and replayed unchanged; a turn is added only when it completes, so a failed, refused or stopped turn leaves
-/// the transcript exactly as it was. Nothing is persisted; the only durable output is a restart draft the user
-/// accepts elsewhere.
+/// the transcript exactly as it was. `onSave` persists the conversation (encrypted, `ConversationArchive`) when a
+/// question starts, so a crash leaves it marked interrupted, and again when it is answered.
 @MainActor
 final class AssistantSession: ObservableObject {
     @Published private(set) var turns: [AssistantTurn] = []
@@ -42,18 +42,22 @@ final class AssistantSession: ObservableObject {
     let transport: AgentTransport
     let openRouterTransport: AgentTransport
     let context: AssistantContext
+    /// Where write and memory tools act; nil keeps the Assistant read-only.
+    var workspace: AgentWorkspace?
+    /// Identifies this conversation's saved file; a new one starts with every `clear()`.
+    private(set) var conversationID = UUID()
+    /// `chat`, or `routine: <name>` for a routine's own session.
+    var origin = "chat"
+    /// Saves the conversation: called with the question when it starts (so a crash shows it interrupted) and with
+    /// nil once it is answered or fails.
+    var onSave: (@MainActor (AssistantConversation, String?) -> Void)?
+    /// The vault's AGENTS.md and identity (vault path and hash) the system prompt was built from.
+    var vaultAgents: String?
+    var contextIdentity = ""
     /// Lifecycle hooks: called on the main actor for every run event. Events carry no content.
     private var runObservers: [@MainActor (AgentRunEvent) -> Void] = []
-    /// The tool runner with the current limits.
-    var runner: AssistantToolRunner { makeRunner(configuration) }
-
-    func makeRunner(_ configuration: Configuration) -> AssistantToolRunner {
-        AssistantToolRunner(
-            context: context, enabledTools: configuration.enabledTools, timeout: configuration.toolTimeout,
-            maxResultBytes: configuration.maxToolResultBytes)
-    }
-    private let keyStore: APIKeyStore
-    private let openRouterKeyStore: APIKeyStore
+    let keyStore: APIKeyStore
+    let openRouterKeyStore: APIKeyStore
     private var requestTask: Task<Void, Never>?
     private var draftTask: Task<RestartDraft, Error>?
     /// Bumped by `clear()` so a superseded request cannot touch state.
@@ -77,7 +81,14 @@ final class AssistantSession: ObservableObject {
         self.context = context
         self.configuration = configuration
         self.isEnabled = isEnabled
-        self.system = AssistantPrompt.system(vaultAgents: vaultAgents)
+        self.vaultAgents = vaultAgents
+        self.system = AssistantPrompt.system(vaultAgents: vaultAgents, capabilities: configuration.capabilities)
+    }
+
+    /// Give the write and memory tools somewhere to act. Without it they are never offered.
+    func setWorkspace(_ workspace: AgentWorkspace?, memoryIndex: @escaping @Sendable () -> String? = { nil }) {
+        self.workspace = workspace
+        configuration.memoryIndex = memoryIndex
     }
 
     /// Turn sending on or off. Turning it off stops a running turn or draft.
@@ -107,9 +118,18 @@ final class AssistantSession: ObservableObject {
     /// Apply runtime limits. Limits take effect from the next question; a change to the offered tools starts a
     /// new conversation, because tool definitions open the cached prefix and earlier tool calls must stay valid.
     func applyRuntime(_ limits: AgentRuntimeLimits) {
-        let toolsChanged = limits.enabledTools != configuration.enabledTools
+        var limits = limits
+        if workspace == nil {
+            limits.enabledTools.subtract(AssistantTool.vaultWrite + [.memory])
+            limits.capabilities = .readOnly
+        }
+        let capabilitiesChanged = limits.capabilities != configuration.capabilities
+        let toolsChanged = limits.enabledTools != configuration.enabledTools || capabilitiesChanged
         configuration.apply(limits)
         guard toolsChanged else { return }
+        if capabilitiesChanged {
+            system = AssistantPrompt.system(vaultAgents: vaultAgents, capabilities: configuration.capabilities)
+        }
         // Archived chats made with the old tools must not replay their tool calls against the new ones.
         systemRevision += 1
         if !transcript.isEmpty || isStreaming { clear() }
@@ -141,15 +161,18 @@ final class AssistantSession: ObservableObject {
         let askedAt = configuration.now()
         let opening = userMessage(question, pageFocus: pageFocus ?? attachment)
         attachment = nil
+        let run = runContext
+        save(running: question)
         requestTask = Task {
             defer { if self.generation == generation { self.finish() } }
             let trace = AgentRunTrace(profile: "chat")
+            let progress = LoopProgress()
             do {
                 let outcome = try await runLoop(
                     base: base, opening: opening, apiKey: key,
                     options: LoopOptions(
                         effort: configuration.chatEffort, schema: nil, generation: generation, showsProgress: true,
-                        trace: trace))
+                        trace: trace, run: run, progress: progress))
                 guard self.generation == generation else { return }
                 transcript = base + outcome.appended
                 var turn = AssistantTurn(
@@ -159,9 +182,14 @@ final class AssistantSession: ObservableObject {
                 turn.contextTokens = outcome.contextTokens
                 turns.append(turn)
                 finishRun(trace, error: nil, generation: generation)
+                save(running: nil)
             } catch {
                 finishRun(trace, error: error, generation: generation)
                 guard self.generation == generation else { return }
+                if progress.changedSomething, let partial = progress.outcome {
+                    keepPartial(partial, question: question, base: base, askedAt: askedAt)
+                }
+                save(running: nil)
                 report(error)
             }
         }
@@ -178,6 +206,7 @@ final class AssistantSession: ObservableObject {
         stop()
         attachment = nil
         generation += 1
+        conversationID = UUID()
         transcript = []
         turns = []
         conversationUsage = AgentUsage()
@@ -191,19 +220,22 @@ final class AssistantSession: ObservableObject {
     @discardableResult
     func restore(_ conversation: AssistantConversation) -> Bool {
         clear()
+        conversationID = conversation.id
         turns = conversation.turns
         let sameContext =
             conversation.provider == configuration.provider && conversation.model == configuration.model
-            && conversation.systemRevision == systemRevision
+            && conversation.contextFingerprint == contextFingerprint
         transcript = sameContext ? conversation.transcript : []
         return sameContext
     }
 
     /// Start over with a new vault `AGENTS.md` (after a vault switch or when its hash changed). The system prompt
     /// is never changed under an existing conversation: that would invalidate its cache and thinking blocks.
-    func startNewConversation(vaultAgents: String?) {
+    func startNewConversation(vaultAgents: String?, identity: String = "") {
         clear()
-        system = AssistantPrompt.system(vaultAgents: vaultAgents)
+        self.vaultAgents = vaultAgents
+        contextIdentity = identity
+        system = AssistantPrompt.system(vaultAgents: vaultAgents, capabilities: configuration.capabilities)
         systemRevision += 1
     }
 
@@ -274,6 +306,26 @@ final class AssistantSession: ObservableObject {
             Log.assistant.error("Assistant turn failed: \(Log.code(error), privacy: .public)")
             self.error = "The Assistant couldn't answer. Try again."
         }
+    }
+}
+
+// Run bookkeeping; kept in this file because it sets private state.
+extension AssistantSession {
+    /// A run that failed after a tool changed the vault or memory: keep its completed rounds, closed by a note,
+    /// so the answer card and the model both know what already happened and a retry doesn't repeat it.
+    func keepPartial(_ partial: LoopOutcome, question: String, base: [AgentMessage], askedAt: Date) {
+        let note =
+            "This answer stopped before it finished. The tool results above already happened; changes marked "
+            + "applied are in the vault and the rest are waiting for review."
+        let closing = AgentMessage(role: .assistant, content: [AgentContentBlock.text(note).raw])
+        transcript = base + partial.appended + [closing]
+        let answer = [partial.text, note].filter { !$0.isEmpty }.joined(separator: "\n\n")
+        var turn = AssistantTurn(
+            id: UUID(), question: question, answer: answer, finalAnswer: note, toolCalls: partial.toolCalls,
+            askedAt: askedAt, fallbackModel: fallbackModel(partial.model))
+        turn.usage = partial.usage
+        turn.contextTokens = partial.contextTokens
+        turns.append(turn)
     }
 
     /// Close a run's trace: publish and log its summary, count its tokens, and tell observers.

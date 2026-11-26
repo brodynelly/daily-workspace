@@ -1,8 +1,9 @@
 import DailyCore
 import SwiftUI
 
-/// Assistant: questions about notes, projects, open loops and the calendar, answered with cited read-only
-/// lookups. Nothing is sent while the Assistant is off or the selected provider has no key.
+/// Assistant: questions about notes, projects, open loops and the calendar, answered with cited lookups, and vault
+/// changes applied or queued for review per Settings → AI → Agent. Nothing is sent while the Assistant is off or
+/// the selected provider has no key.
 /// The provider and its model appear in the header so cross-provider routing is always visible.
 struct AssistantView: View {
     @EnvironmentObject private var model: AppModel
@@ -12,6 +13,7 @@ struct AssistantView: View {
     @EnvironmentObject private var navigation: AppNavigation
 
     @State private var showingDetails = false
+    @State private var showingChanges = false
     @State private var reveal: UUID?
 
     private static let minimumChatWidth: CGFloat = 520
@@ -65,6 +67,12 @@ struct AssistantView: View {
             }
         }
         .navigationTitle(AppSection.assistant.title)
+        .sheet(isPresented: $showingChanges) {
+            AgentChangesView(changes: model.vaultChanges) { path in
+                showingChanges = false
+                model.openNote(path)
+            }
+        }
         .onAppear {
             key.refresh()
             model.syncAssistantVaultAgents()
@@ -79,7 +87,18 @@ struct AssistantView: View {
         let fallback =
             preferences.assistantProvider == .anthropic
             ? AssistantSession.defaultModel : WorkspaceSettings.defaultOpenRouterModel
-        return "\(preferences.assistantProvider.title) · \(chosen.isEmpty ? fallback : chosen) · read-only tools"
+        let capabilities = assistant.configuration.capabilities
+        let tools =
+            capabilities.vaultWrites ? "vault writes: \(Self.approvalLabel(capabilities.approval))" : "read-only tools"
+        return "\(preferences.assistantProvider.title) · \(chosen.isEmpty ? fallback : chosen) · \(tools)"
+    }
+
+    static func approvalLabel(_ approval: AgentSettings.WriteApproval) -> String {
+        switch approval {
+        case .review: return "review each"
+        case .autoApplyFolders: return "auto in chosen folders"
+        case .autoApplyAll: return "auto"
+        }
     }
 
     @ViewBuilder private var actions: some View {
@@ -91,6 +110,7 @@ struct AssistantView: View {
                 )
                 .help("Stop the answer. The conversation so far is kept as it was.")
         }
+        ChangesButton(changes: model.vaultChanges) { showingChanges = true }
         Button("New conversation", systemImage: "plus.bubble") {
             assistant.clear()
             navigation.assistantDraft = ""
@@ -98,6 +118,19 @@ struct AssistantView: View {
         .buttonStyle(.workspace(.secondary, size: .large))
         .disabled(assistant.turns.isEmpty && !assistant.isStreaming && assistant.error == nil)
         .help("Start over with an empty conversation")
+    }
+}
+
+/// Opens the vault change list, showing how many changes wait for review.
+private struct ChangesButton: View {
+    @ObservedObject var changes: VaultChanges
+    let action: () -> Void
+
+    var body: some View {
+        let waiting = changes.pending.count
+        Button(waiting == 0 ? "Changes" : "Changes (\(waiting))", systemImage: "doc.badge.clock", action: action)
+            .buttonStyle(.workspace(.secondary, size: .large))
+            .help("Review, apply, reject or undo the Assistant's vault changes")
     }
 }
 
