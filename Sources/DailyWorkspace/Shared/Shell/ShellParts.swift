@@ -39,21 +39,6 @@ struct NavItem: View {
     }
 }
 
-/// A sidebar section label (the overline role, muted).
-struct SidebarLabel: View {
-    let text: String
-
-    init(_ text: String) { self.text = text }
-
-    var body: some View {
-        Text(text)
-            .textRole(.overline, lineBox: false)
-            .foregroundStyle(Theme.inkMuted)
-            .padding(EdgeInsets(top: Space.s2, leading: Space.s3, bottom: Space.s1, trailing: Space.s3))
-            .accessibilityAddTraits(.isHeader)
-    }
-}
-
 /// One live state in words, led by its tone's mark (the sidebar footer's status line). Nothing pulses.
 struct StatusLine: View {
     let tone: Tone

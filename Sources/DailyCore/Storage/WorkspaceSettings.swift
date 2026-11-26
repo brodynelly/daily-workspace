@@ -40,6 +40,8 @@ public struct WorkspaceSettings: Codable, Equatable {
     public var quickPanelClipboardEnabled: Bool
     /// Quick Panel terminal border integration requires explicit opt-in.
     public var quickPanelTerminalBorderEnabled: Bool
+    /// Quick Panel zoom per view, keyed by route name; missing views use 1.0.
+    public var quickPanelZoom: [String: Double]
     /// User bindings keyed by stable command ID. Missing IDs use the catalog's defaults.
     public var shortcutOverrides: [String: ShortcutOverride]
 
@@ -62,6 +64,7 @@ public struct WorkspaceSettings: Codable, Equatable {
         mailEnabled: Bool = false,
         quickPanelClipboardEnabled: Bool = false,
         quickPanelTerminalBorderEnabled: Bool = false,
+        quickPanelZoom: [String: Double] = [:],
         shortcutOverrides: [String: ShortcutOverride] = [:]
     ) {
         self.vaultBookmark = vaultBookmark
@@ -79,6 +82,7 @@ public struct WorkspaceSettings: Codable, Equatable {
         self.mailEnabled = mailEnabled
         self.quickPanelClipboardEnabled = quickPanelClipboardEnabled
         self.quickPanelTerminalBorderEnabled = quickPanelTerminalBorderEnabled
+        self.quickPanelZoom = quickPanelZoom
         self.shortcutOverrides = shortcutOverrides
     }
 
@@ -111,6 +115,7 @@ public struct WorkspaceSettings: Codable, Equatable {
         quickPanelTerminalBorderEnabled =
             (try? c.decodeIfPresent(Bool.self, forKey: .quickPanelTerminalBorderEnabled))
             ?? fallback.quickPanelTerminalBorderEnabled
+        quickPanelZoom = (try? c.decodeIfPresent([String: Double].self, forKey: .quickPanelZoom)) ?? [:]
         // A malformed individual binding must not discard unrelated settings or healthy shortcuts.
         if let overrides = try? c.nestedContainer(keyedBy: ShortcutIDKey.self, forKey: .shortcutOverrides) {
             var decoded: [String: ShortcutOverride] = [:]

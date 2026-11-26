@@ -100,6 +100,7 @@ final class QuickPanelController: NSObject, ObservableObject, NSWindowDelegate {
     var openWorkspace: ((AppSection) -> Void)?
     let palette = QuickPanelCommandPalette(), assistantPane = QuickPanelAssistantPane()
     let insights = QuickPanelWorkspaceInsights(), monitor = QuickPanelMonitor()
+    let aiPopup = QuickPanelAIPopup()
 
     var isVisible: Bool { panel.isVisible }
     /// The search pane stays hidden until `?`, Find or typing asks for it; a live query keeps it on screen.

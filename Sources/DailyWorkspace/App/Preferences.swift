@@ -42,6 +42,7 @@ final class Preferences: ObservableObject {
     @Published var mailEnabled: Bool { didSet { persist() } }
     @Published var quickPanelClipboardEnabled: Bool { didSet { persist() } }
     @Published var quickPanelTerminalBorderEnabled: Bool { didSet { persist() } }
+    @Published var quickPanelZoom: [String: Double] { didSet { persist() } }
     @Published var shortcutOverrides: [String: ShortcutOverride] { didSet { persist() } }
     /// Transient: suspends the registered global hotkey while Settings records a replacement.
     @Published var isRecordingShortcut = false
@@ -85,6 +86,7 @@ final class Preferences: ObservableObject {
         mailEnabled = settings.mailEnabled
         quickPanelClipboardEnabled = settings.quickPanelClipboardEnabled
         quickPanelTerminalBorderEnabled = settings.quickPanelTerminalBorderEnabled
+        quickPanelZoom = settings.quickPanelZoom
         shortcutOverrides = KeyboardShortcutCatalog.sanitized(settings.shortcutOverrides)
         recentNotes = settings.recentNotes
         vaultBookmark = settings.vaultBookmark
@@ -142,6 +144,7 @@ final class Preferences: ObservableObject {
             mailEnabled: mailEnabled,
             quickPanelClipboardEnabled: quickPanelClipboardEnabled,
             quickPanelTerminalBorderEnabled: quickPanelTerminalBorderEnabled,
+            quickPanelZoom: quickPanelZoom,
             shortcutOverrides: shortcutOverrides
         )
     }

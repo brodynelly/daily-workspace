@@ -86,6 +86,10 @@ struct QuickPanelAssistantPaneView: View {
                     .foregroundStyle(Ink.meta)
                     .lineLimit(1)
                 Spacer(minLength: 0)
+                Button("Expand") { controller.toggleAIPopup() }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Ink.cyan)
+                    .help("Open the AI chat popup (⌘J)")
                 if !assistant.turns.isEmpty {
                     Button("New") {
                         assistant.clear()
@@ -143,8 +147,7 @@ struct QuickPanelAssistantPaneView: View {
     private func exchange(question: String, answer: String, sources: Int) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             Text("> \(question)").foregroundStyle(Ink.gold)
-            Text(answer).foregroundStyle(Ink.primary)
-                .textSelection(.enabled)
+            QuickPanelMarkdownView(text: answer, compact: true)
             if sources > 0 {
                 Text("\(sources) \(sources == 1 ? "source" : "sources") · open Assistant for citations")
                     .foregroundStyle(Ink.meta).font(.system(size: 10))

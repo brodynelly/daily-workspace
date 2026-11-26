@@ -55,8 +55,9 @@ struct QuickPanelPascalSkin: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let width = geometry.size.width
-            let height = geometry.size.height
+            let scale = controller.zoomScale
+            let width = geometry.size.width / scale
+            let height = geometry.size.height / scale
             let ai = controller.assistantVisible
             let musicSidebar = (music || ai) && !controller.zoomed ? round(width * (ai ? 0.36 : 0.28)) : 0
             let x = musicSidebar > 0 ? musicSidebar + 15 : 7.0
@@ -146,7 +147,16 @@ struct QuickPanelPascalSkin: View {
                 }
             }
             .frame(width: width, height: height)
+            .scaleEffect(scale, anchor: .topLeading)
+            .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
             .clipped()
+            .overlay {
+                if controller.aiPopup.isVisible, let model = controller.model {
+                    QuickPanelAIPopupView(
+                        controller: controller, popup: controller.aiPopup, assistant: model.assistant,
+                        key: model.assistantKey, navigation: model.navigation, preferences: model.preferences)
+                }
+            }
             .font(Typography.font(13, preferred: controller.panelFont))
             .foregroundStyle(Ink.primary)
             .transaction { transaction in

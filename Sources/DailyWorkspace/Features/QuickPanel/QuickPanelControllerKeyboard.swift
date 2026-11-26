@@ -7,6 +7,13 @@ extension QuickPanelController {
             return [125, 126, 51, 117].contains(event.keyCode)
                 ? handlePaletteKey(keyCode: event.keyCode, characters: "", modifiers: event.modifierFlags) : true
         }
+        if event.isARepeat, aiPopup.isVisible {
+            return aiPopup.layer == .chat && ![125, 126].contains(event.keyCode)
+                ? false
+                : handleAIPopupKey(
+                    keyCode: event.keyCode, characters: event.charactersIgnoringModifiers ?? "",
+                    modifiers: event.modifierFlags)
+        }
         if event.isARepeat, focusedPane == "assistant" {
             return false
         }
@@ -43,18 +50,8 @@ extension QuickPanelController {
         keyCode: UInt16, characters: String = "", modifiers: NSEvent.ModifierFlags = [],
         typedCharacters: String? = nil
     ) -> Bool {
-        if let stroke = ShortcutStroke(keyCode: keyCode, characters: characters, modifierFlags: modifiers),
-            commandPaletteBinding?.strokes == [stroke]
-        {
-            toggleCommandPalette()
-            return true
-        }
-        if palette.isVisible {
-            return handlePaletteKey(
-                keyCode: keyCode, characters: typedCharacters ?? characters, modifiers: modifiers)
-        }
-        if focusedPane == "assistant",
-            let handled = handleAssistantKey(keyCode: keyCode, characters: characters, modifiers: modifiers)
+        if let handled = handleLayerKey(
+            keyCode: keyCode, characters: characters, modifiers: modifiers, typedCharacters: typedCharacters)
         {
             return handled
         }
@@ -69,6 +66,10 @@ extension QuickPanelController {
         let character = characters.lowercased()
         if command && character == "w" {
             hide(restoreFocus: true)
+            return true
+        }
+        if command && !shift && character == "j" {
+            toggleAIPopup()
             return true
         }
         if option,
@@ -99,6 +100,35 @@ extension QuickPanelController {
         }
         return handleFallbackKey(
             keyCode, characters: typedCharacters ?? characters, command: command, option: option)
+    }
+
+    /// Popups, zoom and the AI field get keys before panel shortcuts; `nil` continues normal handling.
+    private func handleLayerKey(
+        keyCode: UInt16, characters: String, modifiers: NSEvent.ModifierFlags, typedCharacters: String?
+    ) -> Bool? {
+        if aiPopup.isVisible {
+            return handleAIPopupKey(keyCode: keyCode, characters: characters, modifiers: modifiers)
+        }
+        if let stroke = ShortcutStroke(keyCode: keyCode, characters: characters, modifierFlags: modifiers),
+            commandPaletteBinding?.strokes == [stroke]
+        {
+            toggleCommandPalette()
+            return true
+        }
+        // Music keeps ⌘+ / ⌘- for volume; its zoom is in the ⌘K popup.
+        if currentRoute != .music, !modifiers.contains(.shift) || characters == "+",
+            handleZoomKey(characters, command: modifiers.contains(.command))
+        {
+            return true
+        }
+        if palette.isVisible {
+            return handlePaletteKey(
+                keyCode: keyCode, characters: typedCharacters ?? characters, modifiers: modifiers)
+        }
+        if focusedPane == "assistant" {
+            return handleAssistantKey(keyCode: keyCode, characters: characters, modifiers: modifiers)
+        }
+        return nil
     }
 
     private func handleFallbackKey(_ keyCode: UInt16, characters: String, command: Bool, option: Bool) -> Bool {

@@ -100,8 +100,8 @@ struct RootView: View {
             }
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Screens")
-            recentNotes
-                .frame(maxHeight: .infinity, alignment: .top)
+            // Recent notes live on the Notes screen; the sidebar lists screens only.
+            Spacer(minLength: 0)
             NavItem(
                 title: "Settings", symbol: AppCommand.settings.symbol,
                 current: navigation.showingSettings, shortcut: AppCommand.settings.configuredLabel(using: preferences)
@@ -134,24 +134,6 @@ struct RootView: View {
         }
         .padding(.horizontal, Space.s2)
         .frame(height: Metrics.topBarHeight, alignment: .leading)
-    }
-
-    @ViewBuilder private var recentNotes: some View {
-        if !preferences.recentNotes.isEmpty {
-            VStack(alignment: .leading, spacing: 0) {
-                SidebarLabel("Recent notes")
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 0) {
-                        ForEach(preferences.recentNotes, id: \.self) { path in
-                            RecentNoteRow(path: path) { model.openNote(path) }
-                        }
-                    }
-                }
-                .scrollIndicators(.never)
-            }
-            .accessibilityElement(children: .contain)
-            .accessibilityLabel("Recent notes")
-        }
     }
 
     private func showsOverlayInspector(in width: CGFloat) -> Bool {
@@ -301,40 +283,5 @@ extension RootView {
         guard runner.isEnabled(command) else { return false }
         runner.run(command)
         return true
-    }
-}
-
-/// A recent note in the sidebar: quiet, muted text with a hover fill.
-private struct RecentNoteRow: View {
-    let path: String
-    let action: () -> Void
-    @State private var hovered = false
-
-    var body: some View {
-        Button(action: action) {
-            VStack(alignment: .leading, spacing: Space.sHalf) {
-                Text(verbatim: NotePath.title(path))
-                    .textRole(.bodySmall, lineBox: false)
-                    .foregroundStyle(hovered ? Theme.ink : Theme.inkBody)
-                    .lineLimit(1)
-                if let folder = NotePath.folder(path) {
-                    Text(verbatim: folder)
-                        .textRole(.caption, lineBox: false)
-                        .foregroundStyle(Theme.inkMuted)
-                        .lineLimit(1)
-                        .truncationMode(.head)
-                }
-            }
-            .padding(.horizontal, Space.s3)
-            .padding(.vertical, Space.s1Half)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: Radius.md, style: .continuous).fill(hovered ? Theme.fill : .clear)
-            )
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .help(path)
-        .onHover { hovered = $0 }
     }
 }

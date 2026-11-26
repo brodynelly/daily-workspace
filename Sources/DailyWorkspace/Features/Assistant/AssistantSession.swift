@@ -241,7 +241,8 @@ final class AssistantSession: ObservableObject {
             ])
     }
 
-    private func readKey() -> String? {
+    /// The selected provider's key, or nil with `error` set. Callers send it only to that provider.
+    func readKey() -> String? {
         do {
             let store = configuration.provider == .anthropic ? keyStore : openRouterKeyStore
             if let key = try store.read()?.trimmingCharacters(in: .whitespacesAndNewlines), !key.isEmpty {

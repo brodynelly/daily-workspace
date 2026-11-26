@@ -27,10 +27,11 @@ extension QuickPanelController {
         return currentRoute == .music
             ? [
                 ("j/k", "Move"), ("h/l", "Panes"), ("␣", "Play"), ("n/p", "Next/Prev"), ("-/+", "Vol"),
-                ("s", "Shuffle"), ("/", "Find"), ("?", "AI"), ("⌘K", "Commands"), ("q", "Hide"),
+                ("s", "Shuffle"), ("/", "Find"), ("?", "AI"), ("⌘J", "Chat"), ("⌘K", "Commands"), ("q", "Hide"),
             ]
             : [
-                ("j/k", "Move"), ("l", "Open"), ("h", "Back"), ("/", "Find"), ("?", "AI"), ("1-0", "Panels"),
+                ("j/k", "Move"), ("l", "Open"), ("h", "Back"), ("/", "Find"), ("?", "AI"), ("⌘J", "Chat"),
+                ("1-0", "Panels"),
                 ("[ ]", "Prev/Next"), ("r", "Refresh"), ("⌘K", "Commands"), ("q", "Hide"),
             ]
     }
