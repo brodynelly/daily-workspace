@@ -155,6 +155,12 @@ struct AssistantAnswerCard: View {
                 .help("Open Notes to review the cited text and choose a Markdown path before confirming a save")
             }
             if !turn.toolCalls.isEmpty { ToolCallsDisclosure(calls: turn.toolCalls) }
+            if !turn.usage.isEmpty {
+                Text(turn.usageLine)
+                    .textRole(.caption, lineBox: false)
+                    .foregroundStyle(Theme.inkMuted)
+                    .help("Tokens this answer used across all its lookup rounds. Cached input costs much less.")
+            }
         }
         .padding(Space.s4)
         .frame(maxWidth: .infinity, alignment: .leading)

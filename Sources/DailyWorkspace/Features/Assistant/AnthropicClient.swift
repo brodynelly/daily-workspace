@@ -69,7 +69,7 @@ struct AgentRequest: Sendable {
 
 /// A failure the user can act on. Messages never include server response bodies, which can echo note text.
 struct AgentError: LocalizedError, Equatable {
-    enum Kind: Equatable, Sendable {
+    enum Kind: Hashable, Sendable {
         case missingKey, keychain, unauthorized, forbidden, notFound, rateLimited, overloaded, server
         case badRequest, tooLarge, timedOut, offline, network, incomplete, refused, truncated, toolLimit
         case invalidDraft, busy, disabled
@@ -77,16 +77,57 @@ struct AgentError: LocalizedError, Equatable {
 
     let kind: Kind
     let message: String
+    /// Seconds the server asked to wait (`retry-after-ms` or `retry-after`), when it said.
+    var retryAfter: TimeInterval?
+    /// The server's own retry advice (`x-should-retry`), when it gave one. It overrides the kind's default.
+    var shouldRetry: Bool?
 
-    init(_ kind: Kind, _ message: String) {
+    init(_ kind: Kind, _ message: String, retryAfter: TimeInterval? = nil, shouldRetry: Bool? = nil) {
         self.kind = kind
         self.message = message
+        self.retryAfter = retryAfter
+        self.shouldRetry = shouldRetry
     }
 
     var errorDescription: String? { message }
 
+    /// Retry hints are transport metadata; two errors are the same when the user would see the same thing.
+    static func == (lhs: AgentError, rhs: AgentError) -> Bool {
+        lhs.kind == rhs.kind && lhs.message == rhs.message
+    }
+
     static func http(
-        status: Int, errorType: String?, retryAfter: String?, provider: String = "Anthropic"
+        status: Int, errorType: String?, retryAfter: String?, provider: String = "Anthropic",
+        retryAfterMilliseconds: String? = nil, shouldRetry: String? = nil
+    ) -> AgentError {
+        var error = httpError(status: status, errorType: errorType, retryAfter: retryAfter, provider: provider)
+        error.retryAfter = Self.delay(retryAfterMilliseconds: retryAfterMilliseconds, retryAfter: retryAfter)
+        switch shouldRetry?.trimmingCharacters(in: .whitespaces).lowercased() {
+        case "true": error.shouldRetry = true
+        case "false": error.shouldRetry = false
+        default: break
+        }
+        return error
+    }
+
+    /// A server-requested wait in seconds: `retry-after-ms` first, then a whole-seconds `retry-after`.
+    /// HTTP-date forms are ignored (the policy's own backoff applies).
+    static func delay(retryAfterMilliseconds: String?, retryAfter: String?) -> TimeInterval? {
+        if let text = retryAfterMilliseconds?.trimmingCharacters(in: .whitespaces), let value = Double(text),
+            value.isFinite, value >= 0
+        {
+            return value / 1000
+        }
+        if let text = retryAfter?.trimmingCharacters(in: .whitespaces), let value = Double(text), value.isFinite,
+            value >= 0
+        {
+            return value
+        }
+        return nil
+    }
+
+    private static func httpError(
+        status: Int, errorType: String?, retryAfter: String?, provider: String
     ) -> AgentError {
         switch status {
         case 400: return AgentError(.badRequest, "\(provider) rejected the request as invalid (HTTP 400).")
@@ -124,7 +165,7 @@ struct AgentError: LocalizedError, Equatable {
 
     static func network(_ error: URLError, provider: String = "Anthropic") -> AgentError {
         switch error.code {
-        case .timedOut: return AgentError(.timedOut, "\(provider) didn't respond within 120 seconds. Try again.")
+        case .timedOut: return AgentError(.timedOut, "\(provider) stopped responding for too long. Try again.")
         case .notConnectedToInternet, .networkConnectionLost, .dataNotAllowed:
             return AgentError(.offline, "The Mac is offline. Connect to the internet and try again.")
         default: return AgentError(.network, "Couldn't reach \(provider). Check your connection and try again.")
@@ -144,8 +185,9 @@ struct AnthropicClient: AgentTransport {
     static let fallbackBeta = "server-side-fallback-2026-07-01"
 
     var endpoint = defaultEndpoint
-    /// Longest wait for the next bytes of a response.
-    var idleTimeout: TimeInterval = 120
+    /// Longest wait for the next bytes. Adaptive thinking can pause output for minutes (Claude Code never goes
+    /// below 5 minutes), so a shorter idle limit would cut off healthy answers.
+    var idleTimeout: TimeInterval = 300
     /// Longest a whole streamed response may take.
     var totalTimeout: TimeInterval = 600
     /// Test hook: `URLProtocol` classes to put in front of the network.
@@ -207,7 +249,8 @@ struct MessagesAPIClient {
                 )
                 throw AgentError.http(
                     status: status, errorType: errorType, retryAfter: http?.value(forHTTPHeaderField: "retry-after"),
-                    provider: provider)
+                    provider: provider, retryAfterMilliseconds: http?.value(forHTTPHeaderField: "retry-after-ms"),
+                    shouldRetry: http?.value(forHTTPHeaderField: "x-should-retry"))
             }
             var parser = SSEParser()
             var accumulator = MessageStreamAccumulator()

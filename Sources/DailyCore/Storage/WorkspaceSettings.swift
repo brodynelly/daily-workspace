@@ -34,6 +34,8 @@ public struct WorkspaceSettings: Codable, Equatable {
     public var assistantModel: String
     /// The OpenRouter model ID. Kept separately so changing providers does not send an ID to the wrong API.
     public var openRouterModel: String
+    /// Limits and tool choices for the Assistant's tool loop. See `AssistantRuntimeSettings`.
+    public var assistantRuntime: AssistantRuntimeSettings
     /// External Mail access requires explicit opt-in.
     public var mailEnabled: Bool
     /// Quick Panel clipboard access requires explicit opt-in.
@@ -65,7 +67,8 @@ public struct WorkspaceSettings: Codable, Equatable {
         quickPanelClipboardEnabled: Bool = false,
         quickPanelTerminalBorderEnabled: Bool = false,
         quickPanelZoom: [String: Double] = [:],
-        shortcutOverrides: [String: ShortcutOverride] = [:]
+        shortcutOverrides: [String: ShortcutOverride] = [:],
+        assistantRuntime: AssistantRuntimeSettings = AssistantRuntimeSettings()
     ) {
         self.vaultBookmark = vaultBookmark
         self.vaultPath = vaultPath
@@ -84,6 +87,7 @@ public struct WorkspaceSettings: Codable, Equatable {
         self.quickPanelTerminalBorderEnabled = quickPanelTerminalBorderEnabled
         self.quickPanelZoom = quickPanelZoom
         self.shortcutOverrides = shortcutOverrides
+        self.assistantRuntime = assistantRuntime.validated
     }
 
     public init(from decoder: Decoder) throws {
@@ -107,6 +111,10 @@ public struct WorkspaceSettings: Codable, Equatable {
             (try? c.decodeIfPresent(AssistantProvider.self, forKey: .assistantProvider)) ?? fallback.assistantProvider
         assistantModel = (try? c.decodeIfPresent(String.self, forKey: .assistantModel)) ?? fallback.assistantModel
         openRouterModel = (try? c.decodeIfPresent(String.self, forKey: .openRouterModel)) ?? fallback.openRouterModel
+        // A malformed runtime block keeps the defaults; its own decoder clamps each value.
+        assistantRuntime =
+            (try? c.decodeIfPresent(AssistantRuntimeSettings.self, forKey: .assistantRuntime))
+            ?? fallback.assistantRuntime
         // Malformed consent values cannot opt into external sources or integrations.
         mailEnabled = (try? c.decodeIfPresent(Bool.self, forKey: .mailEnabled)) ?? fallback.mailEnabled
         quickPanelClipboardEnabled =

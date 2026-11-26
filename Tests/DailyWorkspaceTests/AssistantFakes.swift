@@ -196,6 +196,9 @@ enum AssistantTestClock {
         var configuration = AssistantSession.Configuration()
         configuration.now = { now }
         configuration.timeZone = { zone }
+        // Scripted failures are final; retries are covered by AssistantRuntimeTests.
+        configuration.retry = .none
+        configuration.sleep = { _ in }
         return configuration
     }
 }

@@ -2,7 +2,8 @@ import Combine
 import DailyCore
 import Foundation
 
-// The Assistant's wiring: Settings → AI gates every request and selects a provider/model; the vault's root
+// The Assistant's wiring: Settings → AI gates every request, selects a provider/model and sets the runtime limits
+// (`assistantRuntime` in settings.json); the vault's root
 // AGENTS.md (read-only) is part of the system prompt, so switching vaults starts a new conversation.
 extension AppModel {
     /// Follow the enable switch, provider, model ID and vault.
@@ -10,6 +11,12 @@ extension AppModel {
         assistant.setEnabled(preferences.assistantEnabled)
         assistant.setProvider(preferences.assistantProvider, model: preferences.selectedAssistantModel)
         assistantKey.setProvider(preferences.assistantProvider)
+        assistant.applyRuntime(AgentRuntimeLimits(preferences.assistantRuntime))
+        preferences.$assistantRuntime
+            .dropFirst()
+            .removeDuplicates()
+            .sink { [weak self] runtime in self?.assistant.applyRuntime(AgentRuntimeLimits(runtime)) }
+            .store(in: &assistantSubscriptions)
         preferences.$assistantEnabled
             .dropFirst()
             .removeDuplicates()

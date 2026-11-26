@@ -19,6 +19,12 @@ struct AssistantToolCall: Identifiable, Equatable, Sendable {
 struct ToolRunResult: Sendable {
     let call: AssistantToolCall
     let block: Data
+    /// True when the call ran past the runner's deadline.
+    var timedOut = false
+    /// True when the result was cut to the runner's size budget.
+    var truncated = false
+    /// How long the call took.
+    var duration: TimeInterval = 0
 }
 
 /// A failure reported to the model as `is_error: true` with a plain message.
@@ -27,27 +33,67 @@ struct ToolFailure: Error, Equatable {
     init(_ message: String) { self.message = message }
 }
 
-/// Validates tool input against the tool's parameters and runs it through `AssistantContext`.
+/// Validates tool input against the tool's parameters and runs it through `AssistantContext`, within the
+/// runtime's limits: only enabled tools run, each call has a deadline, and each result has a size budget.
 struct AssistantToolRunner: Sendable {
     let context: AssistantContext
+    /// Tools the model was offered. A call to any other tool is refused without running.
+    var enabledTools: Set<AssistantTool> = Set(AssistantTool.allCases)
+    /// Seconds a call may take, or nil for no deadline.
+    var timeout: TimeInterval?
+    /// Largest result sent back, in UTF-8 bytes, or nil for no cap.
+    var maxResultBytes: Int?
 
     func run(_ use: AgentToolUse) async -> ToolRunResult {
+        let clock = ContinuousClock()
+        let start = clock.now
+        var result = await runUnmeasured(use)
+        result.duration = (clock.now - start).timeInterval
+        return result
+    }
+
+    private func runUnmeasured(_ use: AgentToolUse) async -> ToolRunResult {
         let arguments = use.input.map(utf8Text) ?? "{}"
         do {
             guard let tool = AssistantTool(rawValue: use.name) else {
                 throw ToolFailure("There is no tool named \(use.name).")
             }
+            guard enabledTools.contains(tool) else {
+                throw ToolFailure("\(use.name) is turned off in Settings → AI. Answer without it, and say so.")
+            }
             guard let input = use.input, let object = parseJSONObject(input) else {
                 throw ToolFailure("The tool input was not a valid JSON object. Call the tool again with valid input.")
             }
-            let (json, citations) = try await execute(tool, ToolArguments(object, for: tool))
+            let parsed = try ToolArguments(object, for: tool)
+            let output: ToolOutput
+            if let timeout {
+                output = try await AgentDeadline.run(seconds: timeout) { [self] in
+                    let (json, citations) = try await execute(tool, parsed)
+                    return ToolOutput(json: json, citations: citations)
+                }
+            } else {
+                let (json, citations) = try await execute(tool, parsed)
+                output = ToolOutput(json: json, citations: citations)
+            }
+            let budgeted = Self.budget(output.json, citations: output.citations, maxBytes: maxResultBytes)
             let call = AssistantToolCall(
-                id: use.id, name: use.name, arguments: arguments, isError: false, citations: citations)
-            return ToolRunResult(call: call, block: Self.resultBlock(id: use.id, content: json, isError: false))
+                id: use.id, name: use.name, arguments: arguments, isError: false, citations: budgeted.citations)
+            return ToolRunResult(
+                call: call, block: Self.resultBlock(id: use.id, content: budgeted.text, isError: false),
+                truncated: budgeted.truncated)
         } catch {
             let message: String
+            var timedOut = false
             if let failure = error as? ToolFailure {
                 message = failure.message
+            } else if let timeout = error as? ToolTimeout {
+                timedOut = true
+                Log.assistant.error("Assistant tool \(use.name, privacy: .public) timed out")
+                message =
+                    "\(use.name) didn't answer within \(Int(timeout.seconds)) seconds, so its source is unknown "
+                    + "right now, not empty. Say so instead of guessing, and don't call it again for this question."
+            } else if error is CancellationError {
+                message = "The lookup was stopped."
             } else {
                 Log.assistant.error(
                     "Assistant tool \(use.name, privacy: .public) failed: \(Log.code(error), privacy: .public)")
@@ -56,8 +102,31 @@ struct AssistantToolRunner: Sendable {
             }
             let call = AssistantToolCall(
                 id: use.id, name: use.name, arguments: arguments, isError: true, errorMessage: message, citations: [])
-            return ToolRunResult(call: call, block: Self.resultBlock(id: use.id, content: message, isError: true))
+            return ToolRunResult(
+                call: call, block: Self.resultBlock(id: use.id, content: message, isError: true), timedOut: timedOut)
         }
+    }
+
+    /// `text` cut to `maxBytes` of UTF-8 on a character boundary, ending with a note that tells the model how to
+    /// narrow the request. Only citations still visible in the kept text are returned, so nothing the model never
+    /// saw counts as observed.
+    static func budget(
+        _ text: String, citations: [ToolCitation], maxBytes: Int?
+    ) -> (text: String, citations: [ToolCitation], truncated: Bool) {
+        guard let maxBytes, text.utf8.count > maxBytes else { return (text, citations, false) }
+        let note =
+            "\n[Result cut at \(maxBytes) of \(text.utf8.count) bytes. Ask for less: a smaller limit or max_bytes, "
+            + "a narrower query, or one project at a time.]"
+        let room = max(0, maxBytes - note.utf8.count)
+        var kept = ""
+        var used = 0
+        for character in text {
+            let size = character.utf8.count
+            if used + size > room { break }
+            kept.append(character)
+            used += size
+        }
+        return (kept + note, citations.filter { kept.contains($0.value) }, true)
     }
 
     static func resultBlock(id: String, content: String, isError: Bool) -> Data {
@@ -117,6 +186,12 @@ struct AssistantToolRunner: Sendable {
         return LocalDay(year: year, month: month, day: day)
     }
 
+    /// A tool's encoded result and the citations it returned.
+    private struct ToolOutput: Sendable {
+        let json: String
+        let citations: [ToolCitation]
+    }
+
     private struct LoopsResult: Encodable {
         let rows: [ToolLoopRow]
         /// Omitted when every source was read.
@@ -138,7 +213,8 @@ struct AssistantToolRunner: Sendable {
 }
 
 /// Tool input checked against the tool's parameters: no unknown keys, required keys present, types right.
-struct ToolArguments {
+/// Immutable after the check, so it can cross into a deadline-bounded task.
+struct ToolArguments: @unchecked Sendable {
     private let values: [String: Any]
 
     init(_ object: [String: Any], for tool: AssistantTool) throws {

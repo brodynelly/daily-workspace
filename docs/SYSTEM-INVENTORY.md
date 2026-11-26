@@ -82,7 +82,8 @@ There is no vector store in phase 1. About 2,700 notes with lexical search plus 
 ## 6. Planning (how the Assistant decides)
 
 - Pattern: one manual tool-use loop in Swift (`stop_reason == "tool_use"` → run tools → append results in **one** user message → repeat).
-- Guardrails: at most 8 tool rounds per turn, a per-turn output-token cap, a 120-second timeout, Stop cancels. `refusal` and `max_tokens` stop reasons are checked before any tool runs.
+- Guardrails: at most 8 tool rounds per turn (1–20), a per-request output-token cap, a 300-second stream idle timeout (adaptive thinking can pause output for minutes), Stop cancels. `refusal`, `max_tokens` and `model_context_window_exceeded` stop reasons are checked before any tool runs.
+- Runtime layer (2026-11-26, see [AGENT-RUNTIME.md](AGENT-RUNTIME.md)): limits live in `assistantRuntime` in `settings.json` (Settings → AI → Runtime), clamped on load. Transient model failures retry with the Anthropic SDK policy (2 retries, `min(0.5·2ⁿ, 8)` s with jitter, server `retry-after`/`x-should-retry` honored, never after anything streamed). Each tool call has a deadline (30 s) reported to the model as "unknown, not empty", and each result a size budget (100,000 bytes) with a narrowing hint. Tools can be turned off but never added; a tool change starts a new conversation. Content-free run events (`AgentRunEvent`) feed observers, the run summary and one public log line of counts and timings. Token usage is shown per answer.
 - Human-on-the-loop: Brody asks; the Assistant answers with record IDs and paths it can cite.
 - **Human-in-the-loop: every persistent change.** The Assistant has **no write tools**. Brody may accept a restart-record draft into the app ledger, or use a cited Assistant answer as an editable Markdown draft: select the exact eligible path, inspect the full before/after and separately confirm the conflict-checked vault save. Capture suggestions likewise go through an explicit destination and review.
 - Prompt-cache order: tools (fixed, sorted) → system (app rules + vault `AGENTS.md`) → messages. Volatile data (today's date, observations) goes after the last cache breakpoint. Mid-conversation operator notes are appended as system messages, never by editing earlier turns.
@@ -112,7 +113,7 @@ There is no vector store in phase 1. About 2,700 notes with lexical search plus 
 
 | Mail metadata reader (built) | **Read-only**, opt-in Apple Events | Message subjects/IDs on this Mac | Fixed script, no message bodies or headers; disabled by default, no Assistant tool access, clears on opt-out or failed recheck. |
 | `DailyNoteResolver` | Reads `.obsidian/daily-notes.json` | Wrong path means a note in the wrong place | Refuses unsupported format tokens; never falls back to the vault root. |
-| `AgentTransport` | HTTPS to the model API, only if enabled | Cost; selected text leaves the Mac | Key in Keychain; explicit enable; per-turn caps. |
+| `AgentTransport` | HTTPS to the model API, only if enabled | Cost; selected text leaves the Mac | Key in Keychain; explicit enable; per-turn caps; bounded `RetryingAgentTransport` retries; per-answer token counts. |
 
 T15 read-only boundary: bound-project `lu runs --project <p> --json` and selected `lu run <r> --json` are projected in Assistant and Quick Panel Agents (alongside existing QAP rows). Native run state is kept distinct from ticket state. `LuunaRunFollower` streams bounded incremental `lu follow --after … --json` events, retaining the last complete sequence for reconnect and discarding foreign run/project IDs. Run start/cancellation and external writes were declined under T00. Live-runtime qualification remains separate from scripted coverage.
 

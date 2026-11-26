@@ -10,6 +10,10 @@ extension AssistantSession {
         /// Text of the last response (the structured output, for a draft).
         var finalText = ""
         var model: String?
+        /// Tokens billed across every request of the run.
+        var usage = AgentUsage()
+        /// Input tokens of the last request: how much of the context window the conversation now fills.
+        var contextTokens = 0
 
         var text: String { texts.filter { !$0.isEmpty }.joined(separator: "\n\n") }
     }
@@ -23,6 +27,8 @@ extension AssistantSession {
         var generation: Int
         /// Publish streamed text and tool calls (chat turns, not drafts).
         var showsProgress: Bool
+        /// Collects the run's content-free summary.
+        var trace: AgentRunTrace?
     }
 
     /// Appended after the results of the last allowed tool round.
@@ -44,11 +50,10 @@ extension AssistantSession {
                 model: configuration.model, maxTokens: configuration.maxTokens, effort: options.effort, system: system,
                 tools: tools, messages: base + outcome.appended, outputSchema: options.schema)
             let generation = options.showsProgress ? options.generation : nil
-            let selectedTransport = configuration.provider == .anthropic ? transport : openRouterTransport
-            let response = try await selectedTransport.send(request, apiKey: apiKey) { [weak self] update in
-                guard let generation else { return }
-                await self?.receive(update, generation: generation)
-            }
+            let response = try await sendRequest(
+                request, apiKey: apiKey, generation: generation, trace: options.trace)
+            outcome.usage += response.usage
+            outcome.contextTokens = response.usage.totalInputTokens
             try Task.checkCancellation()
             try Self.checkStop(response, provider: configuration.provider)
             outcome.appended.append(AgentMessage(role: .assistant, content: response.replayableContent.map(\.raw)))
@@ -65,7 +70,9 @@ extension AssistantSession {
                             + "Try a narrower question.")
                 }
                 rounds += 1
-                let results = await runTools(response.toolUses, earlier: outcome.toolCalls, generation: generation)
+                options.trace?.noteToolRound()
+                let results = await runTools(
+                    response.toolUses, earlier: outcome.toolCalls, generation: generation, trace: options.trace)
                 outcome.toolCalls += results.map(\.call)
                 var blocks = results.map(\.block)
                 if rounds == configuration.maxToolRounds {
@@ -83,6 +90,35 @@ extension AssistantSession {
         }
     }
 
+    /// One model request through the selected provider, with retries, reported to the trace and observers.
+    private func sendRequest(
+        _ request: AgentRequest, apiKey: String, generation: Int?, trace: AgentRunTrace?
+    ) async throws -> AgentResponse {
+        let number = (trace?.summary.requests ?? 0) + 1
+        record(.requestStarted(request: number), trace: trace)
+        let selected = configuration.provider == .anthropic ? transport : openRouterTransport
+        let retrying = RetryingAgentTransport(
+            base: selected, policy: configuration.retry, sleep: configuration.sleep,
+            onRetry: { [weak self] event in await self?.record(.retrying(event), trace: trace) })
+        let clock = ContinuousClock()
+        let start = clock.now
+        let response = try await retrying.send(request, apiKey: apiKey) { [weak self] update in
+            guard let generation else { return }
+            await self?.receive(update, generation: generation)
+        }
+        record(
+            .requestFinished(
+                request: number, stopReason: response.stopReason, model: response.model, usage: response.usage,
+                duration: (clock.now - start).timeInterval),
+            trace: trace)
+        return response
+    }
+
+    func record(_ event: AgentRunEvent, trace: AgentRunTrace?) {
+        trace?.record(event)
+        emit(event)
+    }
+
     /// Refusals and truncated responses end the turn before any tool runs.
     static func checkStop(_ response: AgentResponse, provider: AssistantProvider) throws {
         switch response.stopReason {
@@ -92,6 +128,11 @@ extension AssistantSession {
                 .refused,
                 "\(provider == .anthropic ? "Claude" : "The model") declined this request "
                     + "(category: \(category)). Nothing from it was kept.")
+        case "model_context_window_exceeded":
+            throw AgentError(
+                .tooLarge,
+                "This chat has grown past the model's context window, so the answer was discarded. "
+                    + "Start a new chat and ask again.")
         case "max_tokens":
             throw AgentError(
                 .truncated,
@@ -107,8 +148,9 @@ extension AssistantSession {
 
     /// Run every tool call concurrently; results come back in the order the model asked for them.
     private func runTools(
-        _ uses: [AgentToolUse], earlier: [AssistantToolCall], generation: Int?
+        _ uses: [AgentToolUse], earlier: [AssistantToolCall], generation: Int?, trace: AgentRunTrace?
     ) async -> [ToolRunResult] {
+        for use in uses { record(.toolStarted(name: use.name), trace: trace) }
         if let generation {
             let running = uses.map {
                 AssistantToolCall(
@@ -125,6 +167,13 @@ extension AssistantSession {
             var ordered = [ToolRunResult?](repeating: nil, count: uses.count)
             for await (index, result) in group { ordered[index] = result }
             return ordered.compactMap { $0 }
+        }
+        for result in results {
+            record(
+                .toolFinished(
+                    name: result.call.name, isError: result.call.isError, timedOut: result.timedOut,
+                    truncated: result.truncated, duration: result.duration),
+                trace: trace)
         }
         if let generation { showToolCalls(earlier + results.map(\.call), generation: generation) }
         return results

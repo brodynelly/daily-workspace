@@ -51,6 +51,7 @@ Sources/DailyWorkspace/
                     CalendarView, CalendarWeekView (hour grid), CalendarMonthRail (month and day agenda),
                     AgendaList (+ EventRow), EventEditorView
     Assistant/      AssistantSession (+Loop), AnthropicClient and OpenRouterClient (AgentTransport),
+                    RetryingAgentTransport, AgentRuntime (limits, run events, deadlines), AgentUsage,
                     AgentStream (+Accumulator), AssistantTools, AssistantToolRunner, AssistantPrompt,
                     WorkspaceAssistantContext, AssistantKey, RestartRecords, RestartPanel,
                     RestartReviewSheet, AssistantView and subviews; cited draft handoff to Notes
@@ -118,7 +119,7 @@ Rules:
 | Store | Owns |
 | --- | --- |
 | `AppNavigation` | selected section, in-window Settings tab, Quick Capture sheet, Command Palette sheet, transient Assistant inspector visibility and shared unsent question |
-| `Preferences` | daily-note folder/template, caret preset, preview toggle, Assistant enablement/provider and separate model IDs, recent notes, vault bookmark, persisted shortcut overrides and transient recorder state |
+| `Preferences` | daily-note folder/template, caret preset, preview toggle, Assistant enablement/provider, separate model IDs and runtime limits, recent notes, vault bookmark, persisted shortcut overrides and transient recorder state |
 | `VaultSession` | resolving the bookmark, security-scoped access, `VaultSession.State` |
 | `NoteDocument` | the open note's URL, text, save state and snapshot; autosave (800 ms debounce); conflict resolution |
 | `TaskStore` | `TaskList`, persistence, undo of deletes |
@@ -126,7 +127,7 @@ Rules:
 | `ProjectsStore` | Project hubs and app-owned hub/checkout/Luuna associations (`associations.json` only); never treats project Markdown checkboxes as tickets. |
 | `LuunaStore` | Read-only CLI health, projects, project details and components; discards old connection responses, preserves last-success observations. |
 | `LuunaWorkStore` | Read-only CLI board, tickets, selected ticket, project/global Home, bound-project native run list and selected detail. `LuunaRunFollower` owns the selected run's bounded event stream and stops on selection/connection changes. Run state never changes ticket status; identity and stale-response checks apply to both. |
-| `AssistantSession` | in-memory append-only transcript and capped tool loop; provider switches discard prior provider transcript; provider-specific transport/key for Anthropic or OpenRouter; optional source-scoped page focus attached only on explicit Ask; reviewed restart-record drafts |
+| `AssistantSession` | in-memory append-only transcript and capped tool loop with runtime limits from `assistantRuntime` (retries, tool deadlines, result budgets, offered tools), content-free run events and per-turn token usage; provider switches discard prior provider transcript; provider-specific transport/key for Anthropic or OpenRouter; optional source-scoped page focus attached only on explicit Ask; reviewed restart-record drafts |
 | `CalendarService` | permission status, selected day, that day's events |
 | `RemindersService` | permission status, incomplete reminders |
 

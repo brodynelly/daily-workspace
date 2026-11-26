@@ -64,6 +64,7 @@ struct AISettingsView: View {
                         .frame(width: 320)
                     }
                 }
+                AIRuntimeSettingsSection()
             }
             .padding(Space.s6)
             .frame(maxWidth: .infinity, alignment: .leading)
