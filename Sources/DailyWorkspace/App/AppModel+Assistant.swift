@@ -20,7 +20,10 @@ extension AppModel {
         preferences.$assistantEnabled
             .dropFirst()
             .removeDuplicates()
-            .sink { [weak self] enabled in self?.assistant.setEnabled(enabled) }
+            .sink { [weak self] enabled in
+                self?.assistant.setEnabled(enabled)
+                if !enabled { self?.routines.cancelRunning() }
+            }
             .store(in: &assistantSubscriptions)
         preferences.$assistantProvider
             .dropFirst()

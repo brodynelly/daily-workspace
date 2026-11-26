@@ -19,11 +19,11 @@ All under `~/.config/daily-workspace/agent/` (folders 0700, files 0600, written 
 `create_note`, `edit_note` (one exact `old_text` → `new_text`) and `append_to_note` call `AgentWorkspace.propose`, implemented by `VaultChanges`:
 
 1. The path must pass `VaultReadPolicy` (scope exclusions, no symlinks or nested repos), end in `.md` and sit in an existing folder that is not the vault root.
-2. A note open in Notes with unsaved edits is refused. A second change to a note already waiting is folded into the same pending change, so review shows one before/after per note; a waiting change whose note changed on disk is marked failed.
-3. The change is computed against the text on disk (CRLF kept), size-checked (`maxNoteBytes`), journaled, then applied or queued by the policy below.
-4. Apply re-reads the note and writes only if it still equals the stored `before` (an open, clean editor applies it instead, so the two never race). Undo writes `before` back only if the note still equals `after`. A created note cannot be undone: that would delete a vault file (CONTRIBUTING invariant 3).
+2. A note open in Notes with unsaved edits is refused. A second change to a note already waiting (in the same vault) is folded into the same pending change, so review shows one before/after per note, and it stays in review whatever the policy; a waiting change whose note changed on disk is marked failed.
+3. The change is computed against the text on disk (CRLF kept) and size-checked (`maxNoteBytes`). Its journal line and the queue with its before/after text are written first; if either fails, nothing reaches the vault. Then it is applied or queued by the policy below.
+4. Apply re-reads the note and writes only if it still equals the stored `before` (an open, clean editor applies it instead, so the two never race). Undo writes `before` back only if the note still equals `after`. A change records the vault root it was proposed in and is applied or undone only while that vault is selected. A created note cannot be undone: that would delete a vault file (CONTRIBUTING invariant 3).
 
-The tool result says `applied` or `awaiting_review`; the prompt tells the model never to call a queued change saved.
+The tool result says `applied` or `awaiting_review`; the prompt tells the model never to call a queued change saved. If a later request in the same answer fails, the completed rounds are kept (turn, tool calls and transcript, closed by a short note), so neither the card nor the model forgets a change that already happened.
 
 ### Approval policy (Settings → AI → Agent)
 
@@ -45,7 +45,7 @@ Every question is saved twice: before it runs (with `interruptedQuestion` set) a
 
 ## Routines
 
-`RoutineScheduler` checks once a minute while the app runs, starts at most one due routine at a time in a sibling session (same limits, tools and workspace, so the open chat is untouched), and records `lastRunAt` before the run so a failing routine cannot retry every minute. Missed slots collapse into one catch-up run. The prompt is framed as unattended; a routine follows the same approval policy, and its edits always wait for review. Routines do not run while the Mac sleeps or the app is closed; there is no background agent.
+`RoutineScheduler` checks once a minute while the app runs, starts at most one due routine at a time in a sibling session (same limits, tools and workspace, so the open chat is untouched), and records `lastRunAt` before the run so a failing routine cannot retry every minute. Turning the Assistant off stops a running routine's request at once. A routine's saved conversation appears in the Quick Panel's CHATS the next time the AI page opens. Missed slots collapse into one catch-up run. The prompt is framed as unattended; a routine follows the same approval policy, and its edits always wait for review. Routines do not run while the Mac sleeps or the app is closed; there is no background agent.
 
 ## Not adopted
 

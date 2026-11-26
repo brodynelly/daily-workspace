@@ -40,6 +40,8 @@ public struct VaultChange: Codable, Equatable, Identifiable, Sendable {
     public let origin: String
     /// The saved conversation that proposed it, if any.
     public let conversationID: UUID?
+    /// The vault root it was proposed in (standardized path). It is applied and undone only there.
+    public let vault: String?
     public let createdAt: Date
     public var updatedAt: Date
     public var status: Status
@@ -50,7 +52,7 @@ public struct VaultChange: Codable, Equatable, Identifiable, Sendable {
 
     public init(
         id: UUID = UUID(), kind: Kind, path: String, before: String?, after: String, summary: String,
-        origin: String, conversationID: UUID?, createdAt: Date, status: Status = .pending
+        origin: String, conversationID: UUID?, vault: String? = nil, createdAt: Date, status: Status = .pending
     ) {
         self.id = id
         self.kind = kind
@@ -60,6 +62,7 @@ public struct VaultChange: Codable, Equatable, Identifiable, Sendable {
         self.summary = summary
         self.origin = origin
         self.conversationID = conversationID
+        self.vault = vault
         self.createdAt = createdAt
         updatedAt = createdAt
         self.status = status

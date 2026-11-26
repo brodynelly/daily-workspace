@@ -31,6 +31,21 @@ extension AssistantSession {
         var trace: AgentRunTrace?
         /// Where the run's vault changes say they came from.
         var run = AgentRunContext(origin: "chat", conversationID: nil)
+        /// Holds what the run completed so far, for a run that fails after a tool changed something.
+        var progress: LoopProgress?
+    }
+
+    /// The loop's outcome up to its last complete tool round.
+    @MainActor
+    final class LoopProgress {
+        var outcome: LoopOutcome?
+
+        /// True when a completed tool call may have changed the vault or memory.
+        var changedSomething: Bool {
+            outcome?.toolCalls.contains { call in
+                !call.isError && AssistantTool(rawValue: call.name).map { !$0.isReadOnly } == true
+            } ?? false
+        }
     }
 
     /// Appended after the results of the last allowed tool round.
@@ -86,6 +101,7 @@ extension AssistantSession {
                     blocks.append(AgentContentBlock.text(Self.lastRoundNote).raw)
                 }
                 outcome.appended.append(AgentMessage(role: .user, content: blocks))
+                options.progress?.outcome = outcome
             case "pause_turn":
                 guard continuations < configuration.maxContinuations else {
                     throw AgentError(.incomplete, "The answer kept pausing and was stopped. Try again.")

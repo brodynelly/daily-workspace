@@ -20,6 +20,8 @@ final class RoutineScheduler: ObservableObject {
     private let calendar: Calendar
     private var timer: Timer?
     private var task: Task<Void, Never>?
+    /// The running routine's session, so turning the Assistant off stops it mid-run.
+    private var session: AssistantSession?
 
     init(
         store: RoutineStore?, isEnabled: @escaping () -> Bool, now: @escaping () -> Date = { Date() },
@@ -56,7 +58,13 @@ final class RoutineScheduler: ObservableObject {
     func stop() {
         timer?.invalidate()
         timer = nil
-        task?.cancel()
+        cancelRunning()
+    }
+
+    /// Stop the running routine's request at once (the Assistant was turned off): no further tool calls or
+    /// provider requests happen after consent is withdrawn.
+    func cancelRunning() {
+        session?.setEnabled(false)
     }
 
     /// Start the first due routine, unless one is running or routines are off.
@@ -79,6 +87,7 @@ final class RoutineScheduler: ObservableObject {
             return
         }
         running = id
+        self.session = session
         session.send(Self.question(for: routine, at: now(), calendar: calendar))
         task = Task { [weak self] in
             await session.waitForCompletion()
@@ -137,6 +146,7 @@ final class RoutineScheduler: ObservableObject {
     private func finish(_ id: UUID, outcome: String, conversation: UUID?) {
         running = nil
         task = nil
+        session = nil
         guard let index = routines.firstIndex(where: { $0.id == id }) else { return }
         routines[index].lastOutcome = outcome
         if let conversation { routines[index].lastConversationID = conversation }

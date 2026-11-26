@@ -105,6 +105,30 @@ final class AgentDurableSessionTests: XCTestCase {
         XCTAssertTrue(opening.contains { utf8Text($0).contains("/memories/prefs.md") }, "the index rides along")
     }
 
+    func testAFailureAfterAWriteKeepsWhatHappened() async throws {
+        let transport = FakeAgentTransport([
+            .success(
+                agentResponse(
+                    [toolCall("t1", "append_to_note", #"{"path":"00-inbox/log.md","text":"- done"}"#)],
+                    stop: "tool_use")),
+            .failure(AgentError(.incomplete, "The connection dropped.", shouldRetry: false)),
+        ])
+        let session = makeSession(transport)
+        session.setWorkspace(FakeAgentWorkspace())
+        session.applyRuntime(writingLimits)
+        var saved: [Int] = []
+        session.onSave = { conversation, _ in saved.append(conversation.turns.count) }
+        session.send("Log it")
+        await session.waitForCompletion()
+
+        XCTAssertEqual(session.error, "The connection dropped.")
+        XCTAssertEqual(session.turns.count, 1, "the change stays visible")
+        XCTAssertEqual(session.turns.first?.toolCalls.map(\.name), ["append_to_note"])
+        XCTAssertEqual(session.transcript.last?.role, .assistant, "the transcript closes with a note")
+        XCTAssertEqual(session.transcript.count, 4)
+        XCTAssertEqual(saved.last, 1)
+    }
+
     func testEachQuestionIsSavedWhileRunningAndAgainWhenAnswered() async {
         let transport = FakeAgentTransport([.success(agentResponse([.text("Hi.")], stop: "end_turn"))])
         let session = makeSession(transport)
@@ -227,6 +251,25 @@ final class AgentDurableSessionTests: XCTestCase {
         let question = try XCTUnwrap(transport.requests.first?.messages.first?.content.last)
         XCTAssertTrue(utf8Text(question).contains("Sort the inbox"))
         XCTAssertTrue(utf8Text(question).contains("while Brody"))
+    }
+
+    func testTurningTheAssistantOffStopsARunningRoutine() async throws {
+        let folder = try makeTemporaryVault(self)
+        let store = RoutineStore(url: folder.appendingPathComponent("routines.json"))
+        let scheduler = RoutineScheduler(store: store, isEnabled: { true }, now: { Date(timeIntervalSince1970: 0) })
+        let transport = FakeAgentTransport([.success(agentResponse([.text("Late.")], stop: "end_turn"))])
+        transport.delay = .seconds(10)
+        let main = makeSession(transport)
+        scheduler.makeSession = { main.makeSibling(origin: $0) }
+        let routine = try XCTUnwrap(scheduler.add(name: "Slow", prompt: "Take a while", schedule: RoutineSchedule()))
+        scheduler.run(routine.id)
+        for _ in 0..<100 where transport.requests.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
+        scheduler.cancelRunning()
+        for _ in 0..<200 where scheduler.running != nil { try await Task.sleep(for: .milliseconds(10)) }
+
+        XCTAssertNil(scheduler.running)
+        XCTAssertEqual(scheduler.routines.first?.lastOutcome, "stopped")
+        XCTAssertEqual(transport.requests.count, 1)
     }
 
     func testARoutineWithoutASessionRecordsWhyAndDoesNotRetryEveryMinute() throws {

@@ -51,9 +51,11 @@ public struct AgentMemory: Sendable {
             return "Directory: \(Self.display(url, root: root))\n" + listing
         }
         let lines = try text(at: url).components(separatedBy: "\n")
-        let selected = range.map { max(1, $0.lowerBound)...min(lines.count, $0.upperBound) } ?? 1...max(1, lines.count)
-        guard selected.lowerBound <= selected.upperBound else { throw Failure("view_range is outside the file.") }
-        return selected.map { "\($0)\t\(lines[$0 - 1])" }.joined(separator: "\n")
+        // Bounds are checked before a range is built: a ClosedRange with lower > upper traps.
+        let first = max(1, range?.lowerBound ?? 1)
+        let last = min(lines.count, range?.upperBound ?? lines.count)
+        guard first <= last else { throw Failure("view_range is outside the file, which has \(lines.count) lines.") }
+        return (first...last).map { "\($0)\t\(lines[$0 - 1])" }.joined(separator: "\n")
     }
 
     public func create(_ path: String, text: String) throws {

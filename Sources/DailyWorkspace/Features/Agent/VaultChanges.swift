@@ -78,7 +78,8 @@ final class VaultChanges: ObservableObject {
             throw ToolFailure("\(allowed.path) is open in Notes with unsaved edits. Try again after Brody saves it.")
         }
         let onDisk = try vault.exists(allowed.url) ? load(vault, allowed.url) : nil
-        var queued = pending.first { $0.path == allowed.path }
+        let vaultID = Self.identity(of: vault)
+        var queued = pending.first { $0.path == allowed.path && $0.vault == vaultID }
         if let stale = queued, stale.before != onDisk {
             fail(stale.id, reason: "The note changed in the vault after this change was proposed.")
             queued = nil
@@ -90,23 +91,27 @@ final class VaultChanges: ObservableObject {
         }
         guard after != base else { throw ToolFailure("That change leaves \(allowed.path) exactly as it is.") }
         let change: VaultChange
+        let event: VaultJournalEntry.Event
         if var merged = queued {
             merged.kind = merged.kind == .create ? .create : (merged.kind == .edit || kind == .edit ? .edit : .append)
             merged.after = after
             merged.summary = [merged.summary, summary].filter { !$0.isEmpty }.joined(separator: " ")
             merged.updatedAt = now()
             change = merged
-            record(change, .updated, actor: "assistant")
+            event = .updated
         } else {
             change = VaultChange(
                 kind: kind, path: allowed.path, before: onDisk, after: after, summary: summary, origin: run.origin,
-                conversationID: run.conversationID, createdAt: now())
-            record(change, .proposed, actor: "assistant")
+                conversationID: run.conversationID, vault: vaultID, createdAt: now())
+            event = .proposed
         }
-        upsert(change)
+        // The audit event and the before/after text must be on disk before anything can reach the vault.
+        try recordDurably(change, event)
         let counts = change.lineCounts
-        if let reason = reviewReason(change, run: run, limits: limits) {
-            persist()
+        // A change already waiting keeps waiting: whatever made it need review still holds after a merge.
+        let reason =
+            queued == nil ? reviewReason(change, run: run, limits: limits) : "it joins a change already waiting"
+        if let reason {
             return VaultChangeOutcome(
                 changeID: change.id.uuidString, status: .awaitingReview, path: change.path,
                 linesAdded: counts.added, linesRemoved: counts.removed,
@@ -123,32 +128,6 @@ final class VaultChanges: ObservableObject {
             linesRemoved: counts.removed, note: "Applied. Brody can review or undo it in the Assistant's Changes list.")
     }
 
-    /// Why `change` must wait for review, or nil when the policy applies it now.
-    func reviewReason(_ change: VaultChange, run: AgentRunContext, limits: AgentSettings) -> String? {
-        let added = LineDiff(before: change.before ?? "", after: change.after).lines.compactMap { line -> String? in
-            if case .added(let text) = line { return text }
-            return nil
-        }.joined(separator: "\n").lowercased()
-        switch limits.writeApproval {
-        case .review:
-            return "every change is reviewed"
-        case .autoApplyFolders:
-            if change.kind == .edit { return "edits to existing text are always reviewed" }
-            if !limits.isAutoApplyFolder(change.path) { return "it is outside the auto-apply folders" }
-        case .autoApplyAll:
-            // Nobody watches a routine, so it may add notes and appends but never rewrites existing text unreviewed.
-            if change.kind == .edit, run.origin.hasPrefix("routine") { return "a routine's edits are always reviewed" }
-        }
-        // Links and embeds in model-written text can leak data when rendered, so a person checks them.
-        if ["http://", "https://", "<img", "<iframe", "<script"].contains(where: added.contains) {
-            return "it adds a link or embed"
-        }
-        if autoApplied[run.id, default: 0] >= limits.maxAutoWritesPerRun {
-            return "this run reached its limit of \(limits.maxAutoWritesPerRun) automatic changes"
-        }
-        return nil
-    }
-
     // MARK: Review actions
 
     /// Write a pending change. Refused, and marked failed, when the note no longer matches what it was computed
@@ -158,7 +137,7 @@ final class VaultChanges: ObservableObject {
             throw VaultError.io("This change is no longer waiting for review.")
         }
         do {
-            let (vault, allowed) = try target(change.path)
+            let (vault, allowed) = try target(change.path, for: change)
             try write(change.after, replacing: change.before, at: allowed, in: vault)
         } catch {
             fail(id, reason: Self.describe(error))
@@ -189,7 +168,7 @@ final class VaultChanges: ObservableObject {
         guard var change = changes.first(where: { $0.id == id }), change.canUndo, let before = change.before else {
             throw VaultError.io("Only an applied change to an existing note can be undone.")
         }
-        let (vault, allowed) = try target(change.path)
+        let (vault, allowed) = try target(change.path, for: change)
         do {
             try write(before, replacing: change.after, at: allowed, in: vault)
         } catch VaultError.conflict {
@@ -205,9 +184,13 @@ final class VaultChanges: ObservableObject {
 
     // MARK: Writing
 
-    /// An exact, visible, in-scope Markdown path whose folder exists and is not the vault root.
-    private func target(_ path: String) throws -> (NoteVault, VaultReadPolicy.Allowed) {
+    /// An exact, visible, in-scope Markdown path whose folder exists and is not the vault root. With `change`,
+    /// the selected vault must be the one it was proposed in.
+    private func target(_ path: String, for change: VaultChange? = nil) throws -> (NoteVault, VaultReadPolicy.Allowed) {
         guard let vault = vault() else { throw ToolFailure("No vault is selected and authorized.") }
+        if let change, change.vault != Self.identity(of: vault) {
+            throw ToolFailure("This change was proposed in another vault. Select that vault to apply or undo it.")
+        }
         let allowed: VaultReadPolicy.Allowed
         do {
             allowed = try VaultReadPolicy.resolve(path, root: vault.root, scope: scope)
@@ -275,6 +258,25 @@ final class VaultChanges: ObservableObject {
         persist()
     }
 
+    /// Journal `event` and save the queue with `change`, or change nothing and throw: used before a write, so a
+    /// change never reaches the vault without its audit line and its before/after text.
+    private func recordDurably(_ change: VaultChange, _ event: VaultJournalEntry.Event) throws {
+        let previous = changes
+        upsert(change)
+        do {
+            try store?.record(
+                VaultJournalEntry(
+                    at: now(), changeID: change.id, event: event, path: change.path, actor: "assistant",
+                    beforeHash: change.beforeHash, afterHash: change.afterHash))
+            try store?.save(changes)
+        } catch {
+            changes = previous
+            Log.assistant.error("A vault change could not be recorded: \(Log.code(error), privacy: .public)")
+            storageError = "The Assistant's change history could not be saved."
+            throw ToolFailure("The change could not be recorded in the app's audit journal, so nothing was written.")
+        }
+    }
+
     private func record(_ change: VaultChange, _ event: VaultJournalEntry.Event, actor: String) {
         let entry = VaultJournalEntry(
             at: now(), changeID: change.id, event: event, path: change.path, actor: actor,
@@ -338,46 +340,40 @@ extension VaultChanges {
         return text.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\n", with: "\r\n")
     }
 
+    /// Which vault a change belongs to.
+    static func identity(of vault: NoteVault) -> String { vault.root.standardizedFileURL.path }
+
     static func describe(_ error: Error) -> String {
         (error as? LocalizedError)?.errorDescription ?? "The change could not be written."
     }
 }
 
-/// The Assistant's write side over the app: vault changes through `VaultChanges` and memory in the app folder.
-@MainActor
-final class WorkspaceAgent: AgentWorkspace {
-    let changes: VaultChanges
-    private let memoryStore: () -> AgentMemory?
-    private let settings: () -> AgentSettings
+extension VaultChanges {
+    // MARK: Policy
 
-    init(changes: VaultChanges, memory: @escaping () -> AgentMemory?, settings: @escaping () -> AgentSettings) {
-        self.changes = changes
-        self.memoryStore = memory
-        self.settings = settings
-    }
-
-    func propose(_ request: VaultChangeRequest, summary: String, run: AgentRunContext) async throws
-        -> VaultChangeOutcome
-    {
-        do {
-            return try changes.propose(request, summary: summary, run: run)
-        } catch let failure as ToolFailure {
-            throw failure
-        } catch {
-            throw ToolFailure(VaultChanges.describe(error))
+    /// Why `change` must wait for review, or nil when the policy applies it now.
+    func reviewReason(_ change: VaultChange, run: AgentRunContext, limits: AgentSettings) -> String? {
+        let added = LineDiff(before: change.before ?? "", after: change.after).lines.compactMap { line -> String? in
+            if case .added(let text) = line { return text }
+            return nil
+        }.joined(separator: "\n").lowercased()
+        switch limits.writeApproval {
+        case .review:
+            return "every change is reviewed"
+        case .autoApplyFolders:
+            if change.kind == .edit { return "edits to existing text are always reviewed" }
+            if !limits.isAutoApplyFolder(change.path) { return "it is outside the auto-apply folders" }
+        case .autoApplyAll:
+            // Nobody watches a routine, so it may add notes and appends but never rewrites existing text unreviewed.
+            if change.kind == .edit, run.origin.hasPrefix("routine") { return "a routine's edits are always reviewed" }
         }
-    }
-
-    func memory(_ command: AgentMemoryCommand) async throws -> String {
-        guard settings().memory, let memory = memoryStore() else {
-            throw ToolFailure("Memory is off in Settings → AI → Agent.")
+        // Links and embeds in model-written text can leak data when rendered, so a person checks them.
+        if ["http://", "https://", "<img", "<iframe", "<script"].contains(where: added.contains) {
+            return "it adds a link or embed"
         }
-        do {
-            return try command.run(in: memory)
-        } catch let failure as AgentMemory.Failure {
-            throw ToolFailure(failure.message)
-        } catch {
-            throw ToolFailure("The memory folder could not be changed.")
+        if autoApplied[run.id, default: 0] >= limits.maxAutoWritesPerRun {
+            return "this run reached its limit of \(limits.maxAutoWritesPerRun) automatic changes"
         }
+        return nil
     }
 }

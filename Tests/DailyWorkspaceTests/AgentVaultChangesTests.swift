@@ -169,6 +169,48 @@ final class AgentVaultChangesTests: XCTestCase {
         XCTAssertEqual(try contents(of: note), "a\r\nb\r\na\r\nd\r\ne\r\n")
     }
 
+    func testAChangeAppliesOnlyInTheVaultItWasProposedIn() throws {
+        let other = try makeTemporaryVault(self)
+        try FileManager.default.createDirectory(
+            at: other.appendingPathComponent("01-projects"), withIntermediateDirectories: true)
+        var selected = root!
+        let changes = VaultChanges(
+            store: store, vault: { NoteVault(root: selected) }, editor: nil, settings: { [unowned self] in settings })
+        _ = try changes.propose(.create(path: "01-projects/new.md", text: "From A"), summary: "", run: chat)
+        let id = try XCTUnwrap(changes.pending.first?.id)
+
+        selected = other
+        XCTAssertThrowsError(try changes.apply(id))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: other.appendingPathComponent("01-projects/new.md").path))
+        _ = try changes.propose(.create(path: "01-projects/new.md", text: "From B"), summary: "", run: chat)
+        XCTAssertEqual(changes.pending.filter { $0.path == "01-projects/new.md" }.count, 1, "B's change is its own")
+    }
+
+    func testAMergedChangeStaysInReview() throws {
+        settings.writeApproval = .autoApplyAll
+        let changes = makeChanges()
+        let routine = AgentRunContext(origin: "routine: Tidy", conversationID: nil)
+        _ = try changes.propose(.edit(path: "01-projects/plan.md", old: "one", new: "uno"), summary: "", run: routine)
+        let merged = try changes.propose(.append(path: "01-projects/plan.md", text: "- two"), summary: "", run: chat)
+        XCTAssertEqual(merged.status, .awaitingReview, "the routine's edit still needs a person")
+        XCTAssertEqual(try contents(of: root.appendingPathComponent("01-projects/plan.md")), "# Plan\n- one\n")
+    }
+
+    func testNothingIsWrittenWhenTheJournalCannotBe() throws {
+        let app = try makeTemporaryVault(self)
+        let journal = app.appendingPathComponent("journal.jsonl")
+        try FileManager.default.createDirectory(at: journal, withIntermediateDirectories: true)
+        let broken = VaultChangeStore(url: app.appendingPathComponent("changes.json"), journalURL: journal)
+        let root = root!
+        let changes = VaultChanges(
+            store: broken, vault: { NoteVault(root: root) }, editor: nil, settings: { [unowned self] in settings })
+        XCTAssertThrowsError(
+            try changes.propose(.create(path: "00-inbox/idea.md", text: "An idea"), summary: "", run: chat))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("00-inbox/idea.md").path))
+        XCTAssertTrue(changes.changes.isEmpty)
+        XCTAssertNotNil(changes.storageError)
+    }
+
     func testAnOpenNoteWithUnsavedEditsIsLeftAlone() throws {
         let editor = FakeOpenNote(path: "01-projects/plan.md", text: "# Plan\n- one\n- typing", dirty: true)
         let changes = makeChanges(editor: editor)

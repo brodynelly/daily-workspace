@@ -166,12 +166,13 @@ final class AssistantSession: ObservableObject {
         requestTask = Task {
             defer { if self.generation == generation { self.finish() } }
             let trace = AgentRunTrace(profile: "chat")
+            let progress = LoopProgress()
             do {
                 let outcome = try await runLoop(
                     base: base, opening: opening, apiKey: key,
                     options: LoopOptions(
                         effort: configuration.chatEffort, schema: nil, generation: generation, showsProgress: true,
-                        trace: trace, run: run))
+                        trace: trace, run: run, progress: progress))
                 guard self.generation == generation else { return }
                 transcript = base + outcome.appended
                 var turn = AssistantTurn(
@@ -185,6 +186,9 @@ final class AssistantSession: ObservableObject {
             } catch {
                 finishRun(trace, error: error, generation: generation)
                 guard self.generation == generation else { return }
+                if progress.changedSomething, let partial = progress.outcome {
+                    keepPartial(partial, question: question, base: base, askedAt: askedAt)
+                }
                 save(running: nil)
                 report(error)
             }
@@ -307,6 +311,23 @@ final class AssistantSession: ObservableObject {
 
 // Run bookkeeping; kept in this file because it sets private state.
 extension AssistantSession {
+    /// A run that failed after a tool changed the vault or memory: keep its completed rounds, closed by a note,
+    /// so the answer card and the model both know what already happened and a retry doesn't repeat it.
+    func keepPartial(_ partial: LoopOutcome, question: String, base: [AgentMessage], askedAt: Date) {
+        let note =
+            "This answer stopped before it finished. The tool results above already happened; changes marked "
+            + "applied are in the vault and the rest are waiting for review."
+        let closing = AgentMessage(role: .assistant, content: [AgentContentBlock.text(note).raw])
+        transcript = base + partial.appended + [closing]
+        let answer = [partial.text, note].filter { !$0.isEmpty }.joined(separator: "\n\n")
+        var turn = AssistantTurn(
+            id: UUID(), question: question, answer: answer, finalAnswer: note, toolCalls: partial.toolCalls,
+            askedAt: askedAt, fallbackModel: fallbackModel(partial.model))
+        turn.usage = partial.usage
+        turn.contextTokens = partial.contextTokens
+        turns.append(turn)
+    }
+
     /// Close a run's trace: publish and log its summary, count its tokens, and tell observers.
     func finishRun(_ trace: AgentRunTrace, error: Error?, generation: Int) {
         var summary = trace.summary

@@ -120,6 +120,8 @@ final class AgentStorageTests: XCTestCase {
         XCTAssertThrowsError(try memory.replace("/memories/a.md", old: "x", new: "y"))
         XCTAssertThrowsError(
             try memory.create("/memories/big.md", text: String(repeating: "a", count: AgentMemory.maxFileBytes + 1)))
+        try memory.create("/memories/one.md", text: "only line")
+        XCTAssertThrowsError(try memory.view("/memories/one.md", range: 2...3), "past the end throws, never traps")
     }
 
     // MARK: Routines

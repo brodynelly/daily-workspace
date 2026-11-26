@@ -28,8 +28,11 @@ extension QuickPanelController {
     /// Files the current conversation (if any and not mid-answer) and clears it. Returns false while answering.
     @discardableResult
     func fileCurrentChat() -> Bool {
-        guard let assistant = model?.assistant, !assistant.isStreaming else { return false }
+        guard let model, !model.assistant.isStreaming else { return false }
+        let assistant = model.assistant
         if let current = assistant.archivedConversation() { aiPopup.file(current) }
+        // Routines save while the panel is closed, so pick up what the archive gained since.
+        fileSavedChats(from: model)
         assistant.clear()
         return true
     }
