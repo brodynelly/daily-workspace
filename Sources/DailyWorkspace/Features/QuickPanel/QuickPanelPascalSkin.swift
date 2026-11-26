@@ -103,7 +103,17 @@ struct QuickPanelPascalSkin: View {
                 }
 
                 pane(documentTitle, active: controller.focusedPane == "document") {
-                    documentTable
+                    VStack(spacing: 12) {
+                        if controller.workspacePath != nil {
+                            QuickPanelWorkspaceInsightsView(controller: controller, insights: controller.insights)
+                                .padding(.top, 6)
+                        } else if route == .monitor {
+                            QuickPanelMonitorView(controller: controller, monitor: controller.monitor)
+                                .frame(height: max(220, documentHeight * 0.5))
+                                .padding(.top, 8)
+                        }
+                        documentTable
+                    }
                 }
                 .frame(width: contentWidth, height: documentHeight)
                 .offset(x: x, y: 40)
@@ -151,7 +161,9 @@ struct QuickPanelPascalSkin: View {
 
     private var documentTitle: String {
         let name =
-            controller.shortcutTool ?? (route == .home ? "WORKSPACE" : route == .music ? "LIBRARY" : route.rawValue)
+            controller.shortcutTool ?? controller.workspacePath.map { ($0 as NSString).lastPathComponent }
+            ?? (route == .home
+                ? "WORKSPACE" : route == .music ? "LIBRARY" : route == .monitor ? "PROC" : route.rawValue)
         return "\(name.uppercased()).PAS"
     }
 

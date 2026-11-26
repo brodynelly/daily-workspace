@@ -31,6 +31,8 @@ struct QuickPanelDataRow: Identifiable, Equatable, Sendable {
     var nativeRunID: String?
     var status = ""
     var keys = ""
+    /// The directory a row belongs to, when it has one (agent cwd, Kitty session path).
+    var path = ""
     var keywords = ""
     var keyNames: [String] = []
     var action: QuickPanelDataAction?
@@ -67,7 +69,7 @@ struct QuickPanelDataSnapshot: Sendable {
         case .tmux: tmux + rex
         case .workspaces: workspaces
         case .shortcuts: shortcutTool.map { shortcutEntries[$0] ?? [] } ?? shortcutTools
-        case .attention, .system, .music, .calendar: []  // Those routes have their own source owners.
+        case .attention, .system, .music, .calendar, .monitor: []  // Those routes have their own source owners.
         }
     }
 

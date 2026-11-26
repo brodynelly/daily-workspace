@@ -22,6 +22,7 @@ extension QuickPanelDataProvider {
             var row = QuickPanelDataRow(
                 id: "agent:\(id.uint64Value)", title: title,
                 detail: short(item["cwd"] as? String ?? ""), group: "Agents", action: .focusAgent(id.uint64Value))
+            row.path = item["cwd"] as? String ?? ""
             row.badge = item["kind_label"] as? String ?? ""
             row.status = item["status"] as? String ?? ""
             row.keys =
@@ -40,6 +41,7 @@ extension QuickPanelDataProvider {
             row.badge = "\(tabs) tabs" + ((item["current"] as? Bool) == true ? " · current" : "")
             row.status = item["agent_status"] as? String ?? ""
             row.keys = keyString(item["keys"])
+            row.path = item["path"] as? String ?? ""
             row.remove = .closeSession(name)
             return row
         }

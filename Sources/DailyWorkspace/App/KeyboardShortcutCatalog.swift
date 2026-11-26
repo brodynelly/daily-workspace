@@ -100,6 +100,7 @@ enum KeyboardShortcutCatalog {
         define("panel.music", "Panel: Music", "Quick Panel", .quickPanel, one("0", .command)),
         define("panel.system", "Panel: System", "Quick Panel", .quickPanel, one("s", [.command, .shift])),
         define("panel.attention", "Panel: Attention", "Quick Panel", .quickPanel, one("a", [.command, .shift])),
+        define("panel.monitor", "Panel: Monitor", "Quick Panel", .quickPanel, one("m", [.command, .shift])),
         define("panel.find", "Panel: Search", "Quick Panel", .quickPanel, one("f", .command)),
         define("panel.refresh", "Panel: Refresh", "Quick Panel", .quickPanel, one("r", .command)),
         define("panel.hide", "Panel: Hide", "Quick Panel", .quickPanel, one("x", .option)),

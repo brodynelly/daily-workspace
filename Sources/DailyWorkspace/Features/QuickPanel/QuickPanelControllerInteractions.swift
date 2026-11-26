@@ -29,6 +29,10 @@ extension QuickPanelController {
     func activateSelected(alternate: Bool = false, remove: Bool = false) {
         guard rows.indices.contains(selectedIndex) else { return }
         let row = rows[selectedIndex]
+        if currentRoute == .home, workspacePath == nil, !alternate, !remove, let path = workspaceDetailPath(for: row) {
+            openWorkspaceDetail(for: row, path: path)
+            return
+        }
         if let runID = row.nativeRunID, !remove {
             model?.luunaWork.selectRun(runID)
             model?.luunaWork.followSelectedRun()
@@ -71,6 +75,7 @@ extension QuickPanelController {
                     .init(route: currentRoute, shortcutTool: shortcutTool, workspacePath: workspacePath))
                 workspacePath = path
                 workspaceRows = []
+                loadWorkspaceInsights(path)
                 let actions = await dataProvider.workspaceActions(for: path)
                 guard workspacePath == path else { return }
                 workspaceRows = actions

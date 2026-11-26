@@ -37,6 +37,8 @@ extension QuickPanelController {
 
         case .attention:
             return attentionRows()
+        case .monitor:
+            return monitor.processRows
         case .system:
             return QuickPanelSystemAction.allCases.map { action in
                 .init(id: "system:\(action.rawValue)", title: action.title, detail: action.detail, group: "System")
