@@ -9,7 +9,7 @@ extension QuickPanelController {
         let alert = NSAlert()
         alert.messageText = "Daily Workspace quick panel"
         alert.informativeText =
-            "Vim keys: j/k move, gg/G top/end, ⌃d/⌃u half page, ⌃f/⌃b page, l or Return opens, h goes back, a shows workspace actions, dd dismisses. / or ? searches. 1–0 jump to panels, [ and ] cycle them. r refreshes, z zooms, m opens the menu, q hides. Music: h/l switch panes, Space plays, n/p next/previous, -/+ volume, s shuffles, S plays one at random, x stops. Tab / ⇧Tab changes panes. Escape clears search, hides search, unzooms, hides preview, goes back, then hides. Configure ⌘ shortcuts in Settings → Keyboard."
+            "Vim keys: j/k move, gg/G top/end, ⌃d/⌃u half page, ⌃f/⌃b page, l or Return opens, h goes back, a shows workspace actions, dd dismisses. / searches; ? opens the AI pane (Return asks, Escape closes). 1–0 jump to panels, [ and ] cycle them. r refreshes, z zooms, m opens the menu, q hides. Music: h/l switch panes, Space plays, n/p next/previous, -/+ volume, s shuffles, S plays one at random, x stops. Tab / ⇧Tab changes panes. Escape clears search, hides search, unzooms, hides preview, goes back, then hides. Configure ⌘ shortcuts in Settings → Keyboard."
         alert.runModal()
     }
 
@@ -26,14 +26,12 @@ extension QuickPanelController {
         }
         return currentRoute == .music
             ? [
-                ("j/k", " Move  "), ("h/l", " Panes  "), ("␣", " Play  "), ("n/p", " Next/Prev  "),
-                ("-/+", " Vol  "), ("s", " Shuffle  "), ("S", " Random  "), ("/", " Find  "),
-                ("m", " Menu  "), ("q", " Hide"),
+                ("j/k", "Move"), ("h/l", "Panes"), ("␣", "Play"), ("n/p", "Next/Prev"), ("-/+", "Vol"),
+                ("s", "Shuffle"), ("/", "Find"), ("?", "AI"), ("⌘K", "Commands"), ("q", "Hide"),
             ]
             : [
-                ("j/k", " Move  "), ("l", " Open  "), ("h", " Back  "), ("gg/G", " Top/End  "),
-                ("/", " Find  "), ("1-0", " Panels  "), ("[ ]", " Prev/Next  "), ("r", " Refresh  "),
-                ("m", " Menu  "), ("q", " Hide"),
+                ("j/k", "Move"), ("l", "Open"), ("h", "Back"), ("/", "Find"), ("?", "AI"), ("1-0", "Panels"),
+                ("[ ]", "Prev/Next"), ("r", "Refresh"), ("⌘K", "Commands"), ("q", "Hide"),
             ]
     }
 
@@ -108,7 +106,8 @@ extension QuickPanelController {
         switch key {
         case "o": activateSelected()
         case "a": activateSelected(alternate: true)
-        case "/", "?": focusSearch()
+        case "/": focusSearch()
+        case "?": toggleAssistantPane()
         case "[", "]": cycleRoute(reverse: key == "[")
         case "r", "R": refresh()
         case "z": zoomed.toggle()

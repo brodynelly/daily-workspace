@@ -57,7 +57,8 @@ struct QuickPanelPascalSkin: View {
         GeometryReader { geometry in
             let width = geometry.size.width
             let height = geometry.size.height
-            let musicSidebar = music && !controller.zoomed ? round(width * 0.28) : 0
+            let ai = controller.assistantVisible
+            let musicSidebar = (music || ai) && !controller.zoomed ? round(width * (ai ? 0.36 : 0.28)) : 0
             let x = musicSidebar > 0 ? musicSidebar + 15 : 7.0
             let contentWidth = max(0, width - x - 7)
             let commandY = height - 122
@@ -76,12 +77,26 @@ struct QuickPanelPascalSkin: View {
                 Ink.band.frame(height: 29)
                 Ink.band.frame(height: 28).offset(y: height - 28)
 
-                menuStrip
+                QuickPanelStatsBar(controller: controller, attention: controller.attention)
                     .frame(width: width, height: 29)
 
                 if musicSidebar > 0 {
-                    pane("PLAYLISTS", active: controller.focusedPane == "playlists") {
-                        playlistList
+                    Group {
+                        if ai, let model = controller.model {
+                            pane("AI CHAT", active: controller.focusedPane == "assistant") {
+                                QuickPanelAssistantPaneView(
+                                    controller: controller, assistant: model.assistant, key: model.assistantKey,
+                                    navigation: model.navigation, preferences: model.preferences)
+                            }
+                        } else if ai {
+                            pane("AI CHAT", active: true) {
+                                Text("The Assistant is unavailable.").foregroundStyle(Ink.meta)
+                            }
+                        } else {
+                            pane("PLAYLISTS", active: controller.focusedPane == "playlists") {
+                                playlistList
+                            }
+                        }
                     }
                     .frame(width: musicSidebar, height: max(0, height - 78))
                     .offset(x: 7, y: 40)
@@ -167,80 +182,5 @@ struct QuickPanelPascalSkin: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(title)
-    }
-
-    private var menuStrip: some View {
-        HStack(spacing: 4) {
-            ForEach(controller.menuHeadings, id: \.self) { name in
-                QuickPanelMenuIcon(name: name, font: controller.panelFont) {
-                    ForEach(controller.menuChoices(named: name), id: \.command) { item in
-                        Button(item.title) { controller.performMenuCommand(item.command) }
-                    }
-                }
-            }
-            Spacer(minLength: 0)
-            // While search is hidden, its status line (count, music state, errors) moves here.
-            Text(controller.searchVisible ? "DAILY WORKSPACE / PASCAL" : statusLine)
-                .font(Typography.font(11, preferred: controller.panelFont))
-                .foregroundStyle(controller.searchVisible || statusIsNormal ? Ink.meta : Ink.notice)
-                .lineLimit(1)
-        }
-        .padding(.horizontal, 12)
-    }
-
-}
-
-/// A menu-strip entry drawn as an SF Symbol; the name stays in its accessibility label and tooltip.
-@MainActor
-struct QuickPanelMenuIcon<Items: View>: View {
-    let name: String
-    let font: String
-    @ViewBuilder let items: Items
-    @State private var hovered = false
-
-    static func symbol(for name: String) -> String {
-        switch name {
-        case "File": return "doc.text"
-        case "Edit": return "square.and.pencil"
-        case "View": return "rectangle.grid.1x2"
-        case "Window": return "macwindow.on.rectangle"
-        case "Help": return "questionmark.circle"
-        case "Play": return "playpause"
-        case "Shuffle": return "shuffle"
-        default: return "ellipsis.circle"
-        }
-    }
-
-    var body: some View {
-        Menu {
-            items
-        } label: {
-            HStack(spacing: 3) {
-                Image(systemName: Self.symbol(for: name))
-                    .symbolRenderingMode(.hierarchical)
-                    .font(.system(size: 12, weight: .regular))
-                    .frame(width: 16, height: 16)
-                Text(name)
-                    .font(QuickPanelPascalSkin.Typography.font(11, preferred: font))
-            }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(name)
-            .foregroundStyle(hovered ? QuickPanelPascalSkin.Ink.gold : QuickPanelPascalSkin.Ink.footer)
-            .padding(.horizontal, 7)
-            .frame(height: 21)
-            .background(
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .fill(QuickPanelPascalSkin.Ink.selection.opacity(hovered ? 1 : 0))
-            )
-            .contentShape(Rectangle())
-        }
-        .menuStyle(.button)
-        .buttonStyle(.plain)
-        .menuIndicator(.hidden)
-        .fixedSize()
-        .onHover { hovered = $0 }
-        .animation(.easeOut(duration: 0.12), value: hovered)
-        .help("\(name) (⌥\(name.prefix(1)))")
-        .accessibilityLabel("\(name) menu")
     }
 }

@@ -278,17 +278,17 @@ final class QuickPanelUIIntegrationTests: XCTestCase {
 }
 
 extension QuickPanelUIIntegrationTests {
-    func testSearchPaneHiddenUntilQuestionMarkOrFind() {
+    func testSearchPaneHiddenUntilSlashOrFind() {
         let panel = QuickPanelController()
         for route in [QuickPanelRoute.home, .tmux, .shortcuts, .music] {
             panel.navigate(to: route)
             XCTAssertFalse(panel.searchVisible, "\(route) opens without the search pane")
         }
         panel.navigate(to: .shortcuts)
-        XCTAssertTrue(panel.handleKey(keyCode: 44, characters: "?", modifiers: .shift, typedCharacters: "?"))
+        XCTAssertTrue(panel.handleKey(keyCode: 44, characters: "/", typedCharacters: "/"))
         XCTAssertTrue(panel.searchVisible)
         XCTAssertEqual(panel.focusedPane, "command")
-        XCTAssertEqual(panel.query, "", "? reveals search without inserting itself")
+        XCTAssertEqual(panel.query, "", "/ reveals search without inserting itself")
         panel.query = "git"
         XCTAssertFalse(
             panel.handleKey(keyCode: 44, characters: "?", modifiers: .shift, typedCharacters: "?"),

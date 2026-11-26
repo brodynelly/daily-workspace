@@ -7,6 +7,9 @@ extension QuickPanelController {
             return [125, 126, 51, 117].contains(event.keyCode)
                 ? handlePaletteKey(keyCode: event.keyCode, characters: "", modifiers: event.modifierFlags) : true
         }
+        if event.isARepeat, focusedPane == "assistant" {
+            return false
+        }
         if event.isARepeat {
             let modifiers = event.modifierFlags
             if isRepeatableVimKey(event) {
@@ -49,6 +52,11 @@ extension QuickPanelController {
         if palette.isVisible {
             return handlePaletteKey(
                 keyCode: keyCode, characters: typedCharacters ?? characters, modifiers: modifiers)
+        }
+        if focusedPane == "assistant",
+            let handled = handleAssistantKey(keyCode: keyCode, characters: characters, modifiers: modifiers)
+        {
+            return handled
         }
         if let stroke = ShortcutStroke(keyCode: keyCode, characters: characters, modifierFlags: modifiers),
             handleConfiguredShortcut(stroke)
@@ -98,7 +106,7 @@ extension QuickPanelController {
             return true
         }
         if characters == "?", !command, !option, focusedPane != "command" {
-            focusSearch()
+            toggleAssistantPane()
             return true
         }
         guard !command, !option, !characters.isEmpty,
@@ -108,12 +116,6 @@ extension QuickPanelController {
         query += characters
         focusedPane = "command"
         return true
-    }
-
-    private var commandPaletteBinding: ShortcutBinding? {
-        let id = AppCommand.commandPalette.id
-        if let model { return KeyboardShortcutCatalog.binding(for: id, preferences: model.preferences) }
-        return KeyboardShortcutCatalog.definitions.first { $0.id == id }?.defaultBinding
     }
 
     private func handleConfiguredShortcut(_ stroke: ShortcutStroke) -> Bool {
@@ -296,9 +298,7 @@ extension QuickPanelController {
     func showContextMenu() { showMenu("Context") }
 
     private func showMenu(_ name: String) {
-        panelMenu(named: name).popUp(
-            positioning: nil, at: NSPoint(x: 12, y: panel.frame.height - 32),
-            in: panel.contentView)
+        openMenuPopup(name)
     }
 
 }
