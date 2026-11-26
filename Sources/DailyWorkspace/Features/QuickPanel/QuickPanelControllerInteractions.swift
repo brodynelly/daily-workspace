@@ -33,6 +33,7 @@ extension QuickPanelController {
             openWorkspaceDetail(for: row, path: path)
             return
         }
+        if workspacePath != nil, !remove, activateWorkspaceLocalRow(row) { return }
         if let runID = row.nativeRunID, !remove {
             model?.luunaWork.selectRun(runID)
             model?.luunaWork.followSelectedRun()

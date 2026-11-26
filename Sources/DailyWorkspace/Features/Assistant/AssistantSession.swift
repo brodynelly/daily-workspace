@@ -51,6 +51,9 @@ final class AssistantSession: ObservableObject {
     @Published private(set) var liveText = ""
     /// Tool calls of the current turn: running ones have no citations yet.
     @Published private(set) var liveToolCalls: [AssistantToolCall] = []
+    /// Context the user explicitly attached (a Quick Panel harness file) for the next question only. It is sent
+    /// with that question when the Assistant is enabled, then dropped; `clear()` also drops it.
+    @Published var attachment: AssistantPageFocus?
 
     /// The messages sent to the model, oldest first. Only ever appended to.
     private(set) var transcript: [AgentMessage] = []
@@ -128,7 +131,8 @@ final class AssistantSession: ObservableObject {
         let generation = generation
         let base = transcript
         let askedAt = configuration.now()
-        let opening = userMessage(question, pageFocus: pageFocus)
+        let opening = userMessage(question, pageFocus: pageFocus ?? attachment)
+        attachment = nil
         requestTask = Task {
             defer { if self.generation == generation { self.finish() } }
             do {
@@ -158,6 +162,7 @@ final class AssistantSession: ObservableObject {
     /// Start over with an empty conversation.
     func clear() {
         stop()
+        attachment = nil
         generation += 1
         transcript = []
         turns = []

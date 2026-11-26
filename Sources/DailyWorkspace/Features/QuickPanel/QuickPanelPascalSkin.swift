@@ -96,10 +96,8 @@ struct QuickPanelPascalSkin: View {
                     pane(documentTitle, active: controller.focusedPane == "document") {
                         VStack(spacing: 12) {
                             if controller.workspacePath != nil {
-                                QuickPanelWorkspaceInsightsView(controller: controller, insights: controller.insights)
-                                    .padding(.top, 6)
-                            }
-                            if route == .monitor && controller.workspacePath == nil {
+                                QuickPanelWorkspacePageView(controller: controller) { documentTable }
+                            } else if route == .monitor {
                                 QuickPanelMonitorView(controller: controller, monitor: controller.monitor)
                                     .frame(height: max(240, documentHeight * 0.54))
                                     .padding(.top, 8)

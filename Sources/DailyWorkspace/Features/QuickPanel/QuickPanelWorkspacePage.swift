@@ -40,6 +40,7 @@ extension QuickPanelController {
             .init(
                 id: "detail:kitty:\(path)", title: "New Kitty session here", detail: shortPath(path),
                 group: "Open", action: .openTarget(path)))
+        rows += workspaceLocalRows(path)
         workspaceRows = rows.map { detailRow($0, alternate: row.action) }
         query = ""
         selectedIndex = 0
@@ -63,9 +64,13 @@ extension QuickPanelController {
     }
 
     func loadWorkspaceInsights(_ path: String) {
-        let vault = model?.vaultSession.vault?.root.standardizedFileURL.path
-        let isVault = vault.map { path == $0 || path.hasPrefix($0 + "/") } ?? false
-        insights.load(path: path, private: isVault)
+        insights.load(path: path, private: isVaultPath(path))
+    }
+
+    /// Paths inside the selected vault have their own read and write policy.
+    func isVaultPath(_ path: String) -> Bool {
+        guard let vault = model?.vaultSession.vault?.root.standardizedFileURL.path else { return false }
+        return path == vault || path.hasPrefix(vault + "/")
     }
 
     private func detailRow(_ row: QuickPanelDataRow, alternate: QuickPanelDataAction?) -> QuickPanelDataRow {

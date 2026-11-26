@@ -21,6 +21,7 @@ extension QuickPanelController {
 
     /// Footer hints; the panel advertises no function keys.
     var vimHints: [(String, String)] {
+        if !aiPopup.isVisible, let hints = workspaceTabHints { return hints }
         if aiPopup.isVisible {
             return [
                 ("↵", "Ask"), ("/", "Commands"), ("⌘K", "Actions"), ("⇧⌘M", "Model"), ("⌘[ ⌘]", "Questions"),

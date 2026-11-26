@@ -43,6 +43,10 @@ struct QuickPanelCommandOutput: Sendable, CustomStringConvertible, CustomDebugSt
         return text.range(of: #"\bHTTP[ \t]+40[13]\b"#, options: [.regularExpression, .caseInsensitive]) != nil
     }
 
+    /// The child's first stderr bytes, only for an on-screen message from a trusted local tool (the workspace Git
+    /// hub). Never log it or put it in an error description.
+    var stderrForDisplay: String { String(bytes: stderr, encoding: .utf8) ?? "" }
+
     var description: String { "Helper output (exit status \(exitStatus))" }
     var debugDescription: String { description }
     var customMirror: Mirror { Mirror(self, children: ["exitStatus": exitStatus]) }

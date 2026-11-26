@@ -71,7 +71,9 @@ final class QuickPanelController: NSObject, ObservableObject, NSWindowDelegate {
     @Published var selectedIndex = 0
     @Published var query = "" { didSet { updateRows() } }
     @Published var shortcutTool: String?
-    @Published var workspacePath: String?
+    @Published var workspacePath: String? { didSet { if workspacePath != oldValue { workspacePathChanged() } } }
+    /// The workspace page's tab: Overview (dashboard and actions), Git, or Harness.
+    @Published var workspaceTab: QuickPanelWorkspaceTab = .overview
     @Published var attentionPreview: String?
     @Published var focusedPane = "document"
     @Published var searchRequest = 0
@@ -100,7 +102,7 @@ final class QuickPanelController: NSObject, ObservableObject, NSWindowDelegate {
     var openWorkspace: ((AppSection) -> Void)?
     let palette = QuickPanelCommandPalette()
     let insights = QuickPanelWorkspaceInsights(), monitor = QuickPanelMonitor()
-    let aiPopup = QuickPanelAIPopup()
+    let aiPopup = QuickPanelAIPopup(), gitHub = QuickPanelGitHub(), harness = QuickPanelHarness()
 
     var isVisible: Bool { panel.isVisible }
     /// The search pane stays hidden until `?`, Find or typing asks for it; a live query keeps it on screen.

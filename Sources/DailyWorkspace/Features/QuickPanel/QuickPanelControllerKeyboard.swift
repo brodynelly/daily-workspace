@@ -3,6 +3,13 @@ import DailyCore
 
 extension QuickPanelController {
     func handleKey(_ event: NSEvent) -> Bool {
+        // A focused commit message, filter or file editor on the workspace page owns typing, repeats included.
+        if let handled = handleWorkspaceTextKey(
+            keyCode: event.keyCode, characters: event.charactersIgnoringModifiers ?? "",
+            modifiers: event.modifierFlags)
+        {
+            return handled
+        }
         if event.isARepeat, palette.isVisible {
             return [125, 126, 51, 117].contains(event.keyCode)
                 ? handlePaletteKey(keyCode: event.keyCode, characters: "", modifiers: event.modifierFlags) : true
@@ -49,6 +56,12 @@ extension QuickPanelController {
     ) -> Bool {
         if let handled = handleLayerKey(
             keyCode: keyCode, characters: characters, modifiers: modifiers, typedCharacters: typedCharacters)
+        {
+            return handled
+        }
+        if let handled =
+            handleWorkspaceTextKey(keyCode: keyCode, characters: characters, modifiers: modifiers)
+            ?? handleWorkspaceTabKey(keyCode: keyCode, characters: typedCharacters ?? characters, modifiers: modifiers)
         {
             return handled
         }
