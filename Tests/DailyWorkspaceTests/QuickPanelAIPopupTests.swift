@@ -105,7 +105,7 @@ final class QuickPanelAIPopupTests: XCTestCase {
         panel.toggleAIPopup()
         XCTAssertEqual(panel.aiPopup.section, .ask)
         XCTAssertTrue(panel.handleKey(keyCode: 4, characters: "h", modifiers: .control))
-        XCTAssertEqual(panel.aiPopup.section, .questions)
+        XCTAssertEqual(panel.aiPopup.section, .chats)
         XCTAssertTrue(panel.handleKey(keyCode: 37, characters: "l", modifiers: .control))
         XCTAssertEqual(panel.aiPopup.section, .conversation)
         XCTAssertTrue(panel.handleKey(keyCode: 38, characters: "j", modifiers: .control))

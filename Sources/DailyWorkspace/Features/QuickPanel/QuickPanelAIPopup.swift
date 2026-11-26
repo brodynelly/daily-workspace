@@ -14,7 +14,7 @@ struct QuickPanelModelOption: Identifiable, Equatable, Sendable {
 final class QuickPanelAIPopup: ObservableObject {
     enum Layer: Equatable { case chat, actions, models }
     /// The AI page's panes; ⌃h/⌃j/⌃k/⌃l move between them.
-    enum Section: Equatable { case questions, conversation, ask }
+    enum Section: Equatable { case chats, conversation, ask }
 
     @Published private(set) var isVisible = false
     @Published var layer: Layer = .chat
@@ -26,6 +26,9 @@ final class QuickPanelAIPopup: ObservableObject {
     @Published var notice: String?
     /// The question the conversation is scrolled to (⌘[ / ⌘] or a click in QUESTIONS).
     @Published var focusedTurn: Int?
+    /// Earlier chats this app run, newest first, and the selected CHATS row (0 is the current chat).
+    @Published var chats: [AssistantConversation] = []
+    @Published var chatIndex = 0
     private var modelsProvider: AssistantProvider?
 
     func open() {
@@ -76,6 +79,8 @@ extension QuickPanelController {
         } else {
             palette.close()
             aiPopup.open()
+            // The AI page always opens on a fresh chat; the previous one is listed under CHATS.
+            fileCurrentChat()
             model?.assistantKey.refresh()
             model?.syncAssistantVaultAgents()
         }
@@ -86,6 +91,14 @@ extension QuickPanelController {
         let assistant = model?.assistant
         var actions: [QuickPanelAIAction] = [
             .init(id: "new", title: "New Chat", symbol: "plus.bubble", keys: "⌘N") { [weak self] in self?.newAIChat() },
+            .init(
+                id: "previous", title: "Go to Previous Chat", symbol: "arrow.left.circle", keys: "⌘["
+            ) { [weak self] in
+                self?.stepAIChat(older: true)
+            },
+            .init(id: "next", title: "Go to Next Chat", symbol: "arrow.right.circle", keys: "⌘]") { [weak self] in
+                self?.stepAIChat(older: false)
+            },
             .init(id: "model", title: "Change Model…", symbol: "cpu", keys: "⇧⌘M") { [weak self] in
                 self?.showModelPicker()
             },
@@ -161,7 +174,7 @@ extension QuickPanelController {
     }
 
     func newAIChat() {
-        model?.assistant.clear()
+        guard fileCurrentChat() else { return }
         model?.navigation.assistantDraft = ""
         aiPopup.layer = .chat
         aiPopup.notice = nil
@@ -278,7 +291,7 @@ extension QuickPanelController {
     private func handleAIPopupCommand(_ key: String, shift: Bool) -> Bool? {
         let commands: [String: (QuickPanelController) -> Void] = [
             "⇧m": { $0.showModelPicker() }, "k": { $0.aiPopup.show(.actions) }, "j": { $0.toggleAIPopup() },
-            "[": { $0.focusAITurn(by: -1) }, "]": { $0.focusAITurn(by: 1) }, "n": { $0.newAIChat() },
+            "[": { $0.stepAIChat(older: true) }, "]": { $0.stepAIChat(older: false) }, "n": { $0.newAIChat() },
             "⇧c": { $0.copyLastAnswer() }, "=": { $0.zoom(by: 1) }, "+": { $0.zoom(by: 1) },
             "⇧+": { $0.zoom(by: 1) }, "-": { $0.zoom(by: -1) }, "0": { $0.resetZoom() },
             ".": { $0.model?.assistant.stop() },
@@ -290,15 +303,16 @@ extension QuickPanelController {
 
     /// ⌃h left to QUESTIONS, ⌃l right to the chat, ⌃k up to the chat, ⌃j down to ASK.
     private static let sectionMoves: [String: (QuickPanelAIPopup.Section) -> QuickPanelAIPopup.Section] = [
-        "h": { _ in .questions },
-        "l": { $0 == .questions ? .conversation : $0 },
+        "h": { _ in .chats },
+        "l": { $0 == .chats ? .conversation : $0 },
         "k": { $0 == .ask ? .conversation : $0 },
         "j": { _ in .ask },
     ]
 
-    /// QUESTIONS and AI CHAT: j/k step through questions, g/G jump to the ends, Return reads the selected
+    /// CHATS and AI CHAT: in AI CHAT j/k step through questions, g/G jump to the ends, Return reads the selected
     /// answer, and any other letter starts typing in ASK.
     private func handleAIReadingKey(keyCode: UInt16, key: String, modifiers: NSEvent.ModifierFlags) -> Bool {
+        if aiPopup.section == .chats, let handled = handleAIChatsKey(keyCode: keyCode, key: key) { return handled }
         let count = model?.assistant.turns.count ?? 0
         switch key {
         case "j": focusAITurn(by: 1)

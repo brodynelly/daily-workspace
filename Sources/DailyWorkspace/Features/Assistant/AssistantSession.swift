@@ -2,6 +2,20 @@ import DailyCore
 import Foundation
 
 /// One finished exchange, as the UI shows it.
+/// A finished conversation held in memory only (never written to disk).
+struct AssistantConversation: Identifiable, Sendable {
+    let id: UUID
+    let turns: [AssistantTurn]
+    let transcript: [AgentMessage]
+    let provider: AssistantProvider
+    let model: String
+    let systemRevision: Int
+    let startedAt: Date
+    let archivedAt: Date
+
+    var title: String { turns.first?.question ?? "Chat" }
+}
+
 struct AssistantTurn: Identifiable, Equatable, Sendable {
     let id: UUID
     let question: String
@@ -55,6 +69,8 @@ final class AssistantSession: ObservableObject {
     /// The messages sent to the model, oldest first. Only ever appended to.
     private(set) var transcript: [AgentMessage] = []
     private(set) var system: [JSONValue]
+    /// Bumped whenever `system` changes, so a restored conversation knows if its context still applies.
+    private(set) var systemRevision = 0
     let tools = AssistantTool.definitions
     private(set) var configuration: Configuration
 
@@ -165,11 +181,35 @@ final class AssistantSession: ObservableObject {
         finish()
     }
 
+    /// The current conversation, kept in memory so the Quick Panel can list it with earlier chats.
+    /// Nil while a turn is running or when nothing has been asked.
+    func archivedConversation(now: Date = Date()) -> AssistantConversation? {
+        guard !isStreaming, let first = turns.first else { return nil }
+        return AssistantConversation(
+            id: UUID(), turns: turns, transcript: transcript, provider: configuration.provider,
+            model: configuration.model, systemRevision: systemRevision, startedAt: first.askedAt, archivedAt: now)
+    }
+
+    /// Show an earlier conversation again. Its transcript is replayed unchanged only for the same provider,
+    /// model and system prompt; otherwise the answers stay visible and the next question starts fresh context.
+    /// Returns whether the model context was restored.
+    @discardableResult
+    func restore(_ conversation: AssistantConversation) -> Bool {
+        clear()
+        turns = conversation.turns
+        let sameContext =
+            conversation.provider == configuration.provider && conversation.model == configuration.model
+            && conversation.systemRevision == systemRevision
+        transcript = sameContext ? conversation.transcript : []
+        return sameContext
+    }
+
     /// Start over with a new vault `AGENTS.md` (after a vault switch or when its hash changed). The system prompt
     /// is never changed under an existing conversation: that would invalidate its cache and thinking blocks.
     func startNewConversation(vaultAgents: String?) {
         clear()
         system = AssistantPrompt.system(vaultAgents: vaultAgents)
+        systemRevision += 1
     }
 
     /// Await the running turn (tests and shutdown).

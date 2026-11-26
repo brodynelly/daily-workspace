@@ -18,7 +18,7 @@ struct QuickPanelStatsBar: View {
             }
             if let error = controller.error {
                 Text(error).foregroundStyle(Ink.notice)
-            } else {
+            } else if !controller.aiPopup.isVisible {
                 stat("\(controller.rows.count)", controller.rows.count == 1 ? "item" : "items")
             }
             if !attention.rows.isEmpty {

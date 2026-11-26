@@ -23,7 +23,7 @@ extension QuickPanelController {
     var vimHints: [(String, String)] {
         if aiPopup.isVisible {
             return [
-                ("↵", "Ask"), ("/", "Commands"), ("⌘K", "Actions"), ("⇧⌘M", "Model"), ("⌘[ ⌘]", "Questions"),
+                ("↵", "Ask"), ("/", "Commands"), ("⌘K", "Actions"), ("⇧⌘M", "Model"), ("⌘[ ⌘]", "Chats"),
                 ("⌃h ⌃l", "Sections"),
                 ("⌘N", "New"), ("⌘+ ⌘-", "Zoom"), ("esc", "Close"),
             ]
