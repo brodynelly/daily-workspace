@@ -87,9 +87,9 @@ final class QuickPanelUIIntegrationTests: XCTestCase {
         XCTAssertEqual(panel.currentRoute, .home)
         XCTAssertTrue(panel.handleKey(keyCode: 19, characters: "2", modifiers: .command))
         XCTAssertEqual(panel.currentRoute, .agents)
-        XCTAssertTrue(panel.handleKey(keyCode: 0, characters: "a"))
-        XCTAssertEqual(panel.query, "a")
+        XCTAssertTrue(panel.handleKey(keyCode: 44, characters: "/", typedCharacters: "/"))
         XCTAssertEqual(panel.focusedPane, "command")
+        panel.query = "a"
         XCTAssertTrue(panel.handleKey(keyCode: 53))
         XCTAssertEqual(panel.query, "")
         XCTAssertTrue(panel.searchVisible)
@@ -113,10 +113,10 @@ final class QuickPanelUIIntegrationTests: XCTestCase {
         XCTAssertEqual(panel.selectedIndex, panel.rows.count - 1)
         XCTAssertTrue(panel.handleKey(keyCode: 115))  // Home
         XCTAssertEqual(panel.selectedIndex, 0)
-        XCTAssertTrue(panel.handleKey(keyCode: 99))  // F3
-        XCTAssertEqual(panel.focusedPane, "command")
-        XCTAssertTrue(panel.handleKey(keyCode: 120))  // F2
+        XCTAssertTrue(panel.handleKey(keyCode: 19, characters: "2"))
         XCTAssertEqual(panel.currentRoute, .agents)
+        XCTAssertTrue(panel.handleKey(keyCode: 44, characters: "/"))
+        XCTAssertEqual(panel.focusedPane, "command")
         XCTAssertTrue(panel.handleKey(keyCode: 21, characters: "4", modifiers: .command))
         XCTAssertEqual(panel.currentRoute, .files)
     }
@@ -306,22 +306,22 @@ extension QuickPanelUIIntegrationTests {
         XCTAssertEqual(panel.query, "")
         XCTAssertTrue(panel.handleKey(keyCode: 53))
         XCTAssertFalse(panel.searchVisible)
-        XCTAssertTrue(panel.handleKey(keyCode: 99))  // F3 Find
+        XCTAssertTrue(panel.handleKey(keyCode: 44, characters: "/"))
         XCTAssertTrue(panel.searchVisible)
         panel.zoomed = true
         XCTAssertFalse(panel.searchVisible, "Zoom keeps search hidden")
     }
 
-    func testPointerSelectionsRestoreKeyboardPaneAndTypeToSearch() {
+    func testPointerSelectionsRestoreKeyboardPaneForVimKeys() {
         let panel = QuickPanelController()
         panel.navigate(to: .system)
         panel.focusedPane = "command"
         panel.selectResultFromPointer(1)
         XCTAssertEqual(panel.selectedIndex, 1)
         XCTAssertEqual(panel.focusedPane, "document")
-        XCTAssertTrue(panel.handleKey(keyCode: 0, characters: "s"))
-        XCTAssertEqual(panel.query, "s")
-        XCTAssertEqual(panel.focusedPane, "command")
+        XCTAssertTrue(panel.handleKey(keyCode: 1, characters: "s"))
+        XCTAssertEqual(panel.query, "", "Plain letters are vim keys, not type-to-search")
+        XCTAssertEqual(panel.focusedPane, "document")
 
         panel.navigate(to: .music)
         panel.focusedPane = "command"
@@ -333,8 +333,7 @@ extension QuickPanelUIIntegrationTests {
         XCTAssertEqual(actions, 1, "Space controls Music after playlist selection")
         panel.selectResultFromPointer(0)
         XCTAssertEqual(panel.focusedPane, "document")
-        XCTAssertTrue(panel.handleKey(keyCode: 0, characters: "a"))
-        XCTAssertEqual(panel.query, "a")
+        XCTAssertTrue(panel.handleKey(keyCode: 44, characters: "/"))
         XCTAssertEqual(panel.focusedPane, "command")
     }
 

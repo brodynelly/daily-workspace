@@ -246,28 +246,36 @@ enum KeyboardShortcutCatalog {
         if stroke.modifiers == .command && ["q", "h", "m", "w", "space"].contains(stroke.key) {
             return .reservedStroke
         }
-        if context == .quickPanel {
-            // The panel dispatches configured shortcuts before its fixed navigation, menus and
-            // route-specific function keys. Do not let a binding steal those key events.
-            if [
-                "f2", "f4", "f5", "f6", "f7", "f8",
-                "leftArrow", "rightArrow", "upArrow", "downArrow", "delete",
-            ].contains(stroke.key) {
-                return .reservedStroke
-            }
-            if stroke.modifiers.contains(.option),
-                ["f", "e", "p", "v", "s", "w", "h"].contains(stroke.key)
-            {
-                return .reservedStroke
-            }
-            if stroke.key == "space" && !stroke.modifiers.contains(.command) { return .reservedStroke }
-            if stroke.key == "return" && !stroke.modifiers.contains(.command) { return .reservedStroke }
-        }
+        if context == .quickPanel, isReservedInQuickPanel(stroke) { return .reservedStroke }
         if context == .global && stroke.modifiers.isDisjoint(with: [.command, .option, .control]) {
             return .reservedStroke
         }
         if context == .global && stroke.carbonKeyCode == nil { return .invalidStroke }
         return nil
+    }
+
+    private static func isReservedInQuickPanel(_ stroke: ShortcutStroke) -> Bool {
+        // The panel dispatches configured shortcuts before its fixed navigation, menus and
+        // route-specific function keys. Do not let a binding steal those key events.
+        if [
+            "f2", "f4", "f5", "f6", "f7", "f8",
+            "leftArrow", "rightArrow", "upArrow", "downArrow", "delete",
+        ].contains(stroke.key) {
+            return true
+        }
+        if stroke.modifiers.contains(.option),
+            ["f", "e", "p", "v", "s", "w", "h"].contains(stroke.key)
+        {
+            return true
+        }
+        // Plain and shifted characters are the panel's fixed vim normal-mode keys.
+        if stroke.key.utf8.count == 1, stroke.modifiers.isSubset(of: .shift) { return true }
+        if stroke.modifiers == .control, ["d", "u", "f", "b", "e", "y"].contains(stroke.key) {
+            return true
+        }
+        if stroke.key == "space" && !stroke.modifiers.contains(.command) { return true }
+        if stroke.key == "return" && !stroke.modifiers.contains(.command) { return true }
+        return false
     }
 
     private static func isValidKey(_ key: String) -> Bool {

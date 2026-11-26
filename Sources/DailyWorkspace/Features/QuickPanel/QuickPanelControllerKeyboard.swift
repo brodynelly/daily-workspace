@@ -2,17 +2,12 @@ import AppKit
 import DailyCore
 
 extension QuickPanelController {
-    func showHelp() {
-        let alert = NSAlert()
-        alert.messageText = "Daily Workspace quick panel"
-        alert.informativeText =
-            "? shows search. Tab / ⇧Tab changes panes. Arrows select; Return opens. Escape clears search, hides search, unzooms, hides preview, goes back, then hides. ⌘W hides directly. Configure panel routes, search, refresh, help and zoom in Settings → Keyboard. F2/F4–F8 navigate in Workspace or control playback in Music. ⌥F/E/P/S/W/H opens a menu."
-        alert.runModal()
-    }
-
     func handleKey(_ event: NSEvent) -> Bool {
         if event.isARepeat {
             let modifiers = event.modifierFlags
+            if isRepeatableVimKey(event) {
+                return handleVimKey(characters: event.charactersIgnoringModifiers ?? "", modifiers: modifiers)
+            }
             if !modifiers.contains(.command), !modifiers.contains(.option), !modifiers.contains(.control) {
                 if [125, 126, 116, 121, 115, 119].contains(event.keyCode) {
                     return handleSelectionKey(event.keyCode, command: false, shift: modifiers.contains(.shift))
@@ -70,7 +65,14 @@ extension QuickPanelController {
             return true
         }
         if keyCode == 53 {
+            pendingVimPrefix = nil
             escape()
+            return true
+        }
+        if handleVimKey(
+            characters: modifiers.contains(.control) ? characters : typedCharacters ?? characters,
+            modifiers: modifiers)
+        {
             return true
         }
         if handleSelectionKey(keyCode, command: command, shift: shift) {
@@ -191,6 +193,8 @@ extension QuickPanelController {
         return true
     }
 
+    var vimPageSize: Int { pageSize }
+
     private var pageSize: Int {
         // Match QAP's scroll viewport (document pane height minus 34pt insets).
         let height = panel.contentView?.bounds.height ?? panel.frame.height
@@ -288,6 +292,8 @@ extension QuickPanelController {
     private func shuffleMusic() {
         performMusic(.shuffle(filteredTrackIDs: rows.compactMap { $0.id.split(separator: ":").last.map(String.init) }))
     }
+
+    func showContextMenu() { showMenu("Context") }
 
     private func showMenu(_ name: String) {
         panelMenu(named: name).popUp(

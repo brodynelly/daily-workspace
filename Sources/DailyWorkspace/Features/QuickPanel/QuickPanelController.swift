@@ -102,6 +102,8 @@ final class QuickPanelController: NSObject, ObservableObject, NSWindowDelegate {
     var model: AppModel?
     private var subscriptions: Set<AnyCancellable> = []
     var navigationHistory: [QuickPanelNavigationEntry] = []
+    /// The first key of a pending vim sequence such as `gg` or `dd`.
+    var pendingVimPrefix: Character?
     var refreshGeneration = 0
     var attentionIdentities: [String: QuickPanelAttentionIdentity] = [:]
     private var configuration = QuickPanelControlConfiguration()

@@ -256,17 +256,7 @@ extension QuickPanelPascalSkin {
 
     var footer: some View {
         HStack(spacing: 0) {
-            let hints =
-                music
-                ? [
-                    ("F1", " Help  "), ("F2", " Random  "), ("F3", " Find  "), ("F4", " Shuffle  "), ("F5", " Vol-  "),
-                    ("F6", " Vol+  "), ("F7", " Prev  "), ("F8", " Play  "), ("F9", " Next  "), ("F10", " Menu"),
-                ]
-                : [
-                    ("F1", " Help  "), ("F2", " Agents  "), ("F3", " Find  "), ("F4", " Projects  "),
-                    ("F5", " Sessions  "), ("F6", " Files  "), ("F7", " Workspaces  "), ("F8", " Keys  "),
-                    ("F9", " Refresh  "), ("F10", " Menu"),
-                ]
+            let hints = controller.vimHints
             ForEach(hints.indices, id: \.self) { index in
                 Text(hints[index].0).foregroundStyle(Ink.gold)
                 Text(hints[index].1).foregroundStyle(Ink.footer)
@@ -276,6 +266,6 @@ extension QuickPanelPascalSkin {
         .font(Typography.font(11, preferred: controller.panelFont))
         .lineLimit(1)
         .minimumScaleFactor(0.75)
-        .accessibilityLabel("Function key hints")
+        .accessibilityLabel("Keyboard hints")
     }
 }

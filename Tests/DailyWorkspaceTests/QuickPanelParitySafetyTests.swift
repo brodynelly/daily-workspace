@@ -6,7 +6,7 @@ import XCTest
 
 @MainActor
 final class QuickPanelParitySafetyTests: XCTestCase {
-    func testPageDownMovesByVisibleRowsAndTypeToSearchUsesTypedCase() {
+    func testPageDownMovesByVisibleRowsAndShiftedVimKeysUseTypedCase() {
         let panel = QuickPanelController()
         panel.rows = (0..<40).map { index in
             QuickPanelDataRow(id: "row:\(index)", title: "Row \(index)", detail: "", group: "Test")
@@ -16,8 +16,8 @@ final class QuickPanelParitySafetyTests: XCTestCase {
         XCTAssertTrue(panel.handleKey(keyCode: 116))
         XCTAssertEqual(panel.selectedIndex, 0)
 
-        XCTAssertTrue(panel.handleKey(keyCode: 0, characters: "a", modifiers: .shift, typedCharacters: "A"))
-        XCTAssertEqual(panel.query, "A")
+        XCTAssertTrue(panel.handleKey(keyCode: 5, characters: "G", modifiers: .shift, typedCharacters: "G"))
+        XCTAssertEqual(panel.selectedIndex, 39, "Shifted vim keys use the typed case")
     }
 
     func testNotificationColdLaunchDoesNotActivateButInteractiveLaunchDoes() {
