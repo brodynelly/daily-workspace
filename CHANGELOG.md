@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+- Quick Panel now finishes handling pending socket activity before releasing its listener during shutdown.
+
 - Today groups the agenda and due items beside capture and the daily note. The preview starts below the note properties. Project blockers follow the daily work.
 - Page actions wrap in smaller windows. Calendar keeps its month picker in a popover when space is tight. Projects and Assistant give the current selection more room. Recent note names and folders have separate lines.
 - Quick Panel menus have visible names and share their actions with the keyboard menus. The footer shows search controls while typing.

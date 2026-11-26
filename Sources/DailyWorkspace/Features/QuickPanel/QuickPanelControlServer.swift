@@ -88,6 +88,7 @@ final class QuickPanelControlServer {
     private let peerUID: (Int32) -> uid_t?
     private let state = NSLock()
     private var stopped = false
+    private var acceptSource: DispatchSourceRead?
 
     init(
         directory: URL = defaultDirectory,
@@ -175,7 +176,7 @@ final class QuickPanelControlServer {
 
     private static func startListener(_ listener: Int32, path: String, in dirFD: Int32) throws -> stat {
         try QuickPanelSocketBinding.bind(listener, path: path)
-        guard chmod(path, 0o600) == 0, listen(listener, 16) == 0 else {
+        guard fcntl(listener, F_SETFL, O_NONBLOCK) == 0, chmod(path, 0o600) == 0, listen(listener, 16) == 0 else {
             throw QuickPanelControlError.ioFailure(errno)
         }
         var identity = stat()
@@ -193,8 +194,13 @@ final class QuickPanelControlServer {
         defer { state.unlock() }
         guard !stopped else { return }
         stopped = true
-        _ = shutdown(listenerFD, SHUT_RDWR)
-        close(listenerFD)
+        if let acceptSource {
+            // Dispatch closes the listener only after its last accept handler has finished.
+            acceptSource.cancel()
+            self.acceptSource = nil
+        } else {
+            close(listenerFD)
+        }
         let dirFD = open(directory.path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
         if dirFD >= 0 {
             var info = stat()
@@ -209,20 +215,23 @@ final class QuickPanelControlServer {
     }
 
     func start(handler: @escaping @MainActor @Sendable (QuickPanelControlAction) -> [String: Any]) {
-        DispatchQueue.global(qos: .userInitiated).async { [self] in
-            while true {
-                let fd = accept(listenerFD, nil, nil)
-                if fd < 0 {
-                    state.lock()
-                    let finished = stopped
-                    state.unlock()
-                    if finished { break }
-                    continue
-                }
-                handle(fd, handler: handler)
-                close(fd)
-            }
+        state.lock()
+        defer { state.unlock() }
+        guard !stopped, acceptSource == nil else { return }
+        let queue = DispatchQueue(label: "DailyWorkspace.control.accept", qos: .userInitiated)
+        let source = DispatchSource.makeReadSource(fileDescriptor: listenerFD, queue: queue)
+        source.setEventHandler { [weak self] in
+            guard let self else { return }
+            let fd = accept(listenerFD, nil, nil)
+            guard fd >= 0 else { return }
+            defer { close(fd) }
+            // Accepted sockets can inherit the listener's nonblocking flag on Darwin.
+            guard fcntl(fd, F_SETFL, 0) == 0 else { return }
+            handle(fd, handler: handler)
         }
+        source.setCancelHandler { [listenerFD] in close(listenerFD) }
+        acceptSource = source
+        source.activate()
     }
 
     private func handle(_ fd: Int32, handler: @escaping @MainActor @Sendable (QuickPanelControlAction) -> [String: Any])
