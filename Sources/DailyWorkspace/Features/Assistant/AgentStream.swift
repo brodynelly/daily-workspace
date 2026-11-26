@@ -87,6 +87,8 @@ struct AgentResponse: Equatable, Sendable {
     var stopReason: String?
     var stopDetails: AgentStopDetails?
     var content: [AgentContentBlock]
+    /// Token counts from `message_start` and `message_delta`; zero when the provider sent none.
+    var usage = AgentUsage()
 
     /// Content to keep in the transcript. After a server-side fallback, model-internal blocks from before the
     /// last switch point (thinking, redacted thinking, tool calls, unknown types) must not be echoed back.

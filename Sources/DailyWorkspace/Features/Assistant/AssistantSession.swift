@@ -1,37 +1,6 @@
 import DailyCore
 import Foundation
 
-/// One finished exchange, as the UI shows it.
-/// A finished conversation held in memory only (never written to disk).
-struct AssistantConversation: Identifiable, Sendable {
-    let id: UUID
-    let turns: [AssistantTurn]
-    let transcript: [AgentMessage]
-    let provider: AssistantProvider
-    let model: String
-    let systemRevision: Int
-    let startedAt: Date
-    let archivedAt: Date
-
-    var title: String { turns.first?.question ?? "Chat" }
-}
-
-struct AssistantTurn: Identifiable, Equatable, Sendable {
-    let id: UUID
-    let question: String
-    let answer: String
-    /// Final model reply only; excludes intermediate tool-use rounds, for opt-in spoken playback.
-    let finalAnswer: String
-    /// Every tool call of the turn, in order, with the paths and record IDs each returned.
-    let toolCalls: [AssistantToolCall]
-    let askedAt: Date
-    /// The model that answered when a server-side fallback served the turn instead of the configured model.
-    let fallbackModel: String?
-
-    /// Everything the turn's tools returned that a claim can cite, without repeats.
-    var citations: [ToolCitation] { ToolCitation.unique(toolCalls.flatMap(\.citations)) }
-}
-
 /// The Assistant's conversation: a manual tool loop over `AgentTransport` with read-only tools.
 ///
 /// The transcript is append-only. Assistant blocks (thinking included) are stored as the raw JSON they arrived as
@@ -40,19 +9,6 @@ struct AssistantTurn: Identifiable, Equatable, Sendable {
 /// accepts elsewhere.
 @MainActor
 final class AssistantSession: ObservableObject {
-    struct Configuration: Sendable {
-        var provider: AssistantProvider = .anthropic
-        var model = "claude-opus-5-5"
-        var maxTokens = 16_000
-        var maxToolRounds = 8
-        /// `pause_turn` continuations allowed per request chain.
-        var maxContinuations = 4
-        var chatEffort = AgentEffort.low
-        var draftEffort = AgentEffort.medium
-        var now: @Sendable () -> Date = { Date() }
-        var timeZone: @Sendable () -> TimeZone = { TimeZone.current }
-    }
-
     @Published private(set) var turns: [AssistantTurn] = []
     /// Off until the user enables the Assistant in Settings. While off, nothing is sent: `send` and
     /// `draftRestartRecord` refuse before reading the key.
@@ -65,6 +21,10 @@ final class AssistantSession: ObservableObject {
     @Published private(set) var liveText = ""
     /// Tool calls of the current turn: running ones have no citations yet.
     @Published private(set) var liveToolCalls: [AssistantToolCall] = []
+    /// Tokens used by every request of this conversation, drafts included. Reset by `clear()`.
+    @Published private(set) var conversationUsage = AgentUsage()
+    /// What the last finished run did (counts and timings only).
+    @Published private(set) var lastRunSummary: AgentRunSummary?
     /// Context the user explicitly attached (a Quick Panel harness file) for the next question only. It is sent
     /// with that question when the Assistant is enabled, then dropped; `clear()` also drops it.
     @Published var attachment: AssistantPageFocus?
@@ -72,14 +32,26 @@ final class AssistantSession: ObservableObject {
     /// The messages sent to the model, oldest first. Only ever appended to.
     private(set) var transcript: [AgentMessage] = []
     private(set) var system: [JSONValue]
-    /// Bumped whenever `system` changes, so a restored conversation knows if its context still applies.
+    /// Bumped whenever `system` or the offered tools change, so a restored conversation knows if its context
+    /// still applies.
     private(set) var systemRevision = 0
-    let tools = AssistantTool.definitions
+    /// Definitions of the enabled tools, sorted so the cached prefix never changes within a conversation.
+    var tools: [JSONValue] { AssistantTool.enabledDefinitions(configuration.enabledTools) }
     private(set) var configuration: Configuration
 
     let transport: AgentTransport
     let openRouterTransport: AgentTransport
-    let runner: AssistantToolRunner
+    let context: AssistantContext
+    /// Lifecycle hooks: called on the main actor for every run event. Events carry no content.
+    private var runObservers: [@MainActor (AgentRunEvent) -> Void] = []
+    /// The tool runner with the current limits.
+    var runner: AssistantToolRunner { makeRunner(configuration) }
+
+    func makeRunner(_ configuration: Configuration) -> AssistantToolRunner {
+        AssistantToolRunner(
+            context: context, enabledTools: configuration.enabledTools, timeout: configuration.toolTimeout,
+            maxResultBytes: configuration.maxToolResultBytes)
+    }
     private let keyStore: APIKeyStore
     private let openRouterKeyStore: APIKeyStore
     private var requestTask: Task<Void, Never>?
@@ -102,7 +74,7 @@ final class AssistantSession: ObservableObject {
         self.openRouterTransport = openRouterTransport
         self.keyStore = keyStore
         self.openRouterKeyStore = openRouterKeyStore
-        self.runner = AssistantToolRunner(context: context)
+        self.context = context
         self.configuration = configuration
         self.isEnabled = isEnabled
         self.system = AssistantPrompt.system(vaultAgents: vaultAgents)
@@ -132,6 +104,26 @@ final class AssistantSession: ObservableObject {
         setProvider(configuration.provider, model: model)
     }
 
+    /// Apply runtime limits. Limits take effect from the next question; a change to the offered tools starts a
+    /// new conversation, because tool definitions open the cached prefix and earlier tool calls must stay valid.
+    func applyRuntime(_ limits: AgentRuntimeLimits) {
+        let toolsChanged = limits.enabledTools != configuration.enabledTools
+        configuration.apply(limits)
+        guard toolsChanged else { return }
+        // Archived chats made with the old tools must not replay their tool calls against the new ones.
+        systemRevision += 1
+        if !transcript.isEmpty || isStreaming { clear() }
+    }
+
+    /// Register a lifecycle hook (logging, metrics, tests). It sees names, counts and timings, never content.
+    func addRunObserver(_ observer: @escaping @MainActor (AgentRunEvent) -> Void) {
+        runObservers.append(observer)
+    }
+
+    func emit(_ event: AgentRunEvent) {
+        for observer in runObservers { observer(event) }
+    }
+
     /// Ask `text`, optionally attaching the current page's navigation metadata only to this request.
     /// Ignored while a turn is running or when `text` is blank.
     func send(_ text: String, pageFocus: AssistantPageFocus? = nil) {
@@ -151,18 +143,24 @@ final class AssistantSession: ObservableObject {
         attachment = nil
         requestTask = Task {
             defer { if self.generation == generation { self.finish() } }
+            let trace = AgentRunTrace(profile: "chat")
             do {
                 let outcome = try await runLoop(
                     base: base, opening: opening, apiKey: key,
                     options: LoopOptions(
-                        effort: configuration.chatEffort, schema: nil, generation: generation, showsProgress: true))
+                        effort: configuration.chatEffort, schema: nil, generation: generation, showsProgress: true,
+                        trace: trace))
                 guard self.generation == generation else { return }
                 transcript = base + outcome.appended
-                turns.append(
-                    AssistantTurn(
-                        id: UUID(), question: question, answer: outcome.text, finalAnswer: outcome.finalText,
-                        toolCalls: outcome.toolCalls, askedAt: askedAt, fallbackModel: fallbackModel(outcome.model)))
+                var turn = AssistantTurn(
+                    id: UUID(), question: question, answer: outcome.text, finalAnswer: outcome.finalText,
+                    toolCalls: outcome.toolCalls, askedAt: askedAt, fallbackModel: fallbackModel(outcome.model))
+                turn.usage = outcome.usage
+                turn.contextTokens = outcome.contextTokens
+                turns.append(turn)
+                finishRun(trace, error: nil, generation: generation)
             } catch {
+                finishRun(trace, error: error, generation: generation)
                 guard self.generation == generation else { return }
                 report(error)
             }
@@ -182,17 +180,9 @@ final class AssistantSession: ObservableObject {
         generation += 1
         transcript = []
         turns = []
+        conversationUsage = AgentUsage()
         error = nil
         finish()
-    }
-
-    /// The current conversation, kept in memory so the Quick Panel can list it with earlier chats.
-    /// Nil while a turn is running or when nothing has been asked.
-    func archivedConversation(now: Date = Date()) -> AssistantConversation? {
-        guard !isStreaming, let first = turns.first else { return nil }
-        return AssistantConversation(
-            id: UUID(), turns: turns, transcript: transcript, provider: configuration.provider,
-            model: configuration.model, systemRevision: systemRevision, startedAt: first.askedAt, archivedAt: now)
     }
 
     /// Show an earlier conversation again. Its transcript is replayed unchanged only for the same provider,
@@ -244,48 +234,6 @@ final class AssistantSession: ObservableObject {
         }
     }
 
-    private func makeDraft(slug: String, apiKey: String, generation: Int) async throws -> RestartDraft {
-        let createdAt = configuration.now()
-        let opening = AgentMessage(
-            role: .user,
-            content: [
-                AssistantPrompt.contextBlock(now: createdAt, timeZone: configuration.timeZone()),
-                AgentContentBlock.text(AssistantPrompt.restartRequest(project: slug)).raw,
-            ])
-        let outcome = try await runLoop(
-            base: transcript, opening: opening, apiKey: apiKey,
-            options: LoopOptions(
-                effort: configuration.draftEffort, schema: AssistantPrompt.restartSchema, generation: generation,
-                showsProgress: false))
-        let observed = (turns.flatMap(\.toolCalls) + outcome.toolCalls).flatMap(\.citations)
-            .filter { $0.kind == .path }.map(\.value)
-        guard
-            let draft = RestartDraft(
-                json: outcome.finalText, projectSlug: slug, createdAt: createdAt, observedPaths: Set(observed))
-        else {
-            throw AgentError(.invalidDraft, "The Assistant's draft couldn't be read. Try again.")
-        }
-        return draft
-    }
-
-    func userMessage(_ question: String, pageFocus: AssistantPageFocus? = nil) -> AgentMessage {
-        guard let pageFocus else {
-            return AgentMessage(
-                role: .user,
-                content: [
-                    AssistantPrompt.contextBlock(now: configuration.now(), timeZone: configuration.timeZone()),
-                    AgentContentBlock.text(question).raw,
-                ])
-        }
-        return AgentMessage(
-            role: .user,
-            content: [
-                AssistantPrompt.contextBlock(now: configuration.now(), timeZone: configuration.timeZone()),
-                AgentContentBlock.text(pageFocus.contextText).raw,
-                AgentContentBlock.text(question).raw,
-            ])
-    }
-
     /// The selected provider's key, or nil with `error` set. Callers send it only to that provider.
     func readKey() -> String? {
         do {
@@ -328,9 +276,28 @@ final class AssistantSession: ObservableObject {
         }
     }
 
-    private func fallbackModel(_ model: String?) -> String? {
-        guard let model, !model.isEmpty, model != configuration.model else { return nil }
-        return model
+    /// Close a run's trace: publish and log its summary, count its tokens, and tell observers.
+    func finishRun(_ trace: AgentRunTrace, error: Error?, generation: Int) {
+        var summary = trace.summary
+        if let agentError = error as? AgentError {
+            summary.outcome = .failed(agentError.kind)
+        } else if error is CancellationError || (error != nil && Task.isCancelled) {
+            summary.outcome = .cancelled
+        } else if error != nil {
+            summary.outcome = .unknownFailure
+        }
+        // Counts and timings only, so the whole line can be public.
+        let usage = summary.usage
+        let line =
+            "Assistant \(summary.profile) run \(summary.outcomeName): \(summary.requests) requests, "
+            + "\(summary.toolCalls) tools, \(summary.toolErrors) tool errors, \(summary.toolTimeouts) timeouts, "
+            + "\(summary.retries) retries, \(usage.totalInputTokens) in, \(usage.cacheReadInputTokens) cached, "
+            + "\(usage.outputTokens) out, \(Int(summary.duration * 1000)) ms"
+        Log.assistant.info("\(line, privacy: .public)")
+        guard self.generation == generation else { return }
+        conversationUsage += summary.usage
+        lastRunSummary = summary
+        emit(.finished(summary))
     }
 
     /// Progress from the transport, applied only while `generation` is current.

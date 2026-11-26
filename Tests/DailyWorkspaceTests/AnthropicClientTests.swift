@@ -232,6 +232,15 @@ final class AnthropicClientTests: XCTestCase {
             XCTAssertEqual((error as? AgentError)?.kind, .incomplete)
         }
     }
+
+    func testADroppedConnectionIsRetryableButBeingOfflineIsNot() {
+        let dropped = AgentError.network(URLError(.networkConnectionLost))
+        XCTAssertEqual(dropped.kind, .network)
+        XCTAssertTrue(AgentRetryPolicy().isRetryable(dropped))
+        let offline = AgentError.network(URLError(.notConnectedToInternet))
+        XCTAssertEqual(offline.kind, .offline)
+        XCTAssertFalse(AgentRetryPolicy().isRetryable(offline))
+    }
 }
 
 private actor UpdateLog {

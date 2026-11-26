@@ -5,7 +5,9 @@ struct OpenRouterClient: AgentTransport {
     static let defaultEndpoint = URL(string: "https://openrouter.ai/api/v1/messages")!
 
     var endpoint = defaultEndpoint
-    var idleTimeout: TimeInterval = 120
+    /// Longest wait for the next bytes. Adaptive thinking can pause output for minutes (Claude Code never goes
+    /// below 5 minutes), so a shorter idle limit would cut off healthy answers.
+    var idleTimeout: TimeInterval = 300
     var totalTimeout: TimeInterval = 600
     /// Test hook: `URLProtocol` classes to put in front of the network.
     var protocolClasses: [AnyClass]?

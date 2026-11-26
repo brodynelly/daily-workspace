@@ -28,6 +28,7 @@ struct MessageStreamAccumulator {
             let message = object["message"] as? [String: Any]
             response.id = message?["id"] as? String
             response.model = message?["model"] as? String
+            response.usage.merge(message?["usage"] as? [String: Any])
         case "content_block_start": return startBlock(object)
         case "content_block_delta": return applyDelta(object)
         case "content_block_stop":
@@ -82,6 +83,7 @@ struct MessageStreamAccumulator {
 
     private mutating func applyMessageDelta(_ object: [String: Any]) {
         let delta = object["delta"] as? [String: Any]
+        response.usage.merge(object["usage"] as? [String: Any])
         if let reason = delta?["stop_reason"] as? String { response.stopReason = reason }
         let details = (delta?["stop_details"] ?? object["stop_details"]) as? [String: Any]
         if let details {

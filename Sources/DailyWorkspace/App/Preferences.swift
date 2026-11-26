@@ -39,6 +39,15 @@ final class Preferences: ObservableObject {
     /// Separate model choices prevent reusing a provider-specific model ID after switching.
     @Published var assistantModel: String { didSet { persist() } }
     @Published var openRouterModel: String { didSet { persist() } }
+    /// The Assistant's loop limits and tool choices. Stored validated, so every value is in range.
+    @Published var assistantRuntime: AssistantRuntimeSettings {
+        didSet {
+            // Assigning inside its own observer does not re-run the observer.
+            let valid = assistantRuntime.validated
+            if valid != assistantRuntime { assistantRuntime = valid }
+            persist()
+        }
+    }
     @Published var mailEnabled: Bool { didSet { persist() } }
     @Published var quickPanelClipboardEnabled: Bool { didSet { persist() } }
     @Published var quickPanelTerminalBorderEnabled: Bool { didSet { persist() } }
@@ -83,6 +92,7 @@ final class Preferences: ObservableObject {
         assistantProvider = settings.assistantProvider
         assistantModel = settings.assistantModel
         openRouterModel = settings.openRouterModel
+        assistantRuntime = settings.assistantRuntime.validated
         mailEnabled = settings.mailEnabled
         quickPanelClipboardEnabled = settings.quickPanelClipboardEnabled
         quickPanelTerminalBorderEnabled = settings.quickPanelTerminalBorderEnabled
@@ -145,7 +155,8 @@ final class Preferences: ObservableObject {
             quickPanelClipboardEnabled: quickPanelClipboardEnabled,
             quickPanelTerminalBorderEnabled: quickPanelTerminalBorderEnabled,
             quickPanelZoom: quickPanelZoom,
-            shortcutOverrides: shortcutOverrides
+            shortcutOverrides: shortcutOverrides,
+            assistantRuntime: assistantRuntime
         )
     }
 
