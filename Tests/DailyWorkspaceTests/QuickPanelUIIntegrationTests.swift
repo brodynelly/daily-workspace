@@ -83,12 +83,41 @@ final class QuickPanelUIIntegrationTests: XCTestCase {
         XCTAssertEqual(panel.focusedPane, "command")
         XCTAssertTrue(panel.handleKey(keyCode: 53))
         XCTAssertEqual(panel.query, "")
+        XCTAssertTrue(panel.searchVisible)
+        XCTAssertTrue(panel.handleKey(keyCode: 53))
+        XCTAssertFalse(panel.searchVisible, "Escape on an empty query hides search before going back")
+        XCTAssertEqual(panel.currentRoute, .agents)
         XCTAssertTrue(panel.handleKey(keyCode: 53))
         XCTAssertEqual(panel.currentRoute, .home)
         XCTAssertTrue(panel.handleKey(keyCode: 48))
-        XCTAssertEqual(panel.focusedPane, "document")
-        XCTAssertTrue(panel.handleKey(keyCode: 48, modifiers: .shift))
         XCTAssertEqual(panel.focusedPane, "command")
+        XCTAssertTrue(panel.handleKey(keyCode: 48, modifiers: .shift))
+        XCTAssertEqual(panel.focusedPane, "document")
+    }
+
+    func testSearchPaneHiddenUntilQuestionMarkOrFind() {
+        let panel = QuickPanelController()
+        for route in [QuickPanelRoute.home, .tmux, .shortcuts, .music] {
+            panel.navigate(to: route)
+            XCTAssertFalse(panel.searchVisible, "\(route) opens without the search pane")
+        }
+        panel.navigate(to: .shortcuts)
+        XCTAssertTrue(panel.handleKey(keyCode: 44, characters: "?", modifiers: .shift, typedCharacters: "?"))
+        XCTAssertTrue(panel.searchVisible)
+        XCTAssertEqual(panel.focusedPane, "command")
+        XCTAssertEqual(panel.query, "", "? reveals search without inserting itself")
+        panel.query = "git"
+        XCTAssertFalse(
+            panel.handleKey(keyCode: 44, characters: "?", modifiers: .shift, typedCharacters: "?"),
+            "? inside an active search goes to the field as text")
+        XCTAssertTrue(panel.handleKey(keyCode: 53))
+        XCTAssertEqual(panel.query, "")
+        XCTAssertTrue(panel.handleKey(keyCode: 53))
+        XCTAssertFalse(panel.searchVisible)
+        XCTAssertTrue(panel.handleKey(keyCode: 99))  // F3 Find
+        XCTAssertTrue(panel.searchVisible)
+        panel.zoomed = true
+        XCTAssertFalse(panel.searchVisible, "Zoom keeps search hidden")
     }
 
     func testSystemRowKeyboardSelectionClampAndFind() {

@@ -19,6 +19,7 @@ extension QuickPanelPascalSkin {
                     }
                 }
                 .padding(.leading, 5)
+                .frame(width: geometry.size.width, height: geometry.size.height, alignment: .leading)
             }
             .frame(height: 27)
             .foregroundStyle(Ink.cyan)
@@ -96,6 +97,8 @@ extension QuickPanelPascalSkin {
                                     }
                                 }
                                 .padding(.leading, 5)
+                                // GeometryReader pins content top-leading; centre it in the 28pt band.
+                                .frame(width: geometry.size.width, height: geometry.size.height, alignment: .leading)
                             }
                             .frame(height: 28)
                             .frame(maxWidth: .infinity)
@@ -229,20 +232,26 @@ extension QuickPanelPascalSkin {
                     .onTapGesture { controller.focusSearch() }
                     .accessibilityLabel("Search \(route.title)")
             }
-            Text(
-                controller.error
-                    ?? (music
-                        ? controller.music.summary
-                        : "\(controller.rows.count) \(controller.rows.count == 1 ? "item" : "items") · \(route.title)")
-            )
-            .font(Typography.font(11, preferred: controller.panelFont))
-            .foregroundStyle(
-                controller.error == nil && (!music || controller.music.errorMessage == nil) ? Ink.meta : Ink.notice
-            )
-            .lineLimit(1)
+            Text(statusLine)
+                .font(Typography.font(11, preferred: controller.panelFont))
+                .foregroundStyle(statusIsNormal ? Ink.meta : Ink.notice)
+                .lineLimit(1)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .accessibilityLabel("Search and command pane")
+        // The pane is inserted on demand, so claim focus once the field exists.
+        .onAppear { DispatchQueue.main.async { searchFocused = controller.focusedPane == "command" } }
+    }
+
+    var statusLine: String {
+        controller.error
+            ?? (music
+                ? controller.music.summary
+                : "\(controller.rows.count) \(controller.rows.count == 1 ? "item" : "items") · \(route.title)")
+    }
+
+    var statusIsNormal: Bool {
+        controller.error == nil && (!music || controller.music.errorMessage == nil)
     }
 
     var footer: some View {

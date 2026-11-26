@@ -63,7 +63,7 @@ struct QuickPanelPascalSkin: View {
             let commandY = height - 122
             let showsPreview = controller.showsPreview
             let bottom = height - 38
-            let documentBottom = controller.zoomed ? bottom : bottom - 96
+            let documentBottom = controller.searchVisible ? bottom - 96 : bottom
             let documentHeight =
                 showsPreview
                 ? max(100, min(210, (documentBottom - 40) * 0.45))
@@ -101,7 +101,7 @@ struct QuickPanelPascalSkin: View {
                     .offset(x: x, y: previewY)
                 }
 
-                if !controller.zoomed {
+                if controller.searchVisible {
                     pane(music ? "MUSIC.APP" : "SEARCH / COMMAND", active: controller.focusedPane == "command") {
                         command
                     }
@@ -215,25 +215,55 @@ struct QuickPanelPascalSkin: View {
                 Button("Help F1") { controller.showHelp() }
             }
             Spacer(minLength: 0)
-            Text("DAILY WORKSPACE / PASCAL")
+            // While search is hidden, its status line (count, music state, errors) moves here.
+            Text(controller.searchVisible ? "DAILY WORKSPACE / PASCAL" : statusLine)
                 .font(Typography.font(11, preferred: controller.panelFont))
-                .foregroundStyle(Ink.meta)
+                .foregroundStyle(controller.searchVisible || statusIsNormal ? Ink.meta : Ink.notice)
                 .lineLimit(1)
         }
         .padding(.horizontal, 12)
     }
 
     private func menu<Items: View>(_ name: String, @ViewBuilder items: () -> Items) -> some View {
-        Menu(content: items) {
-            HStack(spacing: 0) {
-                Text(String(name.prefix(1))).foregroundStyle(Ink.gold)
-                Text(String(name.dropFirst())).foregroundStyle(Ink.footer)
-            }
-            .font(Typography.font(13, preferred: controller.panelFont))
-        }
-        .menuStyle(.borderlessButton)
-        .fixedSize()
-        .accessibilityLabel("\(name) menu")
+        QuickPanelMenuIcon(name: name, items: items)
     }
 
+}
+
+/// A menu-strip entry drawn as an SF Symbol; the name stays in its accessibility label and tooltip.
+@MainActor
+struct QuickPanelMenuIcon<Items: View>: View {
+    let name: String
+    @ViewBuilder let items: () -> Items
+    @State private var hovered = false
+
+    static func symbol(for name: String) -> String {
+        switch name {
+        case "File": return "doc"
+        case "Edit": return "pencil"
+        case "View": return "eye"
+        case "Window": return "macwindow"
+        case "Help": return "questionmark.circle"
+        case "Play": return "play.fill"
+        case "Shuffle": return "shuffle"
+        default: return "ellipsis.circle"
+        }
+    }
+
+    var body: some View {
+        Menu(content: items) {
+            Image(systemName: Self.symbol(for: name))
+                .renderingMode(.template)
+                .symbolRenderingMode(.monochrome)
+                .font(.system(size: 13, weight: .medium))
+                .frame(height: 16)
+                .foregroundStyle(hovered ? QuickPanelPascalSkin.Ink.gold : QuickPanelPascalSkin.Ink.footer)
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.visible)
+        .fixedSize()
+        .onHover { hovered = $0 }
+        .help("\(name) (⌥\(name.prefix(1)))")
+        .accessibilityLabel("\(name) menu")
+    }
 }

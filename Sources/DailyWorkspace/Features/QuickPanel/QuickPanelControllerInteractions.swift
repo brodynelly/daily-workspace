@@ -165,6 +165,10 @@ extension QuickPanelController {
             query = ""
             return
         }
+        if focusedPane == "command" {
+            focusedPane = "document"
+            return
+        }
         if zoomed {
             zoomed = false
             return
