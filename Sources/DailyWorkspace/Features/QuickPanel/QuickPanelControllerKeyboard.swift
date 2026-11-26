@@ -54,6 +54,12 @@ extension QuickPanelController {
             hide(restoreFocus: true)
             return true
         }
+        if let stroke = ShortcutStroke(keyCode: keyCode, characters: characters, modifierFlags: modifiers),
+            commandPaletteBinding?.strokes == [stroke]
+        {
+            openCommandPalette()
+            return true
+        }
         if option,
             let menu = [
                 "f": "File", "e": "Edit", "p": "Play", "v": "View",
@@ -92,6 +98,20 @@ extension QuickPanelController {
         query += characters
         focusedPane = "command"
         return true
+    }
+
+    /// The workspace Command Palette is a main-window sheet: close the panel and bring that window forward.
+    func openCommandPalette() {
+        let section = model?.navigation.section ?? .today
+        hide(restoreFocus: false)
+        model?.navigation.showCommandPalette = true
+        openWorkspace?(section)
+    }
+
+    private var commandPaletteBinding: ShortcutBinding? {
+        let id = AppCommand.commandPalette.id
+        if let model { return KeyboardShortcutCatalog.binding(for: id, preferences: model.preferences) }
+        return KeyboardShortcutCatalog.definitions.first { $0.id == id }?.defaultBinding
     }
 
     private func handleConfiguredShortcut(_ stroke: ShortcutStroke) -> Bool {

@@ -162,7 +162,7 @@ struct QuickPanelPascalSkin: View {
     }
 
     private var menuStrip: some View {
-        HStack(spacing: 25) {
+        HStack(spacing: 4) {
             menu("File") {
                 Button("Open \(route.title) in Daily Workspace") {
                     if let section = route.workspaceSection { controller.open(section) }
@@ -239,12 +239,12 @@ struct QuickPanelMenuIcon<Items: View>: View {
 
     static func symbol(for name: String) -> String {
         switch name {
-        case "File": return "doc"
-        case "Edit": return "pencil"
-        case "View": return "eye"
-        case "Window": return "macwindow"
+        case "File": return "doc.text"
+        case "Edit": return "square.and.pencil"
+        case "View": return "rectangle.grid.1x2"
+        case "Window": return "macwindow.on.rectangle"
         case "Help": return "questionmark.circle"
-        case "Play": return "play.fill"
+        case "Play": return "playpause"
         case "Shuffle": return "shuffle"
         default: return "ellipsis.circle"
         }
@@ -254,17 +254,30 @@ struct QuickPanelMenuIcon<Items: View>: View {
         Menu {
             items
         } label: {
-            Image(systemName: Self.symbol(for: name))
-                .renderingMode(.template)
-                .symbolRenderingMode(.monochrome)
-                .font(.system(size: 13, weight: .medium))
-                .frame(height: 16)
-                .foregroundStyle(hovered ? QuickPanelPascalSkin.Ink.gold : QuickPanelPascalSkin.Ink.footer)
+            HStack(spacing: 3) {
+                Image(systemName: Self.symbol(for: name))
+                    .symbolRenderingMode(.hierarchical)
+                    .font(.system(size: 12, weight: .regular))
+                    .frame(width: 16, height: 16)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 7, weight: .semibold))
+                    .opacity(hovered ? 0.9 : 0.45)
+            }
+            .foregroundStyle(hovered ? QuickPanelPascalSkin.Ink.gold : QuickPanelPascalSkin.Ink.footer)
+            .padding(.horizontal, 7)
+            .frame(height: 21)
+            .background(
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(QuickPanelPascalSkin.Ink.selection.opacity(hovered ? 1 : 0))
+            )
+            .contentShape(Rectangle())
         }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.visible)
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
         .fixedSize()
         .onHover { hovered = $0 }
+        .animation(.easeOut(duration: 0.12), value: hovered)
         .help("\(name) (⌥\(name.prefix(1)))")
         .accessibilityLabel("\(name) menu")
     }
