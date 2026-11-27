@@ -53,9 +53,9 @@ final class QuickPanelDataProviderTests: XCTestCase {
         let fake = PanelFakeRunner()
         await fake.set("kitty_sessions.py", data: Data("{broken".utf8))
         await fake.set("kitty-zoxide-session.sh", data: Data([0xFF]))
-        let data = await provider(home: root, bundled: root, fake: fake)
+        let data = provider(home: root, bundled: root, fake: fake)
         await data.refresh()
-        var snapshot = await data.snapshot
+        var snapshot = data.snapshot
         XCTAssertNil(snapshot.rows(for: .agents).first?.action)
         XCTAssertNil(snapshot.rows(for: .ssh).first?.action)
         XCTAssertTrue(snapshot.notices.contains("Invalid Kitty sessions response"))
@@ -70,7 +70,7 @@ final class QuickPanelDataProviderTests: XCTestCase {
         await fake.set(
             "kitty-zoxide-session.sh", data: Data("/tmp/project\tproject\nssh:example\tremote\ntmux:dev\tdev\n".utf8))
         await data.refresh()
-        snapshot = await data.snapshot
+        snapshot = data.snapshot
         XCTAssertEqual(snapshot.agents.count, 1)
         XCTAssertEqual(snapshot.agents.first?.action, .focusAgent(12))
         XCTAssertEqual(snapshot.sessions.first?.remove, .closeSession("work"))
@@ -101,7 +101,7 @@ final class QuickPanelDataProviderTests: XCTestCase {
         await fake.set(
             "workspace.py actions",
             data: Data("[{\"name\":\"Codex CLI\",\"tool\":\"codex\"},{\"name\":\"bad\",\"tool\":\"../escape\"}]".utf8))
-        let data = await provider(home: home, bundled: home, fake: fake)
+        let data = provider(home: home, bundled: home, fake: fake)
         await data.refresh()
         let snapshot = data.snapshot
         XCTAssertEqual(snapshot.workspaces.map(\.title), ["Catalog only"])

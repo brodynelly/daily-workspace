@@ -39,7 +39,7 @@ final class QuickPanelDataActionsTests: XCTestCase {
 
     func testEveryHelperActionUsesFixedArgvAndNavigationDoesNotRunHelpers() async throws {
         let fake = ActionFakeRunner()
-        let executor = await actions(fake)
+        let executor = actions(fake)
         let path = "/tmp/project with $(touch /tmp/nope);'"
         let dotfiles = "/tmp/panel-dotfiles/"
 
@@ -81,7 +81,7 @@ final class QuickPanelDataActionsTests: XCTestCase {
 
     func testInvalidSourceValuesNeverReachRunner() async throws {
         let fake = ActionFakeRunner()
-        let executor = await actions(fake)
+        let executor = actions(fake)
         let invalid: [QuickPanelDataAction] = [
             .focusAgent(0), .gotoSession("\n"), .closeSession("bad\0name"),
             .openFile("relative"), .openTarget("ssh:\ncommand"), .openTarget("--option"),
@@ -102,7 +102,7 @@ final class QuickPanelDataActionsTests: XCTestCase {
 
     func testTypedDirectoryUsesTargetHelper() async throws {
         let fake = ActionFakeRunner()
-        let executor = await actions(fake)
+        let executor = actions(fake)
         let path = FileManager.default.temporaryDirectory.path
         let result = try await executor.execute(.openTarget(path))
         XCTAssertEqual(result, .hide)
@@ -114,7 +114,7 @@ final class QuickPanelDataActionsTests: XCTestCase {
 
     func testFailureIsPropagatedWithoutReportingSuccess() async throws {
         let fake = ActionFakeRunner()
-        let executor = await actions(fake)
+        let executor = actions(fake)
         await fake.setStatus(19)
         do {
             _ = try await executor.execute(.closeSession("work"))
@@ -133,7 +133,7 @@ final class QuickPanelDataActionsTests: XCTestCase {
 
     func testDesktopActionsRejectUnapprovedBundlesAndUnknownWindows() async throws {
         let fake = ActionFakeRunner()
-        let executor = await actions(fake)
+        let executor = actions(fake)
         for action in [
             QuickPanelDataAction.activateApplication("com.attacker.app"),
             .activateWindow(bundleID: "com.attacker.app", windowID: 1),
