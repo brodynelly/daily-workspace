@@ -166,6 +166,7 @@ final class DesignSystemTests: XCTestCase {
         for role in TextRole.allCases { XCTAssertGreaterThanOrEqual(role.leading, 0) }
     }
 
+    @MainActor
     func testShortIdShowsEightHexDigits() {
         XCTAssertEqual(ShortId.shortForm("ticket-0f3a9c21-1b2c-4d5e-8f90-123456789abc"), "0f3a9c21")
         XCTAssertEqual(ShortId.shortForm("0F3A9C21-1B2C-4D5E-8F90-123456789ABC"), "0f3a9c21")
