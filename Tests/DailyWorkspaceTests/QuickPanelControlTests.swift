@@ -84,7 +84,8 @@ final class QuickPanelControlTests: XCTestCase {
         XCTAssertEqual(status["protocol"] as? Int, 1)
         let socketURL = server.socketURL
         let queued = try await Task.detached {
-            try ControlSocket.exchange(#"{"action":"show","view":"shortcuts"}"#, socketURL: socketURL)["queued"] as? Bool
+            let show = try ControlSocket.exchange(#"{"action":"show","view":"shortcuts"}"#, socketURL: socketURL)
+            return show["queued"] as? Bool
         }.value
         XCTAssertEqual(queued, true)
         await fulfillment(of: [received], timeout: 2)
@@ -217,7 +218,8 @@ final class QuickPanelControlTests: XCTestCase {
         }
 
         let started = DispatchTime.now().uptimeNanoseconds
-        let healthy = try ControlSocket.exchange(#"{"action":"status"}"#, socketURL: server.socketURL, responseTimeoutSeconds: 4)
+        let healthy = try ControlSocket.exchange(
+            #"{"action":"status"}"#, socketURL: server.socketURL, responseTimeoutSeconds: 4)
         let elapsed = Double(DispatchTime.now().uptimeNanoseconds - started) / 1_000_000_000
         XCTAssertEqual(healthy["ok"] as? Bool, true)
         XCTAssertLessThan(elapsed, 3.8, "A trickling peer must not hold the listener beyond the request deadline")
