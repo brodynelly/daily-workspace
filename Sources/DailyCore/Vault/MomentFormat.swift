@@ -7,7 +7,7 @@ import Foundation
 /// and `\x` escapes. Letters Moment does not treat as tokens pass through unchanged, as in Moment.
 /// Moment tokens this renderer does not implement (week numbers, day of year, locale formats such as `L`,
 /// time zones, …) are refused rather than guessed, because a guessed file name puts a note in the wrong place.
-public struct MomentFormat {
+public struct MomentFormat: Sendable {
     /// The tokens `string(_:for:)` renders, for showing in Settings.
     public static let supportedTokens = [
         "YYYY", "YY", "Q", "M", "MM", "MMM", "MMMM", "D", "DD", "Do", "d", "dd", "ddd", "dddd",
