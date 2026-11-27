@@ -5,19 +5,11 @@ import XCTest
 
 @MainActor
 final class QuickPanelWorkspaceTabsTests: XCTestCase {
-    private var directories: [URL] = []
-
-    override func tearDown() {
-        for directory in directories { try? FileManager.default.removeItem(at: directory) }
-        directories = []
-        super.tearDown()
-    }
-
     private func temporaryDirectory() throws -> URL {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("qp-tabs-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-        directories.append(url)
+        addTeardownBlock { try? FileManager.default.removeItem(at: url) }
         return url.resolvingSymlinksInPath()
     }
 

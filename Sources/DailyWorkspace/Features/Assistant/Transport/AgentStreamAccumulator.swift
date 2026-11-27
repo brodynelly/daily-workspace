@@ -53,7 +53,7 @@ struct MessageStreamAccumulator {
         guard let index = object["index"] as? Int, let block = object["content_block"] as? [String: Any],
             let type = block["type"] as? String
         else { return nil }
-        var partial = PartialBlock(type: type, start: JSONValue(foundation: block).encoded())
+        var partial = PartialBlock(type: type, start: OrderedJSON(foundation: block).encoded())
         partial.id = block["id"] as? String ?? ""
         partial.name = block["name"] as? String ?? ""
         partial.text = (block["text"] as? String) ?? (block["thinking"] as? String) ?? ""

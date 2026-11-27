@@ -134,9 +134,9 @@ final class QuickPanelAttention: ObservableObject {
     private let fileURL: URL
     private let helper: QuickPanelAttentionHelper
     private let pollInterval: TimeInterval
-    private var timer: Timer?
-    private var sleepObserver: NSObjectProtocol?
-    private var wakeObserver: NSObjectProtocol?
+    nonisolated(unsafe) private var timer: Timer?
+    nonisolated(unsafe) private var sleepObserver: NSObjectProtocol?
+    nonisolated(unsafe) private var wakeObserver: NSObjectProtocol?
     private var reading: Task<Void, Never>?
     private var readingRevision: UInt64?
     private var starting = false

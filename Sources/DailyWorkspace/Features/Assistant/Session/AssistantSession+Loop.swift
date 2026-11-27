@@ -22,7 +22,7 @@ extension AssistantSession {
     struct LoopOptions {
         var effort: AgentEffort
         /// Structured-output schema, or nil for free text.
-        var schema: JSONValue?
+        var schema: OrderedJSON?
         /// The session generation the run belongs to; progress from a stale run is dropped.
         var generation: Int
         /// Publish streamed text and tool calls (chat turns, not drafts).

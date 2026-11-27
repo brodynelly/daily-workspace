@@ -203,7 +203,7 @@ final class LuunaWorkStore: ObservableObject {
             }, in: \.selectedRun)
     }
 
-    private func read<Value>(_ operation: (any LuunaWorkReading) async throws -> Value) async
+    private func read<Value: Sendable>(_ operation: (any LuunaWorkReading) async throws -> Value) async
         -> Result<Value, LuunaReadFailure>?
     {
         do {

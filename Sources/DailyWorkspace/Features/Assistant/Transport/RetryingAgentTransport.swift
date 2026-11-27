@@ -50,7 +50,7 @@ struct AgentRetryEvent: Equatable, Sendable {
 struct RetryingAgentTransport: AgentTransport {
     let base: AgentTransport
     var policy: AgentRetryPolicy
-    var sleep: @Sendable (TimeInterval) async throws -> Void = RetryingAgentTransport.taskSleep
+    var sleep: @Sendable (TimeInterval) async throws -> Void = { try await RetryingAgentTransport.taskSleep($0) }
     var jitter: @Sendable () -> Double = { Double.random(in: 0..<1) }
     var onRetry: @Sendable (AgentRetryEvent) async -> Void = { _ in }
 

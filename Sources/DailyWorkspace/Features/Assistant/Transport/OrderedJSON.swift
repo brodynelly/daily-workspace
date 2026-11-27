@@ -5,9 +5,9 @@ import Foundation
 ///
 /// The Assistant builds every request body with this, so the cached prefix (tools, system) is byte-stable and
 /// replayed assistant blocks (thinking signatures included) go back exactly as they were stored.
-enum JSONValue: Sendable {
-    case object([(String, JSONValue)])
-    case array([JSONValue])
+enum OrderedJSON: Sendable {
+    case object([(String, OrderedJSON)])
+    case array([OrderedJSON])
     case string(String)
     case int(Int)
     case double(Double)
@@ -43,7 +43,7 @@ enum JSONValue: Sendable {
         }
     }
 
-    private static func writeObject(_ members: [(String, JSONValue)], to out: inout Data) {
+    private static func writeObject(_ members: [(String, OrderedJSON)], to out: inout Data) {
         out.append(UInt8(ascii: "{"))
         for (index, member) in members.enumerated() {
             if index > 0 { out.append(UInt8(ascii: ",")) }
@@ -74,9 +74,9 @@ enum JSONValue: Sendable {
     init(foundation value: Any) {
         switch value {
         case let dictionary as [String: Any]:
-            self = .object(dictionary.keys.sorted().map { ($0, JSONValue(foundation: dictionary[$0] as Any)) })
+            self = .object(dictionary.keys.sorted().map { ($0, OrderedJSON(foundation: dictionary[$0] as Any)) })
         case let array as [Any]:
-            self = .array(array.map { JSONValue(foundation: $0) })
+            self = .array(array.map { OrderedJSON(foundation: $0) })
         case let text as String:
             self = .string(text)
         case let number as NSNumber:
@@ -86,7 +86,7 @@ enum JSONValue: Sendable {
         }
     }
 
-    private static func number(_ number: NSNumber) -> JSONValue {
+    private static func number(_ number: NSNumber) -> OrderedJSON {
         if CFGetTypeID(number) == CFBooleanGetTypeID() { return .bool(number.boolValue) }
         let double = number.doubleValue
         if double.rounded() == double, abs(double) < 9e15 { return .int(number.intValue) }
@@ -94,11 +94,11 @@ enum JSONValue: Sendable {
     }
 
     /// `{"type":"ephemeral"}`, the prompt-cache marker.
-    static let ephemeralCache = JSONValue.object([("type", .string("ephemeral"))])
+    static let ephemeralCache = OrderedJSON.object([("type", .string("ephemeral"))])
 }
 
-extension JSONValue: Equatable {
-    static func == (lhs: JSONValue, rhs: JSONValue) -> Bool { lhs.encoded() == rhs.encoded() }
+extension OrderedJSON: Equatable {
+    static func == (lhs: OrderedJSON, rhs: OrderedJSON) -> Bool { lhs.encoded() == rhs.encoded() }
 }
 
 /// UTF-8 bytes as text; empty when they are not valid UTF-8.

@@ -72,9 +72,9 @@ final class CaretTextView: NSTextView {
 
     private let overlay = CaretOverlayView()
     private var animator = CaretAnimator(config: CaretPreset.glide.config)
-    private var link: CADisplayLink?
+    nonisolated(unsafe) private var link: CADisplayLink?
     private var lastTimestamp: CFTimeInterval = 0
-    private var blinkTimer: Timer?
+    nonisolated(unsafe) private var blinkTimer: Timer?
     private var idleWork: DispatchWorkItem?
     private var overlayWasHidden = true
     private var isRetargeting = false
@@ -252,8 +252,11 @@ final class CaretTextView: NSTextView {
         let work = DispatchWorkItem { [weak self] in
             guard let self else { return }
             self.blinkTimer = Timer.scheduledTimer(withTimeInterval: 0.53, repeats: true) { [weak self] _ in
-                guard let overlay = self?.overlay else { return }
-                overlay.alphaValue = overlay.alphaValue > 0.5 ? 0 : 1
+                // Scheduled on the main run loop.
+                MainActor.assumeIsolated {
+                    guard let overlay = self?.overlay else { return }
+                    overlay.alphaValue = overlay.alphaValue > 0.5 ? 0 : 1
+                }
             }
         }
         idleWork = work

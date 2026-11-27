@@ -43,7 +43,7 @@ final class OpenRouterClientTests: XCTestCase {
         return client
     }
 
-    private func request(model: String = "openai/gpt-4.1", outputSchema: JSONValue? = nil) -> AgentRequest {
+    private func request(model: String = "openai/gpt-4.1", outputSchema: OrderedJSON? = nil) -> AgentRequest {
         AgentRequest(
             model: model, maxTokens: 4096, effort: .medium,
             system: [
@@ -180,9 +180,10 @@ final class OpenRouterClientTests: XCTestCase {
 
     func testPreCancelledSendDoesNotOpenConnection() async {
         StubURLProtocol.serve(.init(body: Data(openRouterToolStream.utf8)))
+        let (sender, body) = (client(), request())
         let task = Task {
             withUnsafeCurrentTask { $0?.cancel() }
-            return try await client().send(request(), apiKey: "key") { _ in }
+            return try await sender.send(body, apiKey: "key") { _ in }
         }
         do {
             _ = try await task.value

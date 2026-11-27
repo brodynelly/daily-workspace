@@ -1,7 +1,8 @@
-import EventKit
+// EventKit predates Sendable annotations; its store is only used from the main actor here.
+@preconcurrency import EventKit
 import Foundation
 
-struct ReminderEntry: Identifiable, Equatable {
+struct ReminderEntry: Identifiable, Equatable, Sendable {
     let id: String
     let title: String
     let list: String
@@ -37,17 +38,18 @@ final class EventKitReminderStore: ReminderStore {
 
     func incompleteReminders() async -> [ReminderEntry] {
         let predicate = store.predicateForIncompleteReminders(withDueDateStarting: nil, ending: nil, calendars: nil)
-        let reminders: [EKReminder] = await withCheckedContinuation { continuation in
-            store.fetchReminders(matching: predicate) { continuation.resume(returning: $0 ?? []) }
-        }
-        return
-            reminders
-            .map {
-                ReminderEntry(
-                    id: $0.calendarItemIdentifier, title: $0.title ?? "Untitled reminder", list: $0.calendar.title,
-                    due: $0.dueDateComponents?.date)
+        // Convert in EventKit's callback so only Sendable values cross back to the main actor.
+        let entries: [ReminderEntry] = await withCheckedContinuation { continuation in
+            store.fetchReminders(matching: predicate) { reminders in
+                continuation.resume(
+                    returning: (reminders ?? []).map {
+                        ReminderEntry(
+                            id: $0.calendarItemIdentifier, title: $0.title ?? "Untitled reminder",
+                            list: $0.calendar.title, due: $0.dueDateComponents?.date)
+                    })
             }
-            .sorted { ($0.due ?? .distantFuture) < ($1.due ?? .distantFuture) }
+        }
+        return entries.sorted { ($0.due ?? .distantFuture) < ($1.due ?? .distantFuture) }
     }
 
     func add(title: String, due: Date?) throws {

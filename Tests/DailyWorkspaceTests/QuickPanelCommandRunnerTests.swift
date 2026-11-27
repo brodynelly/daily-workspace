@@ -129,6 +129,7 @@ final class QuickPanelCommandRunnerTests: XCTestCase {
     func testCancellationKillsDescendantsAndReturnsCancellation() async throws {
         let marker = try temporaryMarker()
         defer { try? FileManager.default.removeItem(at: marker.deletingLastPathComponent()) }
+        let shell = shell
         let task = Task {
             try await QuickPanelCommandRunner(timeout: 3).run(
                 executable: shell,

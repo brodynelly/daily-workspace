@@ -22,7 +22,7 @@ struct AgentMessage: Equatable, Sendable {
     let role: Role
     let content: [Data]
 
-    var json: JSONValue {
+    var json: OrderedJSON {
         .object([("role", .string(role.rawValue)), ("content", .array(content.map { .raw($0) }))])
     }
 }
@@ -33,21 +33,21 @@ struct AgentRequest: Sendable {
     var maxTokens: Int
     var effort: AgentEffort
     /// System blocks, stable rules first; the caller puts `cache_control` on the last stable one.
-    var system: [JSONValue]
+    var system: [OrderedJSON]
     /// Tool definitions in a fixed order.
-    var tools: [JSONValue]
+    var tools: [OrderedJSON]
     var messages: [AgentMessage]
     /// A JSON schema for structured output (`output_config.format`), or nil for free text.
-    var outputSchema: JSONValue?
+    var outputSchema: OrderedJSON?
 
     /// The JSON body. Thinking is adaptive (Claude Opus 5.5 cannot turn it off; effort is the control).
     /// Sampling parameters and forced `tool_choice` are never sent: this model rejects them.
     func body(stream: Bool = true) -> Data {
-        var outputConfig: [(String, JSONValue)] = [("effort", .string(effort.rawValue))]
+        var outputConfig: [(String, OrderedJSON)] = [("effort", .string(effort.rawValue))]
         if let outputSchema {
             outputConfig.append(("format", .object([("type", .string("json_schema")), ("schema", outputSchema)])))
         }
-        var members: [(String, JSONValue)] = [
+        var members: [(String, OrderedJSON)] = [
             ("model", .string(model)),
             ("max_tokens", .int(maxTokens)),
             ("stream", .bool(stream)),
@@ -55,7 +55,7 @@ struct AgentRequest: Sendable {
             ("output_config", .object(outputConfig)),
             ("fallbacks", .string("default")),
             // Automatic caching for the growing conversation tail; the stable prefix has its own marker.
-            ("cache_control", JSONValue.ephemeralCache),
+            ("cache_control", OrderedJSON.ephemeralCache),
         ]
         if !tools.isEmpty {
             members.append(("tool_choice", .object([("type", .string("auto"))])))
@@ -63,7 +63,7 @@ struct AgentRequest: Sendable {
         }
         if !system.isEmpty { members.append(("system", .array(system))) }
         members.append(("messages", .array(messages.map(\.json))))
-        return JSONValue.object(members).encoded()
+        return OrderedJSON.object(members).encoded()
     }
 }
 
@@ -177,136 +177,5 @@ struct AgentError: LocalizedError, Equatable {
 
     private static func overloaded(provider: String) -> AgentError {
         AgentError(.overloaded, "\(provider) is overloaded right now. Try again in a moment.")
-    }
-}
-
-/// The Anthropic Messages API over HTTPS, streamed as server-sent events.
-struct AnthropicClient: AgentTransport {
-    static let defaultEndpoint = URL(string: "https://api.anthropic.com/v1/messages")!
-    static let apiVersion = "2026-10-21"
-    /// Server-side refusal fallbacks in the `fallbacks: "default"` form.
-    static let fallbackBeta = "server-side-fallback-2026-07-01"
-
-    var endpoint = defaultEndpoint
-    /// Longest wait for the next bytes. Adaptive thinking can pause output for minutes (Claude Code never goes
-    /// below 5 minutes), so a shorter idle limit would cut off healthy answers.
-    var idleTimeout: TimeInterval = 300
-    /// Longest a whole streamed response may take.
-    var totalTimeout: TimeInterval = 600
-    /// Test hook: `URLProtocol` classes to put in front of the network.
-    var protocolClasses: [AnyClass]?
-
-    func urlRequest(for request: AgentRequest, apiKey: String) -> URLRequest {
-        var urlRequest = URLRequest(
-            url: endpoint, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: idleTimeout)
-        urlRequest.httpMethod = "POST"
-        urlRequest.setValue(apiKey, forHTTPHeaderField: "x-api-key")
-        urlRequest.setValue(Self.apiVersion, forHTTPHeaderField: "anthropic-version")
-        urlRequest.setValue(Self.fallbackBeta, forHTTPHeaderField: "anthropic-beta")
-        urlRequest.setValue("application/json", forHTTPHeaderField: "content-type")
-        urlRequest.setValue("text/event-stream", forHTTPHeaderField: "accept")
-        urlRequest.httpBody = request.body(stream: true)
-        return urlRequest
-    }
-
-    func send(
-        _ request: AgentRequest, apiKey: String, onUpdate: @escaping @Sendable (AgentStreamUpdate) async -> Void
-    ) async throws -> AgentResponse {
-        try await MessagesAPIClient(
-            provider: "Anthropic", idleTimeout: idleTimeout, totalTimeout: totalTimeout,
-            protocolClasses: protocolClasses
-        ).send(urlRequest(for: request, apiKey: apiKey), onUpdate: onUpdate)
-    }
-}
-
-/// The shared Messages SSE network path. Provider-specific request bodies and authentication stay with each client.
-struct MessagesAPIClient {
-    let provider: String
-    let idleTimeout: TimeInterval
-    let totalTimeout: TimeInterval
-    let protocolClasses: [AnyClass]?
-
-    func send(
-        _ request: URLRequest, onUpdate: @escaping @Sendable (AgentStreamUpdate) async -> Void
-    ) async throws -> AgentResponse {
-        try Task.checkCancellation()
-        // Ephemeral: no URL cache, cookies or credentials persist for this traffic.
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.timeoutIntervalForRequest = idleTimeout
-        configuration.timeoutIntervalForResource = totalTimeout
-        configuration.urlCache = nil
-        configuration.httpShouldSetCookies = false
-        configuration.httpCookieStorage = nil
-        configuration.urlCredentialStorage = nil
-        if let protocolClasses { configuration.protocolClasses = protocolClasses }
-        let session = URLSession(configuration: configuration, delegate: MessagesNoRedirects(), delegateQueue: nil)
-        defer { session.invalidateAndCancel() }
-        do {
-            let (bytes, response) = try await session.bytes(for: request)
-            let http = response as? HTTPURLResponse
-            let status = http?.statusCode ?? 0
-            guard (200..<300).contains(status) else {
-                let errorType = await Self.errorType(in: bytes)
-                Log.assistant.error(
-                    "\(provider, privacy: .public): HTTP \(status, privacy: .public), \(errorType ?? "-", privacy: .public)"
-                )
-                throw AgentError.http(
-                    status: status, errorType: errorType, retryAfter: http?.value(forHTTPHeaderField: "retry-after"),
-                    provider: provider, retryAfterMilliseconds: http?.value(forHTTPHeaderField: "retry-after-ms"),
-                    shouldRetry: http?.value(forHTTPHeaderField: "x-should-retry"))
-            }
-            var parser = SSEParser()
-            var accumulator = MessageStreamAccumulator()
-            for try await byte in bytes {
-                try Task.checkCancellation()
-                guard let event = parser.push(byte) else { continue }
-                if let update = try apply(event, to: &accumulator) { await onUpdate(update) }
-            }
-            if let event = parser.finish(), let update = try apply(event, to: &accumulator) { await onUpdate(update) }
-            try Task.checkCancellation()
-            guard accumulator.isComplete else {
-                throw AgentError(.incomplete, "The response ended before it finished. Try again.")
-            }
-            return accumulator.finalResponse()
-        } catch let error as URLError {
-            if error.code == .cancelled || Task.isCancelled { throw CancellationError() }
-            Log.assistant.error("\(provider, privacy: .public) request failed: \(Log.code(error), privacy: .public)")
-            throw AgentError.network(error, provider: provider)
-        }
-    }
-
-    private func apply(_ event: SSEEvent, to accumulator: inout MessageStreamAccumulator) throws -> AgentStreamUpdate? {
-        if provider != "Anthropic",
-            let object = parseJSONObject(Data(event.data.utf8)),
-            object["type"] as? String == "error"
-        {
-            throw AgentError.stream(object["error"] as? [String: Any], provider: provider)
-        }
-        return try accumulator.apply(event)
-    }
-
-    /// The `error.type` of an error body (a short identifier such as `overloaded_error`), never its message.
-    private static func errorType(in bytes: URLSession.AsyncBytes) async -> String? {
-        var data = Data()
-        do {
-            for try await byte in bytes {
-                data.append(byte)
-                if data.count >= 65_536 { break }
-            }
-        } catch {
-            return nil
-        }
-        let type = (parseJSONObject(data)?["error"] as? [String: Any])?["type"] as? String
-        guard let type, type.count <= 64, type.allSatisfy({ $0.isLetter || $0 == "_" }) else { return nil }
-        return type
-    }
-}
-
-private final class MessagesNoRedirects: NSObject, URLSessionTaskDelegate {
-    func urlSession(
-        _ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
-        newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void
-    ) {
-        completionHandler(nil)
     }
 }

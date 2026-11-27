@@ -30,11 +30,11 @@ struct AgentContentBlock: Equatable, Sendable {
 
     static func text(_ text: String) -> AgentContentBlock {
         AgentContentBlock(
-            kind: .text(text), raw: JSONValue.object([("type", .string("text")), ("text", .string(text))]).encoded())
+            kind: .text(text), raw: OrderedJSON.object([("type", .string("text")), ("text", .string(text))]).encoded())
     }
 
     static func thinking(_ text: String, signature: String) -> AgentContentBlock {
-        let raw = JSONValue.object([
+        let raw = OrderedJSON.object([
             ("type", .string("thinking")), ("thinking", .string(text)), ("signature", .string(signature)),
         ])
         return AgentContentBlock(kind: .thinking(text), raw: raw.encoded())
@@ -44,7 +44,7 @@ struct AgentContentBlock: Equatable, Sendable {
     /// and the call is answered with an error instead of being run.
     static func toolUse(id: String, name: String, inputJSON: Data) -> AgentContentBlock {
         let valid = parseJSONObject(inputJSON) != nil
-        let raw = JSONValue.object([
+        let raw = OrderedJSON.object([
             ("type", .string("tool_use")), ("id", .string(id)), ("name", .string(name)),
             ("input", valid ? .raw(inputJSON) : .object([])),
         ])

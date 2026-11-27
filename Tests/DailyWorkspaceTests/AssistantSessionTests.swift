@@ -75,8 +75,8 @@ final class AssistantSessionTests: XCTestCase {
     func testCachedPrefixIsByteStableAcrossSessions() {
         let first = makeSession(FakeAgentTransport(), vaultAgents: "rules")
         let second = makeSession(FakeAgentTransport(), vaultAgents: "rules")
-        XCTAssertEqual(JSONValue.array(first.tools).encoded(), JSONValue.array(second.tools).encoded())
-        XCTAssertEqual(JSONValue.array(first.system).encoded(), JSONValue.array(second.system).encoded())
+        XCTAssertEqual(OrderedJSON.array(first.tools).encoded(), OrderedJSON.array(second.tools).encoded())
+        XCTAssertEqual(OrderedJSON.array(first.system).encoded(), OrderedJSON.array(second.system).encoded())
     }
 
     func testToolLoopRunsEveryToolAndSendsAllResultsInOneUserMessage() async throws {
@@ -202,7 +202,7 @@ final class AssistantSessionTests: XCTestCase {
         XCTAssertEqual(replayed.messages[1].content.first, thinkingBytes)
         XCTAssertTrue(replayed.body().containsBytes(thinkingBytes))
         // The earlier turns render to the same bytes in both requests.
-        let firstPrefix = JSONValue.array(transport.requests[0].messages.map(\.json)).encoded().dropLast()
+        let firstPrefix = OrderedJSON.array(transport.requests[0].messages.map(\.json)).encoded().dropLast()
         XCTAssertTrue(replayed.body().containsBytes(Data(firstPrefix)))
         XCTAssertEqual(Array(session.transcript.prefix(2)), afterFirst)
         XCTAssertEqual(session.turns.map(\.answer), ["First answer.", "Second answer."])

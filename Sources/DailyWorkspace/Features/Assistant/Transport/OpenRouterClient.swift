@@ -38,7 +38,7 @@ extension AgentRequest {
     /// directives are omitted. A draft's output schema is not sent: OpenRouter documents
     /// `output_config.format` as Claude-specific, so the draft prompt asks for JSON and the caller validates it.
     func openRouterBody() -> Data {
-        var members: [(String, JSONValue)] = [
+        var members: [(String, OrderedJSON)] = [
             ("model", .string(model)),
             ("max_tokens", .int(maxTokens)),
             ("stream", .bool(true)),
@@ -50,27 +50,27 @@ extension AgentRequest {
             members.append(("system", .array(system.map { $0.removingClaudeDirectives() })))
         }
         let renderedMessages = messages.map { message in
-            let blocks = message.content.compactMap { block -> JSONValue? in
+            let blocks = message.content.compactMap { block -> OrderedJSON? in
                 guard let object = parseJSONObject(block), let type = object["type"] as? String else {
                     return .raw(block)
                 }
                 if message.role == .assistant, ["thinking", "redacted_thinking", "fallback"].contains(type) {
                     return nil
                 }
-                return JSONValue(foundation: object).removingClaudeDirectives()
+                return OrderedJSON(foundation: object).removingClaudeDirectives()
             }
-            return JSONValue.object([("role", .string(message.role.rawValue)), ("content", .array(blocks))])
+            return OrderedJSON.object([("role", .string(message.role.rawValue)), ("content", .array(blocks))])
         }
         members.append(("messages", .array(renderedMessages)))
-        return JSONValue.object(members).encoded()
+        return OrderedJSON.object(members).encoded()
     }
 }
 
-extension JSONValue {
-    fileprivate func removingClaudeDirectives(removeStrict: Bool = false) -> JSONValue {
-        let value: JSONValue
+extension OrderedJSON {
+    fileprivate func removingClaudeDirectives(removeStrict: Bool = false) -> OrderedJSON {
+        let value: OrderedJSON
         if case .raw(let data) = self, let object = parseJSONObject(data) {
-            value = JSONValue(foundation: object)
+            value = OrderedJSON(foundation: object)
         } else {
             value = self
         }

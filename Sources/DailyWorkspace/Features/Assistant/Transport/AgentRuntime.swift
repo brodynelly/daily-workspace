@@ -111,7 +111,7 @@ struct AgentRuntimeLimits: Equatable, Sendable {
 
 extension AssistantTool {
     /// Definitions of `enabled` tools, sorted by name and rendered the same way every time.
-    static func enabledDefinitions(_ enabled: Set<AssistantTool>) -> [JSONValue] {
+    static func enabledDefinitions(_ enabled: Set<AssistantTool>) -> [OrderedJSON] {
         allCases.filter { enabled.contains($0) }.sorted { $0.rawValue < $1.rawValue }.map(\.definition)
     }
 }

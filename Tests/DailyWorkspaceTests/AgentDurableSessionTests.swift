@@ -43,7 +43,7 @@ final class AgentDurableSessionTests: XCTestCase {
 
     func testWriteToolsAreOfferedOnlyWithAWorkspace() {
         let session = makeSession(FakeAgentTransport())
-        let readOnlyPrompt = JSONValue.array(session.system).encoded()
+        let readOnlyPrompt = OrderedJSON.array(session.system).encoded()
         session.applyRuntime(writingLimits)
         XCTAssertEqual(session.configuration.enabledTools, Set(AssistantTool.readOnly), "no workspace, no writes")
         XCTAssertEqual(session.configuration.capabilities, .readOnly)
@@ -51,10 +51,10 @@ final class AgentDurableSessionTests: XCTestCase {
         session.setWorkspace(FakeAgentWorkspace())
         session.applyRuntime(writingLimits)
         XCTAssertTrue(session.configuration.enabledTools.isSuperset(of: AssistantTool.vaultWrite + [.memory]))
-        let tools = JSONValue.array(session.tools).encoded()
+        let tools = OrderedJSON.array(session.tools).encoded()
         XCTAssertTrue(tools.containsBytes(Data(#""create_note""#.utf8)))
         XCTAssertTrue(tools.containsBytes(Data(#""memory""#.utf8)))
-        XCTAssertNotEqual(JSONValue.array(session.system).encoded(), readOnlyPrompt)
+        XCTAssertNotEqual(OrderedJSON.array(session.system).encoded(), readOnlyPrompt)
 
         var runtime = AssistantRuntimeSettings()
         runtime.disabledTools = ["edit_note", "memory"]

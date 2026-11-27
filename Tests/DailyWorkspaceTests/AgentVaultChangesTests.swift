@@ -9,7 +9,7 @@ final class AgentVaultChangesTests: XCTestCase {
     private var settings = AgentSettings()
     private var store: VaultChangeStore!
 
-    override func setUpWithError() throws {
+    override func setUp() async throws {
         root = try makeTemporaryVault(self)
         try FileManager.default.createDirectory(
             at: root.appendingPathComponent("00-inbox"), withIntermediateDirectories: true)

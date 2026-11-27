@@ -100,6 +100,7 @@ final class OpenLoopsFilterTests: XCTestCase {
     }
 }
 
+@MainActor
 final class ProjectDetailMarkdownTests: XCTestCase {
     func testHubPurposeAndDecisionMarkdownRenderWithFormattingAndSafeWebLinks() {
         let purpose = "**Important** [roadmap](https://example.com/plan) and [local](file:///tmp/private)"

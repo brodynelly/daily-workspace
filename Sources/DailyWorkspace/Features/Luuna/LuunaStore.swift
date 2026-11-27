@@ -133,7 +133,7 @@ final class LuunaStore: ObservableObject {
     }
 
     /// Runs one read. Nil when the session changed meanwhile (the response is discarded) or the read was cancelled.
-    private func read<Value>(
+    private func read<Value: Sendable>(
         _ generation: Int, _ operation: @escaping (LuunaRuntimeReading) async throws -> Value
     ) async -> Result<Value, LuunaReadFailure>? {
         let result: Result<Value, LuunaReadFailure>

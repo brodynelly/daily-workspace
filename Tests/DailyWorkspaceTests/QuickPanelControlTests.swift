@@ -4,15 +4,9 @@ import XCTest
 
 @testable import DailyWorkspace
 
-final class QuickPanelControlTests: XCTestCase {
-    private func temporaryDirectory() throws -> URL {
-        let root = URL(fileURLWithPath: "/tmp", isDirectory: true)
-            .appendingPathComponent("dc-\(UUID().uuidString)", isDirectory: true)
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false)
-        return root
-    }
-
-    private func connect(socketURL: URL) throws -> Int32 {
+/// Socket helpers for the control tests; static and stateless so detached tasks can call them.
+private enum ControlSocket {
+    static func connect(socketURL: URL) throws -> Int32 {
         let fd = socket(AF_UNIX, SOCK_STREAM, 0)
         guard fd >= 0 else { throw QuickPanelControlError.ioFailure(errno) }
         var address = sockaddr_un()
@@ -34,8 +28,10 @@ final class QuickPanelControlTests: XCTestCase {
         return fd
     }
 
-    private func exchange(_ json: String, socketURL: URL, responseTimeoutSeconds: Int32 = 2) throws -> [String: Any] {
-        let fd = try connect(socketURL: socketURL)
+    static func exchange(
+        _ json: String, socketURL: URL, responseTimeoutSeconds: Int32 = 2
+    ) throws -> [String: Any] {
+        let fd = try ControlSocket.connect(socketURL: socketURL)
         defer { close(fd) }
         var timeout = timeval(tv_sec: numericCast(responseTimeoutSeconds), tv_usec: 0)
         _ = withUnsafePointer(to: &timeout) {
@@ -61,6 +57,15 @@ final class QuickPanelControlTests: XCTestCase {
         }
         return try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
     }
+}
+
+final class QuickPanelControlTests: XCTestCase {
+    private func temporaryDirectory() throws -> URL {
+        let root = URL(fileURLWithPath: "/tmp", isDirectory: true)
+            .appendingPathComponent("dc-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false)
+        return root
+    }
 
     func testStatusAndValidNavigationWithoutAutomation() async throws {
         let root = try temporaryDirectory()
@@ -73,14 +78,16 @@ final class QuickPanelControlTests: XCTestCase {
             if action == .show(.shortcuts) { received.fulfill() }
             return ["ok": true, "queued": true]
         }
-        let status = try exchange(#"{"action":"status"}"#, socketURL: server.socketURL)
+        let status = try ControlSocket.exchange(#"{"action":"status"}"#, socketURL: server.socketURL)
         XCTAssertEqual(status["ok"] as? Bool, true)
         XCTAssertEqual(status["pid"] as? Int32, ProcessInfo.processInfo.processIdentifier)
         XCTAssertEqual(status["protocol"] as? Int, 1)
-        let show = try await Task.detached {
-            try self.exchange(#"{"action":"show","view":"shortcuts"}"#, socketURL: server.socketURL)
+        let socketURL = server.socketURL
+        let queued = try await Task.detached {
+            let show = try ControlSocket.exchange(#"{"action":"show","view":"shortcuts"}"#, socketURL: socketURL)
+            return show["queued"] as? Bool
         }.value
-        XCTAssertEqual(show["queued"] as? Bool, true)
+        XCTAssertEqual(queued, true)
         await fulfillment(of: [received], timeout: 2)
         var directoryInfo = stat()
         var socketInfo = stat()
@@ -119,7 +126,7 @@ final class QuickPanelControlTests: XCTestCase {
             XCTFail("Invalid message reached callback")
             return ["ok": true]
         }
-        let rejected = try exchange(#"{"action":"launch","tool":"sh"}"#, socketURL: server.socketURL)
+        let rejected = try ControlSocket.exchange(#"{"action":"launch","tool":"sh"}"#, socketURL: server.socketURL)
         XCTAssertEqual(rejected["ok"] as? Bool, false)
     }
 
@@ -133,7 +140,7 @@ final class QuickPanelControlTests: XCTestCase {
             XCTFail("Unauthorized peer reached callback")
             return ["ok": true]
         }
-        let rejected = try exchange(#"{"action":"status"}"#, socketURL: server.socketURL)
+        let rejected = try ControlSocket.exchange(#"{"action":"status"}"#, socketURL: server.socketURL)
         XCTAssertEqual(rejected["ok"] as? Bool, false)
         XCTAssertEqual(rejected["error"] as? String, QuickPanelControlError.unauthorizedPeer.localizedDescription)
     }
@@ -173,7 +180,7 @@ final class QuickPanelControlTests: XCTestCase {
             XCTFail("Oversized request reached callback")
             return ["ok": true]
         }
-        let rejected = try exchange(
+        let rejected = try ControlSocket.exchange(
             String(repeating: "a", count: QuickPanelControlServer.maxMessageBytes + 1), socketURL: server.socketURL)
         XCTAssertEqual(rejected["ok"] as? Bool, false)
         XCTAssertEqual(rejected["error"] as? String, QuickPanelControlError.messageTooLarge.localizedDescription)
@@ -189,7 +196,7 @@ final class QuickPanelControlTests: XCTestCase {
             return ["ok": true]
         }
 
-        let slow = try connect(socketURL: server.socketURL)
+        let slow = try ControlSocket.connect(socketURL: server.socketURL)
         defer { close(slow) }
         var noSignal: Int32 = 1
         let configured = withUnsafePointer(to: &noSignal) {
@@ -211,7 +218,8 @@ final class QuickPanelControlTests: XCTestCase {
         }
 
         let started = DispatchTime.now().uptimeNanoseconds
-        let healthy = try exchange(#"{"action":"status"}"#, socketURL: server.socketURL, responseTimeoutSeconds: 4)
+        let healthy = try ControlSocket.exchange(
+            #"{"action":"status"}"#, socketURL: server.socketURL, responseTimeoutSeconds: 4)
         let elapsed = Double(DispatchTime.now().uptimeNanoseconds - started) / 1_000_000_000
         XCTAssertEqual(healthy["ok"] as? Bool, true)
         XCTAssertLessThan(elapsed, 3.8, "A trickling peer must not hold the listener beyond the request deadline")

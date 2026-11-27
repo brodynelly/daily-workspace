@@ -184,13 +184,14 @@ public struct RestartLedger: Sendable {
 
 /// ISO 8601 with milliseconds, so a record reads back with the same instant it was written with.
 private enum LedgerDate {
-    // ISO8601DateFormatter is thread-safe.
-    private static let precise: ISO8601DateFormatter = {
+    // ISO8601DateFormatter is thread-safe for formatting and parsing once configured, and neither formatter is
+    // mutated after initialization.
+    nonisolated(unsafe) private static let precise: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return formatter
     }()
-    private static let plain = ISO8601DateFormatter()
+    nonisolated(unsafe) private static let plain = ISO8601DateFormatter()
 
     static func format(_ date: Date) -> String { precise.string(from: date) }
 

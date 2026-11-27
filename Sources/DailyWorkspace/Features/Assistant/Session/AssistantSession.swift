@@ -31,12 +31,12 @@ final class AssistantSession: ObservableObject {
 
     /// The messages sent to the model, oldest first. Only ever appended to.
     private(set) var transcript: [AgentMessage] = []
-    private(set) var system: [JSONValue]
+    private(set) var system: [OrderedJSON]
     /// Bumped whenever `system` or the offered tools change, so a restored conversation knows if its context
     /// still applies.
     private(set) var systemRevision = 0
     /// Definitions of the enabled tools, sorted so the cached prefix never changes within a conversation.
-    var tools: [JSONValue] { AssistantTool.enabledDefinitions(configuration.enabledTools) }
+    var tools: [OrderedJSON] { AssistantTool.enabledDefinitions(configuration.enabledTools) }
     private(set) var configuration: Configuration
 
     let transport: AgentTransport

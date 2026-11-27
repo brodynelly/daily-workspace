@@ -7,7 +7,7 @@ import Foundation
 /// and `\x` escapes. Letters Moment does not treat as tokens pass through unchanged, as in Moment.
 /// Moment tokens this renderer does not implement (week numbers, day of year, locale formats such as `L`,
 /// time zones, …) are refused rather than guessed, because a guessed file name puts a note in the wrong place.
-public struct MomentFormat {
+public struct MomentFormat: Sendable {
     /// The tokens `string(_:for:)` renders, for showing in Settings.
     public static let supportedTokens = [
         "YYYY", "YY", "Q", "M", "MM", "MMM", "MMMM", "D", "DD", "Do", "d", "dd", "ddd", "dddd",
@@ -168,8 +168,9 @@ public struct MomentFormat {
 
     /// Moment's formatting regex, alternative by alternative in its order, each optional part expanded longest
     /// first. The first entry that matches at a position wins, as regex alternation does. Nil tokens mark a
-    /// Moment token this renderer refuses.
-    private static let table: [Entry] = {
+    /// Moment token this renderer refuses. Immutable after initialization; `nonisolated(unsafe)` only because the
+    /// key paths inside `Token` are not `Sendable`.
+    nonisolated(unsafe) private static let table: [Entry] = {
         func number(_ field: KeyPath<Fields, Int>, _ width: Int = 1) -> [Token] { [.number(field, width: width)] }
         func refused(_ patterns: [String]) -> [Entry] { patterns.map { ($0, nil) } }
         // `Hmm`, `Hmmss`, `hmm` and `hmmss` are single Moment tokens that print like `H` + `mm` (+ `ss`).

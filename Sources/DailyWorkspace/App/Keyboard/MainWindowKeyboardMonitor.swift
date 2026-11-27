@@ -15,7 +15,7 @@ struct MainWindowKeyboardMonitor: NSViewRepresentable {
 @MainActor
 final class KeyMonitorView: NSView {
     var handle: ((NSEvent) -> Bool)?
-    private var monitor: Any?
+    nonisolated(unsafe) private var monitor: Any?
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
