@@ -7,10 +7,10 @@ import XCTest
 final class QuickPanelWorkspaceTabsTests: XCTestCase {
     private var directories: [URL] = []
 
-    override func tearDown() {
+    override func tearDown() async throws {
         for directory in directories { try? FileManager.default.removeItem(at: directory) }
         directories = []
-        super.tearDown()
+        try await super.tearDown()
     }
 
     private func temporaryDirectory() throws -> URL {

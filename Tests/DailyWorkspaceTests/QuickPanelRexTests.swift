@@ -17,6 +17,7 @@ private actor RexFakeRunner {
     func executables() -> [String] { recorded.map(\.executable) }
 }
 
+@MainActor
 final class QuickPanelRexTests: XCTestCase {
     private let rex = URL(fileURLWithPath: "/tmp/fake-rex/rex")
     private let listing = """

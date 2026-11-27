@@ -27,13 +27,14 @@ private actor ActionFakeRunner {
     func setError(_ value: Error) { error = value }
 }
 
+@MainActor
 final class QuickPanelDataActionsTests: XCTestCase {
     @MainActor
     private func actions(_ fake: ActionFakeRunner) -> QuickPanelDataActions {
         let root = URL(fileURLWithPath: "/tmp/panel-dotfiles")
-        return QuickPanelDataActions(dotfiles: root, rexExecutable: nil) { exe, args, env in
-            try await fake.run(exe, args, env)
-        }
+        return QuickPanelDataActions(
+            dotfiles: root, rexExecutable: nil,
+            run: { exe, args, env in try await fake.run(exe, args, env) })
     }
 
     func testEveryHelperActionUsesFixedArgvAndNavigationDoesNotRunHelpers() async throws {

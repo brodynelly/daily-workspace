@@ -29,6 +29,7 @@ private actor PanelFakeRunner {
     func calls() -> [[String]] { invocations }
 }
 
+@MainActor
 final class QuickPanelDataProviderTests: XCTestCase {
     private func directory() throws -> URL {
         let path = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
