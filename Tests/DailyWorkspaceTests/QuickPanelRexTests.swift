@@ -42,9 +42,9 @@ final class QuickPanelRexTests: XCTestCase {
     func testRexSessionsFormTheirOwnSectionBesideTmuxAndInHomeSearch() async throws {
         let fake = RexFakeRunner()
         await fake.set(listing)
-        let data = await provider(fake, rex: rex)
+        let data = provider(fake, rex: rex)
         await data.refresh()
-        let snapshot = await data.snapshot
+        let snapshot = data.snapshot
 
         XCTAssertEqual(snapshot.rex.map(\.title), ["dotfiles", "ba9519"])
         XCTAssertEqual(snapshot.rex.map(\.group), ["Rex", "Rex"])
@@ -62,26 +62,26 @@ final class QuickPanelRexTests: XCTestCase {
     func testRexUnavailableStatesNeverHideTmuxOrStartAServer() async throws {
         let fake = RexFakeRunner()
         await fake.set("", status: 4)
-        var data = await provider(fake, rex: rex)
+        var data = provider(fake, rex: rex)
         await data.refresh()
-        var snapshot = await data.snapshot
+        var snapshot = data.snapshot
         XCTAssertEqual(snapshot.rex.map(\.title), ["Rex unavailable"])
         XCTAssertEqual(snapshot.rex.first?.detail, "Rex server is not running")
         XCTAssertNil(snapshot.rex.first?.action)
 
         await fake.set("{broken")
         await data.refresh()
-        snapshot = await data.snapshot
+        snapshot = data.snapshot
         XCTAssertEqual(snapshot.rex.first?.detail, "Invalid Rex sessions response")
 
         await fake.set("{\"sessions\": []}")
         await data.refresh()
-        snapshot = await data.snapshot
+        snapshot = data.snapshot
         XCTAssertTrue(snapshot.rex.isEmpty)
 
-        data = await provider(fake, rex: nil)
+        data = provider(fake, rex: nil)
         await data.refresh()
-        snapshot = await data.snapshot
+        snapshot = data.snapshot
         XCTAssertEqual(snapshot.rex.first?.detail, "Rex is not installed")
         XCTAssertNil(snapshot.rex.first?.action)
         let calls = await fake.arguments()
@@ -90,7 +90,7 @@ final class QuickPanelRexTests: XCTestCase {
 
     func testSelectingARexRowUsesSessionSelectWithFixedArgv() async throws {
         let fake = RexFakeRunner()
-        let executor = await QuickPanelDataActions(
+        let executor = QuickPanelDataActions(
             dotfiles: URL(fileURLWithPath: "/tmp/rex-panel-dotfiles"), rexExecutable: rex, activateRex: {},
             run: { executable, arguments, _ in
                 await fake.run(executable, arguments)
