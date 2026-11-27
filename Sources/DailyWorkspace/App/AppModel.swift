@@ -295,7 +295,8 @@ final class AppModel: ObservableObject {
     }
 
     private func observe(
-        _ center: NotificationCenter, _ name: Notification.Name, _ handler: @escaping @MainActor @Sendable (AppModel) -> Void
+        _ center: NotificationCenter, _ name: Notification.Name,
+        _ handler: @escaping @MainActor @Sendable (AppModel) -> Void
     ) {
         let token = center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
             Task { @MainActor in
