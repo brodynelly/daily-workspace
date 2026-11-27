@@ -18,7 +18,7 @@ final class RoutineScheduler: ObservableObject {
     var makeSession: ((_ origin: String) -> AssistantSession?)?
     private let now: () -> Date
     private let calendar: Calendar
-    private var timer: Timer?
+    nonisolated(unsafe) private var timer: Timer?
     private var task: Task<Void, Never>?
     /// The running routine's session, so turning the Assistant off stops it mid-run.
     private var session: AssistantSession?

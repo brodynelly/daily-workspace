@@ -168,8 +168,9 @@ public struct MomentFormat {
 
     /// Moment's formatting regex, alternative by alternative in its order, each optional part expanded longest
     /// first. The first entry that matches at a position wins, as regex alternation does. Nil tokens mark a
-    /// Moment token this renderer refuses.
-    private static let table: [Entry] = {
+    /// Moment token this renderer refuses. Immutable after initialization; `nonisolated(unsafe)` only because the
+    /// key paths inside `Token` are not `Sendable`.
+    nonisolated(unsafe) private static let table: [Entry] = {
         func number(_ field: KeyPath<Fields, Int>, _ width: Int = 1) -> [Token] { [.number(field, width: width)] }
         func refused(_ patterns: [String]) -> [Entry] { patterns.map { ($0, nil) } }
         // `Hmm`, `Hmmss`, `hmm` and `hmmss` are single Moment tokens that print like `H` + `mm` (+ `ss`).

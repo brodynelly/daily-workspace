@@ -92,7 +92,9 @@ struct QuickPanelMonitorSampler {
             }
         }
         guard result == KERN_SUCCESS else { return }
-        let page = UInt64(vm_kernel_page_size)
+        var pageSize: vm_size_t = 0
+        guard host_page_size(mach_host_self(), &pageSize) == KERN_SUCCESS else { return }
+        let page = UInt64(pageSize)
         // Activity Monitor's "Memory Used": app memory + wired + compressed.
         let app = UInt64(stats.internal_page_count) &- UInt64(stats.purgeable_count)
         reading.memoryUsed = min(

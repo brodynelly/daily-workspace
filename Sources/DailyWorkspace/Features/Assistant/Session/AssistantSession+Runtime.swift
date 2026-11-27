@@ -26,7 +26,7 @@ extension AssistantSession {
         var now: @Sendable () -> Date = { Date() }
         var timeZone: @Sendable () -> TimeZone = { TimeZone.current }
         /// How retries wait (tests replace it).
-        var sleep: @Sendable (TimeInterval) async throws -> Void = RetryingAgentTransport.taskSleep
+        var sleep: @Sendable (TimeInterval) async throws -> Void = { try await RetryingAgentTransport.taskSleep($0) }
 
         /// Apply runtime limits from Settings → AI / settings.json. Provider, model and clocks are unchanged.
         mutating func apply(_ limits: AgentRuntimeLimits) {

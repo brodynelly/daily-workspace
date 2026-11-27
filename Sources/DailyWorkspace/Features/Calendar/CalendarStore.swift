@@ -1,4 +1,5 @@
-import EventKit
+// EventKit predates Sendable annotations; its store is only used from the main actor here.
+@preconcurrency import EventKit
 import SwiftUI
 
 struct AgendaEvent: Identifiable, Equatable {
@@ -54,7 +55,7 @@ protocol CalendarStore: AnyObject {
 final class EventKitCalendarStore: CalendarStore {
     var onChange: (() -> Void)?
     private let store = EKEventStore()
-    private var observer: NSObjectProtocol?
+    nonisolated(unsafe) private var observer: NSObjectProtocol?
 
     init() {
         observer = NotificationCenter.default.addObserver(

@@ -41,8 +41,8 @@ final class AppModel: ObservableObject {
     /// Changes at midnight and on time-zone changes so "today" re-evaluates.
     @Published private(set) var dayTick = Date()
 
-    private var pollTimer: Timer?
-    private var observers: [(NotificationCenter, NSObjectProtocol)] = []
+    nonisolated(unsafe) private var pollTimer: Timer?
+    nonisolated(unsafe) private var observers: [(NotificationCenter, NSObjectProtocol)] = []
     /// Where the Luuna origin and token are saved (`AppModel+Sources.swift`).
     let luunaSettings: LuunaSettings
     /// Saved token for the native read-only work projections; never exposed to views.
@@ -295,7 +295,7 @@ final class AppModel: ObservableObject {
     }
 
     private func observe(
-        _ center: NotificationCenter, _ name: Notification.Name, _ handler: @escaping @MainActor (AppModel) -> Void
+        _ center: NotificationCenter, _ name: Notification.Name, _ handler: @escaping @MainActor @Sendable (AppModel) -> Void
     ) {
         let token = center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
             Task { @MainActor in

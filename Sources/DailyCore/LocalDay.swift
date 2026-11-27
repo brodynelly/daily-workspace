@@ -1,7 +1,7 @@
 import Foundation
 
 /// A calendar day with no time or time zone: "the 22nd" stays the 22nd if the user travels.
-public struct LocalDay: Codable, Hashable, Comparable, CustomStringConvertible {
+public struct LocalDay: Codable, Hashable, Comparable, CustomStringConvertible, Sendable {
     public var year: Int
     public var month: Int
     public var day: Int

@@ -122,10 +122,10 @@ final class QuickPanelController: NSObject, ObservableObject, NSWindowDelegate {
     private var previousApp: NSRunningApplication?
     private var previousWindow: AXUIElement?
     private weak var previousLocalWindow: NSWindow?
-    private var activationObserver: NSObjectProtocol?
-    private var accessibilityObserver: NSObjectProtocol?
-    private var outsideClickMonitor: Any?
-    private var escapeMonitor: Any?
+    nonisolated(unsafe) private var activationObserver: NSObjectProtocol?
+    nonisolated(unsafe) private var accessibilityObserver: NSObjectProtocol?
+    nonisolated(unsafe) private var outsideClickMonitor: Any?
+    nonisolated(unsafe) private var escapeMonitor: Any?
 
     override init() {
         panel = QuickPanelWindow(
@@ -147,14 +147,17 @@ final class QuickPanelController: NSObject, ObservableObject, NSWindowDelegate {
         activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
         ) { [weak self] notification in
+            // Read the activated app here so only Sendable values enter the main-actor closure.
+            let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+            let processIdentifier = app?.processIdentifier
+            let applicationName = app?.localizedName
             MainActor.assumeIsolated {
-                guard let self,
-                    let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
-                    app.processIdentifier != ProcessInfo.processInfo.processIdentifier
+                guard let self, let processIdentifier,
+                    processIdentifier != ProcessInfo.processInfo.processIdentifier
                 else { return }
                 if self.configuration.zenMouse,
                     self.configuration.shouldCenterMouse(
-                        applicationName: app.localizedName, accessibilityTrusted: AXIsProcessTrusted()),
+                        applicationName: applicationName, accessibilityTrusted: AXIsProcessTrusted()),
                     let screen = NSScreen.main,
                     let point = Self.mouseTarget(
                         position: "center", visibleFrame: screen.visibleFrame,

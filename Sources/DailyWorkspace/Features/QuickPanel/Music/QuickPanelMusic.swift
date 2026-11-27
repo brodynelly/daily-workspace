@@ -23,8 +23,8 @@ final class QuickPanelMusic: ObservableObject {
     private var isPolling = false
     private var revision: UInt64 = 0
     private var pollingTask: Task<Void, Never>?
-    private var sleepObserver: NSObjectProtocol?
-    private var wakeObserver: NSObjectProtocol?
+    nonisolated(unsafe) private var sleepObserver: NSObjectProtocol?
+    nonisolated(unsafe) private var wakeObserver: NSObjectProtocol?
 
     var selectedPlaylist: QuickPanelMusicPlaylist? {
         library?.playlists.first { $0.id == selectedPlaylistID }

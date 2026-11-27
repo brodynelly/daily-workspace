@@ -1,4 +1,5 @@
-import EventKit
+// EventKit predates Sendable annotations; its store is only used from the main actor here.
+@preconcurrency import EventKit
 import Foundation
 
 struct ReminderEntry: Identifiable, Equatable {

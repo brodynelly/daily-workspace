@@ -33,6 +33,9 @@ final class ScheduledPanelTimer: QuickPanelTimerToken {
     private var timer: Timer?
 
     init(interval: TimeInterval, repeats: Bool, action: @escaping @MainActor () -> Void) {
+        // Timer blocks are `@Sendable`, but a timer scheduled here fires on the main run loop, so the main-actor
+        // action is only ever called on the main actor.
+        nonisolated(unsafe) let action = action
         timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: repeats) { _ in
             MainActor.assumeIsolated { action() }
         }
@@ -113,6 +116,8 @@ final class QuickPanelIntegrations {
             (NSWorkspace.activeSpaceDidChangeNotification, { [weak self] in self?.border.refresh() }),
         ]
         for (name, action) in notifications {
+            // Delivered on `.main`, so the main-actor action is only ever called on the main actor.
+            nonisolated(unsafe) let action = action
             observers.append(
                 center.addObserver(forName: name, object: nil, queue: .main) { _ in
                     MainActor.assumeIsolated { action() }

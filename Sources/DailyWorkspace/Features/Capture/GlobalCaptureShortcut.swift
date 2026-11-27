@@ -8,8 +8,8 @@ final class GlobalCaptureShortcut: ObservableObject {
     @Published private(set) var error: String?
     @Published private(set) var label = "⌘⇧Space"
     var onCapture: (() -> Void)?
-    private var hotKey: EventHotKeyRef?
-    private var handler: EventHandlerRef?
+    nonisolated(unsafe) private var hotKey: EventHotKeyRef?
+    nonisolated(unsafe) private var handler: EventHandlerRef?
     private var registeredBinding: ShortcutBinding?
 
     func register(binding: ShortcutBinding?) {

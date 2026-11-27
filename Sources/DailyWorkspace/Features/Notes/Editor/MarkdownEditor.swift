@@ -3,6 +3,7 @@ import DailyCore
 import SwiftUI
 
 /// Styles Markdown by changing attributes only. The text itself is never altered.
+@MainActor
 enum MarkdownStyler {
     /// Patterns are compile-time literals covered by the editor's behaviour; a typo should crash in development.
     private static func regex(_ pattern: String) -> NSRegularExpression {
